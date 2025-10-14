@@ -13,6 +13,15 @@ export interface IndexData {
   confidence_bands: {
     [key: string]: { lower: number; upper: number }
   }
+  insufficient: {
+    overall: boolean
+    categories: {
+      capabilities: boolean
+      agents: boolean
+      inputs: boolean
+      security: boolean
+    }
+  }
 }
 
 export function useIndex(preset: string = 'equal', date?: string) {

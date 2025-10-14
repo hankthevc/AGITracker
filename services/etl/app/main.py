@@ -96,7 +96,7 @@ async def get_index(
     )
     
     if not snapshot:
-        # No snapshot exists - return zeros
+        # No snapshot exists - return zeros with insufficient flags
         return {
             "as_of_date": str(target_date),
             "overall": 0.0,
@@ -113,20 +113,48 @@ async def get_index(
                 "inputs": {"lower": 0.0, "upper": 1.0},
                 "security": {"lower": 0.0, "upper": 1.0},
             },
+            "insufficient": {
+                "overall": True,
+                "categories": {
+                    "capabilities": True,
+                    "agents": True,
+                    "inputs": True,
+                    "security": True,
+                }
+            },
         }
+    
+    # Extract category values
+    capabilities_val = float(snapshot.capabilities) if snapshot.capabilities else 0.0
+    agents_val = float(snapshot.agents) if snapshot.agents else 0.0
+    inputs_val = float(snapshot.inputs) if snapshot.inputs else 0.0
+    security_val = float(snapshot.security) if snapshot.security else 0.0
+    
+    # Detect insufficient data: overall is insufficient if inputs OR security is zero
+    # (harmonic mean with zero produces zero, which is uninformative)
+    insufficient_overall = (inputs_val == 0.0 or security_val == 0.0)
     
     return {
         "as_of_date": str(snapshot.as_of_date),
         "overall": float(snapshot.overall) if snapshot.overall else 0.0,
-        "capabilities": float(snapshot.capabilities) if snapshot.capabilities else 0.0,
-        "agents": float(snapshot.agents) if snapshot.agents else 0.0,
-        "inputs": float(snapshot.inputs) if snapshot.inputs else 0.0,
-        "security": float(snapshot.security) if snapshot.security else 0.0,
+        "capabilities": capabilities_val,
+        "agents": agents_val,
+        "inputs": inputs_val,
+        "security": security_val,
         "safety_margin": float(snapshot.safety_margin) if snapshot.safety_margin else 0.0,
         "preset": snapshot.preset,
         "confidence_bands": snapshot.details.get("confidence_bands", {})
         if snapshot.details
         else {},
+        "insufficient": {
+            "overall": insufficient_overall,
+            "categories": {
+                "capabilities": capabilities_val == 0.0,
+                "agents": agents_val == 0.0,
+                "inputs": inputs_val == 0.0,
+                "security": security_val == 0.0,
+            }
+        },
     }
 
 

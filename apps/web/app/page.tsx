@@ -88,6 +88,7 @@ function HomeContent() {
           value={data.overall}
           label="Overall AGI Proximity"
           description="Harmonic mean of capabilities and inputs"
+          insufficient={data.insufficient?.overall}
         />
         <SafetyDial safetyMargin={data.safety_margin} />
       </div>

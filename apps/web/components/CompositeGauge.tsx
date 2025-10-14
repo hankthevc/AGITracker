@@ -7,9 +7,10 @@ interface CompositeGaugeProps {
   value: number
   label?: string
   description?: string
+  insufficient?: boolean
 }
 
-export function CompositeGauge({ value, label = "Overall Proximity", description }: CompositeGaugeProps) {
+export function CompositeGauge({ value, label = "Overall Proximity", description, insufficient = false }: CompositeGaugeProps) {
   // Clamp value between 0 and 1
   const clampedValue = Math.max(0, Math.min(1, value))
   
@@ -64,12 +65,29 @@ export function CompositeGauge({ value, label = "Overall Proximity", description
           </svg>
         </div>
         <div className="text-center">
-          <div className="text-4xl font-bold" style={{ color }} data-testid="overall-value">
-            {formatPercent(clampedValue)}
-          </div>
-          <div className="text-sm text-muted-foreground mt-1">
-            {clampedValue < 0.3 ? 'Early Stage' : clampedValue < 0.6 ? 'Progressing' : 'Advanced'}
-          </div>
+          {insufficient ? (
+            <>
+              <div 
+                className="text-4xl font-bold text-gray-400" 
+                data-testid="overall-value"
+                title="N/A – Waiting for Inputs/Security data. Overall index requires non-zero values in Inputs and Security categories to compute a meaningful harmonic mean."
+              >
+                N/A
+              </div>
+              <div className="text-sm text-muted-foreground mt-1">
+                Waiting for Inputs/Security
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="text-4xl font-bold" style={{ color }} data-testid="overall-value">
+                {formatPercent(clampedValue)}
+              </div>
+              <div className="text-sm text-muted-foreground mt-1">
+                {clampedValue < 0.3 ? 'Early Stage' : clampedValue < 0.6 ? 'Progressing' : 'Advanced'}
+              </div>
+            </>
+          )}
         </div>
       </CardContent>
     </Card>
