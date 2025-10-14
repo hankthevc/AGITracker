@@ -416,7 +416,11 @@ async def recompute_index(
     db: Session = Depends(get_db),
 ):
     """Trigger index recomputation (admin only)."""
-    # This would trigger the Celery snap_index task
-    # For now, return a placeholder
-    return {"status": "success", "message": "Index recomputation triggered"}
+    from app.tasks.snap_index import compute_daily_snapshot
+    
+    try:
+        result = compute_daily_snapshot()
+        return {"status": "success", "result": result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Recompute failed: {str(e)}")
 

@@ -1,298 +1,288 @@
-# Quick Start Guide
+# AGI Signpost Tracker - Quick Start Guide
 
-## What's Been Built
+Get the AGI Tracker running locally in under 10 minutes.
 
-This is a **production-ready foundation** for the AGI Signpost Tracker with:
+## Prerequisites
 
-✅ **Full monorepo structure** (npm workspaces)  
-✅ **Dual TypeScript/Python scoring library** with unit tests  
-✅ **PostgreSQL schema** with 10 tables + pgvector  
-✅ **FastAPI backend** with 8 public endpoints  
-✅ **Celery ETL pipeline** with 7 task types  
-✅ **LLM budget management** ($20/day cap with Redis tracking)  
-✅ **Next.js dashboard** with responsive UI  
-✅ **Core components**: CompositeGauge, LaneProgress, SafetyDial, PresetSwitcher  
-✅ **5 pages**: Home, Benchmarks, Methodology, Changelog, Compute, Security  
-✅ **Docker setup** for local development  
-✅ **GitHub Actions CI** for linting, type checking, and testing  
-✅ **Comprehensive documentation** (README + Methodology page)
+- **Docker Desktop** - [Download here](https://www.docker.com/products/docker-desktop/)
+- **Node.js 18+** - [Download here](https://nodejs.org/)
+- **Python 3.11+** - Included on macOS, or [download here](https://www.python.org/downloads/)
 
-## Getting Started (5 Minutes)
-
-### 1. Install Dependencies
+## One-Command Setup
 
 ```bash
-# Root (sets up workspaces)
-npm install
-
-# Python ETL service
-cd services/etl
-python -m venv .venv
-source .venv/bin/activate
-pip install -e .
+make dev
 ```
 
-### 2. Start Infrastructure
+This will:
+1. Start PostgreSQL and Redis containers
+2. Run database migrations
+3. Seed initial data
+4. Start the API server
+5. Start the web app
+6. Open your browser to http://localhost:3000
+
+## Step-by-Step Setup
+
+If you prefer manual control or the Makefile doesn't work:
+
+### 1. Clone the Repository
 
 ```bash
-# Option A: Docker Compose (recommended)
-docker-compose -f docker-compose.dev.yml up -d postgres redis
+git clone https://github.com/hankthevc/AGITracker.git
+cd "AGI Doomsday Tracker"
+```
 
-# Option B: Local installations
-# Ensure PostgreSQL 15+ and Redis are running
+### 2. Install Dependencies
+
+```bash
+# Install Node dependencies (monorepo root)
+npm install
+
+# Install Python dependencies
+cd services/etl
+pip install -e .
+cd ../..
 ```
 
 ### 3. Configure Environment
 
 ```bash
-# Copy example env file
+# Copy example environment file
 cp .env.example .env
 
-# Edit .env with your settings
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/agi_signpost_tracker
-REDIS_URL=redis://localhost:6379/0
-OPENAI_API_KEY=sk-proj-your-key-here  # Optional for testing
-LLM_BUDGET_DAILY_USD=20
+# Edit .env and set your API keys (optional for local dev)
+# - OPENAI_API_KEY: For LLM-assisted extraction (optional)
+# - API_KEY: For admin endpoints (default: "dev-key-change-in-production")
 ```
 
-### 4. Initialize Database
+### 4. Start Database Services
 
 ```bash
-# Run migrations
-cd infra/migrations
-alembic upgrade head
+# Start PostgreSQL with pgvector and Redis
+docker compose -f docker-compose.dev.yml up -d postgres redis
 
-# Seed initial data (25 signposts, 4 benchmarks, 3 roadmaps)
-cd ../../scripts
-python seed.py
+# Wait for databases to be ready (about 15-20 seconds)
+sleep 20
+
+# Verify they're running
+docker ps
 ```
 
-### 5. Start Services
+### 5. Run Database Migrations
 
-**Terminal 1 - FastAPI:**
+```bash
+cd infra/migrations
+../../services/etl/.venv/bin/alembic upgrade head
+cd ../..
+```
+
+### 6. Seed the Database
+
+```bash
+cd scripts
+../services/etl/.venv/bin/python seed.py
+cd ..
+```
+
+This will:
+- Create 3 roadmap presets (Equal, Aschenbrenner, AI-2027)
+- Add 25 signposts (SWE-bench, OSWorld, WebArena, GPQA, Compute, Security)
+- Insert 4 benchmarks
+- Fetch current leaderboard data (requires internet)
+
+### 7. Install Playwright Browsers (for web scraping)
+
 ```bash
 cd services/etl
-source .venv/bin/activate
-uvicorn app.main:app --reload --port 8000
+./.venv/bin/playwright install chromium
+cd ../..
 ```
 
-**Terminal 2 - Next.js:**
+**Note**: If this fails due to network issues, you can retry later. The app will work without it, but the SWE-bench scraper won't function.
+
+### 8. Start the API Server
+
+```bash
+cd services/etl
+../../services/etl/.venv/bin/uvicorn app.main:app --reload --port 8000
+```
+
+Leave this running in one terminal. The API will be available at http://localhost:8000
+
+### 9. Start the Web App
+
+Open a new terminal:
+
 ```bash
 cd apps/web
 npm run dev
 ```
 
-**Terminal 3 - Celery Worker (optional):**
-```bash
-cd services/etl
-source .venv/bin/activate
-celery -A app.celery_app worker --loglevel=info
-```
+The web app will start at http://localhost:3000
 
-### 6. Access the Dashboard
+### 10. Open Your Browser
 
-- **Web UI:** http://localhost:3000
-- **API Docs:** http://localhost:8000/docs
-- **API Health:** http://localhost:8000/health
-
-## Testing the Setup
-
-### 1. Check API Health
-
-```bash
-curl http://localhost:8000/health
-# Expected: {"status":"ok","service":"agi-tracker-api","version":"1.0.0"}
-```
-
-### 2. Get Index Data
-
-```bash
-curl http://localhost:8000/v1/index?preset=equal
-# Expected: JSON with overall, capabilities, agents, inputs, security scores
-```
-
-### 3. View Dashboard
-
-Visit http://localhost:3000 - you should see:
-- Composite gauge showing overall proximity
-- Safety dial (Security - Capabilities)
-- Lane progress bars for all 4 categories
+Navigate to http://localhost:3000 and you should see:
+- Composite AGI proximity gauge
+- Category progress lanes (Capabilities, Agents, Inputs, Security)
+- Safety margin dial
 - Preset switcher (Equal / Aschenbrenner / AI-2027)
 
-## What Works Out of the Box
+## Common Issues & Solutions
 
-### ✅ Fully Functional
+### Port 5432 Already in Use
 
-1. **Home page** with live data from API
-2. **Preset switching** (URL params persist)
-3. **Responsive design** (mobile-friendly)
-4. **API endpoints** for index, signposts, evidence, changelog
-5. **Database schema** with all tables + relationships
-6. **Scoring algorithms** (Python + TypeScript, identical logic)
-7. **Seed data** with 25 signposts across 4 categories
-8. **Docker setup** for easy deployment
-
-### 🚧 Requires API Key / Optional
-
-1. **LLM extraction** - needs `OPENAI_API_KEY` in `.env`
-2. **Feed ingestion** - Celery worker + Beat scheduler
-3. **Leaderboard scraping** - Playwright (requires browser install)
-
-### 📋 Planned (Phase 2)
-
-1. **Live leaderboard integration** (Playwright scraping)
-2. **Vector similarity matching** (pgvector for fuzzy claims)
-3. **OOM meter visualization** (Compute page)
-4. **Timeline view** (AI-2027 scenario alignment)
-5. **E2E tests** (Playwright for UI)
-6. **Golden test set** (100 labeled examples)
-
-## Common Issues & Fixes
-
-### Issue: "Connection refused" when loading home page
-
-**Fix:** Ensure FastAPI is running on port 8000:
-```bash
-cd services/etl && uvicorn app.main:app --reload --port 8000
-```
-
-### Issue: "relation does not exist" database error
-
-**Fix:** Run migrations:
-```bash
-cd infra/migrations && alembic upgrade head
-```
-
-### Issue: Empty gauges (all 0%)
-
-**Fix:** Seed the database:
-```bash
-cd scripts && python seed.py
-```
-
-### Issue: pgvector extension not found
-
-**Fix:** Use the ankane/pgvector Docker image or install extension:
-```sql
-CREATE EXTENSION vector;
-```
-
-## Development Workflow
-
-### Making Changes
-
-1. **Backend (Python):**
-   - Edit files in `services/etl/app/`
-   - FastAPI auto-reloads on save
-   - Test: `cd services/etl && pytest`
-
-2. **Frontend (TypeScript):**
-   - Edit files in `apps/web/`
-   - Next.js auto-reloads on save
-   - Test: `cd apps/web && npm test`
-
-3. **Shared Types:**
-   - Edit schemas in `packages/shared/`
-   - Update both TS and Python versions
-   - Ensure mirrored structure
-
-4. **Scoring Logic:**
-   - Edit `packages/scoring/python/core.py` AND `packages/scoring/typescript/core.ts`
-   - Keep both implementations identical
-   - Run tests to verify: `pytest` and `npm test`
-
-### Running Tests
+If you have PostgreSQL installed locally via Homebrew:
 
 ```bash
-# Python unit tests
-cd services/etl && pytest -v
+# Stop local PostgreSQL
+brew services stop postgresql@16
 
-# TypeScript tests (when Jest is configured)
-cd apps/web && npm test
-
-# Linting
-make lint
-
-# Type checking
-make typecheck
+# Or if using a different version
+brew services list
+brew services stop postgresql@<version>
 ```
 
-### Creating Migrations
+### Docker Not Found
+
+1. Install [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+2. Open Docker Desktop and wait for it to say "Docker Desktop is running"
+3. Verify: `docker ps` should return an empty list or running containers
+
+### Missing Dependencies
 
 ```bash
-cd infra/migrations
-alembic revision --autogenerate -m "description of change"
-alembic upgrade head
+# Re-install Node dependencies
+npm install
+
+# Re-install Python dependencies
+cd services/etl
+pip install -e .
+```
+
+### Database Connection Errors
+
+```bash
+# Check if containers are running
+docker ps
+
+# Should show agi-postgres and agi-redis
+
+# If not running, start them
+docker compose -f docker-compose.dev.yml up -d postgres redis
+
+# Check logs
+docker logs agi-postgres
+docker logs agi-redis
+```
+
+### "Module not found" Errors
+
+Ensure you're using the virtual environment Python:
+
+```bash
+# Instead of: python seed.py
+# Use:
+/Users/HenryAppel/AI\ Doomsday\ Tracker/services/etl/.venv/bin/python seed.py
+```
+
+## Running Specific Commands
+
+### Fetch Latest SWE-bench Data
+
+```bash
+cd services/etl
+./.venv/bin/python -c "from app.tasks.fetch_swebench import fetch_swebench; fetch_swebench()"
+```
+
+### Manually Recompute Snapshots
+
+```bash
+curl -X POST http://localhost:8000/v1/recompute \
+  -H "X-API-Key: dev-key-change-in-production"
+```
+
+### View API Documentation
+
+Open http://localhost:8000/docs in your browser for interactive Swagger docs.
+
+### Check Database Contents
+
+```bash
+# View claims
+docker exec -i agi-postgres psql -U postgres -d agi_signpost_tracker \
+  -c "SELECT title, metric_value, unit FROM claims ORDER BY id DESC LIMIT 5;"
+
+# View snapshots
+docker exec -i agi-postgres psql -U postgres -d agi_signpost_tracker \
+  -c "SELECT as_of_date, preset, ROUND(capabilities::numeric, 3) as capabilities FROM index_snapshots;"
+
+# View signposts
+docker exec -i agi-postgres psql -U postgres -d agi_signpost_tracker \
+  -c "SELECT code, name, category FROM signposts WHERE first_class = true;"
+```
+
+## Running Tests
+
+### Unit Tests (Python)
+
+```bash
+cd packages/scoring/python
+pytest test_core.py -v
+```
+
+### Unit Tests (TypeScript)
+
+```bash
+cd packages/scoring/typescript
+npm test
+```
+
+### E2E Tests (Playwright)
+
+```bash
+cd apps/web
+npx playwright install chromium  # First time only
+npm run e2e
+```
+
+## Stopping Services
+
+### Stop Web and API
+
+Press `Ctrl+C` in each terminal running the services.
+
+### Stop Docker Containers
+
+```bash
+docker compose -f docker-compose.dev.yml down
+```
+
+### Or Stop Everything at Once
+
+```bash
+# Kill processes on ports 3000 and 8000
+lsof -ti:3000,8000 | xargs kill
+
+# Stop Docker
+docker compose -f docker-compose.dev.yml down
 ```
 
 ## Next Steps
 
-### For Development
+- **View Methodology**: http://localhost:3000/methodology
+- **Check Benchmarks**: http://localhost:3000/benchmarks
+- **Try Different Presets**: Click "Aschenbrenner" or "AI-2027" to see different weightings
+- **Read the Full Documentation**: See [README.md](README.md)
+- **Deploy to Production**: See deployment guides (coming soon)
 
-1. **Add OpenAI API key** to enable LLM extraction
-2. **Install Playwright browsers**: `playwright install chromium`
-3. **Run Celery worker** to enable ETL pipeline
-4. **Add more test coverage** (E2E with Playwright)
-5. **Implement remaining pages** (Compute/OOM meter, Security/maturity ladder)
+## Getting Help
 
-### For Production Deployment
-
-1. **Deploy web to Vercel:**
-   ```bash
-   cd apps/web && vercel deploy
-   ```
-
-2. **Deploy API + ETL to Fly.io:**
-   ```bash
-   cd services/etl && fly deploy
-   ```
-
-3. **Setup Neon database:**
-   - Create project
-   - Enable pgvector extension
-   - Update `DATABASE_URL`
-
-4. **Configure environment variables** on hosting platforms
-
-5. **Setup monitoring:**
-   - Sentry for error tracking
-   - Healthchecks.io for ETL monitoring
-   - Plausible for analytics (optional)
-
-## Architecture at a Glance
-
-```
-┌─────────────┐
-│  Next.js UI │ ←──SWR──→ FastAPI ←─── Postgres
-└─────────────┘              ↓            ↑
-                          Celery ─────────┘
-                            ↓
-                    ┌───────┴───────┐
-                    │   ETL Tasks   │
-                    ├───────────────┤
-                    │ • fetch_feeds │
-                    │ • extract     │
-                    │ • link        │
-                    │ • score       │
-                    │ • snap_index  │
-                    └───────────────┘
-```
-
-## Resources
-
-- **Full Documentation:** See [README.md](./README.md)
-- **API Docs:** http://localhost:8000/docs
-- **Methodology:** http://localhost:3000/methodology
-- **Plan Details:** See [agi-signpost-tracker.plan.md](./agi-signpost-tracker.plan.md)
-
-## Need Help?
-
-1. Check the [README.md](./README.md) for detailed documentation
-2. Review the plan file for implementation details
-3. Inspect API docs at `/docs` for endpoint usage
-4. Look at test files for usage examples
+- Check the [README](README.md) for architecture details
+- View API docs at http://localhost:8000/docs
+- Open an issue on [GitHub](https://github.com/hankthevc/AGITracker/issues)
 
 ---
 
-**You now have a working AGI Signpost Tracker foundation! 🎉**
-
+**License**: This project's public JSON feed is licensed under CC BY 4.0. See footer for details.

@@ -71,11 +71,11 @@ describe('computeOverall', () => {
 
 describe('computeSafetyMargin', () => {
   test('positive margin (security ahead)', () => {
-    expect(computeSafetyMargin(0.6, 0.4)).toBe(0.2)
+    expect(computeSafetyMargin(0.6, 0.4)).toBeCloseTo(0.2, 10)
   })
   
   test('negative margin (capability sprint)', () => {
-    expect(computeSafetyMargin(0.3, 0.7)).toBe(-0.4)
+    expect(computeSafetyMargin(0.3, 0.7)).toBeCloseTo(-0.4, 10)
   })
   
   test('parity', () => {

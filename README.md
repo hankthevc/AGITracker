@@ -439,9 +439,33 @@ Environment variables: `DATABASE_URL`, `REDIS_URL`, `OPENAI_API_KEY`, `LLM_BUDGE
 - **Public JSON Feed:** CC BY 4.0
 - **Data:** Sources retain their original licenses
 
+## v0.1 Sprint Acceptance Checklist ✅
+
+### Vertical Slice Deliverables
+
+- [x] **SWE-bench-Verified Scraper Working**: Playwright scraper fetches real leaderboard data and creates claims
+- [x] **Snapshots Computing with Real Progress**: Capabilities category shows >0% after SWE-bench ingestion
+- [x] **E2E Tests Configured**: Playwright E2E tests set up for home page with gauges
+- [x] **Unit Tests Passing**: Both Python (pytest) and TypeScript (Jest) scoring tests pass
+- [x] **Web UI Displays Real Data**: Dashboard renders composite gauge with actual SWE-bench evidence
+- [x] **Documentation Complete**: QUICKSTART.md provides step-by-step local setup instructions
+- [x] **Evidence Cards with Tier Badges**: Claims display with A-tier source badges
+- [x] **API Endpoints Functional**: `/v1/index`, `/v1/signposts`, `/v1/evidence` all return data
+- [x] **Database Migrations Working**: Alembic migrations create all tables with proper constraints
+- [x] **Preset Switching Functional**: Equal, Aschenbrenner, AI-2027 presets compute different values
+
+### Technical Validation
+
+- [x] **Harmonic Mean Calculation**: Overall = H(combined_cap, inputs) with zero handling
+- [x] **Safety Margin**: security - combined_capabilities displayed correctly
+- [x] **Confidence Bands**: Evidence quality affects uncertainty visualization
+- [x] **Claim-Signpost Mapping**: `fit_score=1.0` for direct metric matches
+- [x] **Impact Estimation**: Delta from baseline normalized to [0,1]
+- [x] **Snapshot Persistence**: `(as_of_date, preset)` unique constraint working
+
 ## Roadmap
 
-### Current (MVP)
+### Current (MVP - v0.1) ✅
 
 - [x] Monorepo structure with npm workspaces
 - [x] Database schema + Alembic migrations
@@ -452,17 +476,20 @@ Environment variables: `DATABASE_URL`, `REDIS_URL`, `OPENAI_API_KEY`, `LLM_BUDGE
 - [x] Next.js dashboard with composite gauge
 - [x] Evidence tiers (A/B/C/D)
 - [x] Preset switcher (Equal, Aschenbrenner, AI-2027)
+- [x] **Playwright scraper for live leaderboards** (SWE-bench)
+- [x] **Unit tests** (Python pytest + TypeScript Jest)
+- [x] **E2E tests** (Playwright configuration)
+- [x] **QUICKSTART.md** documentation
 
 ### Phase 2
 
-- [ ] Playwright scraper for live leaderboards
 - [ ] Vector embedding for fuzzy claim matching (pgvector)
 - [ ] OOM meter visualization (Compute page)
 - [ ] Security maturity ladder visualization
 - [ ] Weekly digest email/RSS
 - [ ] OpenGraph image generation for social sharing
 - [ ] Golden test set (100 labeled examples)
-- [ ] CI/CD pipeline (GitHub Actions)
+- [ ] Full CI/CD pipeline (GitHub Actions E2E integration)
 
 ### Phase 3
 
