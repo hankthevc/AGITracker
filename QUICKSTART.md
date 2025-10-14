@@ -241,11 +241,47 @@ npm test
 
 ### E2E Tests (Playwright)
 
+**Prerequisites:** API and web servers must be running.
+
 ```bash
+# 1. Start Docker services (if not already running)
+docker compose -f docker-compose.dev.yml up -d
+
+# 2. Run migrations and seed data (if not already done)
+cd infra/migrations && alembic upgrade head && cd ../..
+cd scripts && python seed.py && cd ..
+
+# 3. (Optional) Add dev fixtures for non-N/A overall gauge
+make seed-dev-fixtures
+
+# 4. Start API server (in one terminal)
+cd services/etl
+uvicorn app.main:app --port 8000
+
+# 5. Start web server (in another terminal)
 cd apps/web
-npx playwright install chromium  # First time only
+npm run dev
+
+# 6. Install Playwright browsers (first time only)
+cd apps/web
+npx playwright install chromium --with-deps
+
+# 7. Run E2E tests
 npm run e2e
 ```
+
+**What the tests verify:**
+- Home page loads and displays gauges
+- Capabilities gauge shows non-zero value (from SWE-bench seed data)
+- Overall gauge shows "N/A" when Inputs/Security are zero, or a percentage if dev fixtures are added
+- Preset switcher updates URL and refreshes data
+- "What Moved This Week?" panel loads (may be empty initially)
+- Evidence tier badges display correctly
+
+**Tips:**
+- Use `make seed-dev-fixtures` to add synthetic Inputs data for testing non-N/A states
+- Run `curl -X POST http://localhost:8000/v1/recompute` after seeding to update snapshots
+- View test report: `npx playwright show-report` after test run
 
 ## Stopping Services
 

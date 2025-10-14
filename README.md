@@ -142,6 +142,24 @@ graph TB
 └── README.md
 ```
 
+## UI Features
+
+### Dashboard Components
+
+- **Overall AGI Proximity Gauge:** Composite harmonic mean of Capabilities and Inputs with "N/A" state when data is insufficient
+- **Category Progress Lanes:** Individual progress bars for Capabilities, Agents, Inputs, Security with confidence bands
+- **Safety Margin Dial:** Real-time visualization of Security - Capabilities gap
+- **Preset Switcher:** Toggle between Equal, Aschenbrenner, and AI-2027 weighting schemes with URL persistence
+- **What Moved This Week?:** Changelog panel displaying recent significant index changes with event types and dates
+- **Evidence Cards:** Provenance-badged claim displays with A/B/C/D tier indicators, sources, and timestamps
+
+### Data States
+
+- **Loading:** Skeleton screens and spinners during data fetch
+- **Error:** Clear error messages with fallback instructions
+- **Empty:** Contextual "no data yet" messages with links to methodology
+- **Insufficient Data:** "N/A" displays when required categories lack A/B-tier evidence
+
 ## Local Development
 
 ### Prerequisites
@@ -291,6 +309,8 @@ overall = 2 / (1/capabilities + 1/inputs)  # Harmonic mean
 
 The harmonic mean ensures both dimensions must advance together—bottleneck in either significantly reduces overall score.
 
+**Insufficient Data Gating:** If either Inputs or Security have 0 progress from A/B-tier evidence, the overall index displays as **"N/A – waiting for Inputs/Security"** rather than showing a potentially misleading 0% or undefined value. Category gauges still display their individual progress. This ensures the dashboard doesn't prematurely signal "no progress" when we simply haven't gathered data for a required dimension yet.
+
 ### Safety Margin
 
 ```python
@@ -369,14 +389,31 @@ cd apps/web && npm test
 ### E2E Tests (Playwright)
 
 ```bash
+# Run E2E tests (requires API and web server running)
 make e2e
+
+# Or manually:
+cd apps/web
+npm run e2e
 ```
 
 Test coverage:
 - Home page loads and shows composite gauge
-- Scenario timeline shows ahead/on/behind badges
-- Evidence panels show provenance badges (A/B/C/D)
+- Capabilities gauge shows non-zero value (from SWE-bench)
+- Overall gauge shows "N/A" when Inputs/Security are zero, or positive value otherwise
 - Preset switcher updates URL and data
+- "What Moved This Week?" panel displays recent changelog entries
+- Evidence panels show provenance badges (A/B/C/D) with correct testids
+- Category progress lanes render with individual values
+
+**Local E2E setup:**
+1. Start services: `make dev` (Docker Postgres + Redis)
+2. Run migrations: `make migrate`
+3. Seed data: `make seed`
+4. (Optional) Add dev fixtures: `make seed-dev-fixtures` for non-N/A overall
+5. Start API: `cd services/etl && uvicorn app.main:app`
+6. Start web: `cd apps/web && npm run dev`
+7. Run tests: `cd apps/web && npm run e2e`
 
 ### Golden Set Evaluation
 
