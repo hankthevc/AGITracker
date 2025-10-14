@@ -35,10 +35,10 @@ export function EvidenceCard({
   retracted = false,
 }: EvidenceCardProps) {
   const tierColors = {
-    A: 'bg-green-600',
-    B: 'bg-blue-600',
-    C: 'bg-yellow-600',
-    D: 'bg-orange-600',
+    A: 'bg-green-600 text-white',
+    B: 'bg-blue-600 text-white',
+    C: 'bg-yellow-600 text-white',
+    D: 'bg-red-600 text-white',
   }
   
   const tierLabels = {
@@ -60,7 +60,7 @@ export function EvidenceCard({
           </CardTitle>
           <Badge
             className={tierColors[source.credibility]}
-            data-testid={`tier-badge-${source.credibility}`}
+            data-testid={`evidence-tier-${source.credibility}`}
           >
             {source.credibility}
           </Badge>
