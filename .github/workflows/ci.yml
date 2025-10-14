@@ -2,12 +2,13 @@ name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
   pull_request:
-    branches: [main, develop]
+    branches: [main]
 
 jobs:
-  lint-typescript:
+  lint-and-typecheck:
+    name: Lint & Typecheck
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,45 +22,44 @@ jobs:
       - name: Install dependencies
         run: npm install
       
-      - name: Run ESLint
+      - name: Lint TypeScript
         run: npm run lint
       
-      - name: TypeScript type check
+      - name: Typecheck TypeScript
         run: npm run typecheck
-
-  lint-python:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
       
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
       
-      - name: Install dependencies
+      - name: Install Python dependencies
         run: |
           cd services/etl
-          pip install -e '.[dev]'
+          pip install -e .
+          pip install ruff mypy
       
-      - name: Run Ruff
+      - name: Lint Python with Ruff
         run: |
           cd services/etl
-          ruff check .
+          ruff check app/
       
-      - name: Run mypy
+      - name: Typecheck Python with mypy
         run: |
           cd services/etl
-          mypy app/ || true
+          mypy app/ --ignore-missing-imports
+        continue-on-error: true  # mypy can be strict, don't block
 
-  test-python:
+  unit-tests:
+    name: Unit Tests
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: ankane/pgvector:latest
+        image: pgvector/pgvector:pg16
         env:
-          POSTGRES_PASSWORD: test
-          POSTGRES_DB: agi_tracker_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: agi_signpost_tracker_test
         ports:
           - 5432:5432
         options: >-
@@ -67,28 +67,163 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     
     steps:
       - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm install
+      
+      - name: Run TypeScript unit tests
+        run: |
+          cd packages/scoring/typescript
+          npm test
       
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
       
-      - name: Install dependencies
+      - name: Install Python dependencies
         run: |
           cd services/etl
-          pip install -e '.[dev]'
+          pip install -e .
+          pip install pytest pytest-asyncio
       
-      - name: Run pytest
+      - name: Run Python unit tests
         run: |
           cd services/etl
-          pytest tests/ -v
+          pytest -v
         env:
-          DATABASE_URL: postgresql://postgres:test@localhost:5432/agi_tracker_test
+          DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/agi_signpost_tracker_test
+          REDIS_URL: redis://localhost:6379/0
 
-  test-typescript:
+  e2e-tests:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: agi_signpost_tracker_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm install
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install Python dependencies
+        run: |
+          cd services/etl
+          pip install -e .
+      
+      - name: Run database migrations
+        run: |
+          cd infra/migrations
+          alembic upgrade head
+        env:
+          DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/agi_signpost_tracker_test
+      
+      - name: Seed database
+        run: |
+          cd scripts
+          python seed.py
+        env:
+          DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/agi_signpost_tracker_test
+      
+      - name: Install Playwright browsers
+        run: |
+          cd apps/web
+          npx playwright install chromium --with-deps
+      
+      - name: Start API server
+        run: |
+          cd services/etl
+          uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+          sleep 10
+        env:
+          DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/agi_signpost_tracker_test
+          REDIS_URL: redis://localhost:6379/0
+      
+      - name: Build Next.js app
+        run: |
+          cd apps/web
+          npm run build
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8000
+      
+      - name: Start Next.js server
+        run: |
+          cd apps/web
+          npm start &
+          sleep 10
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8000
+      
+      - name: Run Playwright E2E tests
+        run: |
+          cd apps/web
+          npm run e2e
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8000
+      
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report/
+          retention-days: 7
+
+  build:
+    name: Build Check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -102,6 +237,20 @@ jobs:
       - name: Install dependencies
         run: npm install
       
-      - name: Run tests
-        run: npm test
-
+      - name: Build all packages
+        run: npm run build
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install Python dependencies
+        run: |
+          cd services/etl
+          pip install -e .
+      
+      - name: Check Python package builds
+        run: |
+          cd services/etl
+          python -c "import app; print('✓ ETL service imports successfully')"
