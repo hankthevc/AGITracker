@@ -79,6 +79,7 @@ async def fetch_swebench_primary() -> Optional[Dict]:
                 return {
                     "score": score,
                     "model": model_name,
+                    "metric_name": "SWE-bench Verified",
                     "source_url": "https://www.swebench.com/",
                     "timestamp": datetime.now(timezone.utc),
                 }
@@ -132,9 +133,13 @@ async def fetch_swebench_data() -> Optional[Dict]:
 
 
 def create_or_update_claim(db, data: Dict) -> Claim:
-    """Create or update claim from SWE-bench data."""
+    """Create or update claim from SWE-bench data (idempotent)."""
     source_url = data["source_url"]
-    url_hash = hashlib.sha256(source_url.encode()).hexdigest()
+    
+    # Create unique hash per observation (source + metric + timestamp day)
+    timestamp_day = data["timestamp"].date().isoformat()
+    unique_str = f"{source_url}#{data['metric_name']}#{data['score']}#{timestamp_day}"
+    url_hash = hashlib.sha256(unique_str.encode()).hexdigest()
     
     # Get or create source
     source = db.query(Source).filter_by(url=source_url).first()
@@ -148,7 +153,13 @@ def create_or_update_claim(db, data: Dict) -> Claim:
         db.add(source)
         db.commit()
     
-    # Create new claim (alongside existing ones as per user preference)
+    # Check if claim already exists for this observation
+    existing_claim = db.query(Claim).filter_by(url_hash=url_hash).first()
+    if existing_claim:
+        print(f"✓ Claim already exists (ID {existing_claim.id}), skipping creation")
+        return existing_claim
+    
+    # Create new claim
     claim = Claim(
         title=f"SWE-bench Verified: {data['model']} achieves {data['score']}%",
         summary=f"Latest SWE-bench Verified leaderboard shows {data['model']} at {data['score']}% on verified tasks",
