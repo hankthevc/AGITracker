@@ -32,10 +32,16 @@ class Roadmap(Base):
     name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
     preset_weights = Column(JSONB, nullable=True)
+    author = Column(String(255), nullable=True)
+    published_date = Column(Date, nullable=True)
+    source_url = Column(Text, nullable=True)
+    summary = Column(Text, nullable=True)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
     
     # Relationships
     signposts = relationship("Signpost", back_populates="roadmap")
+    predictions = relationship("RoadmapPrediction", back_populates="roadmap")
+    pace_analyses = relationship("PaceAnalysis", back_populates="roadmap")
 
 
 class Signpost(Base):
@@ -56,12 +62,17 @@ class Signpost(Base):
     target_value = Column(Numeric, nullable=True)
     methodology_url = Column(Text, nullable=True)
     first_class = Column(Boolean, default=False)
+    short_explainer = Column(Text, nullable=True)
+    icon_emoji = Column(String(10), nullable=True)
     embedding = Column(Vector(1536), nullable=True)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
     
     # Relationships
     roadmap = relationship("Roadmap", back_populates="signposts")
     claim_signposts = relationship("ClaimSignpost", back_populates="signpost")
+    predictions = relationship("RoadmapPrediction", back_populates="signpost")
+    content = relationship("SignpostContent", back_populates="signpost", uselist=False)
+    pace_analyses = relationship("PaceAnalysis", back_populates="signpost")
     
     __table_args__ = (
         CheckConstraint(
@@ -256,5 +267,77 @@ class APIKey(Base):
             "role IN ('admin', 'readonly')",
             name="check_api_key_role"
         ),
+    )
+
+
+class RoadmapPrediction(Base):
+    """Roadmap prediction model for timeline predictions."""
+    
+    __tablename__ = "roadmap_predictions"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    roadmap_id = Column(Integer, ForeignKey("roadmaps.id"), nullable=False)
+    signpost_id = Column(Integer, ForeignKey("signposts.id"), nullable=True)
+    prediction_text = Column(Text, nullable=False)
+    predicted_date = Column(Date, nullable=True)
+    confidence_level = Column(String(20), nullable=False)
+    source_page = Column(Text, nullable=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
+    
+    # Relationships
+    roadmap = relationship("Roadmap", back_populates="predictions")
+    signpost = relationship("Signpost", back_populates="predictions")
+    
+    __table_args__ = (
+        CheckConstraint(
+            "confidence_level IN ('high', 'medium', 'low')",
+            name="check_confidence_level"
+        ),
+        Index("idx_roadmap_predictions_roadmap", "roadmap_id"),
+        Index("idx_roadmap_predictions_signpost", "signpost_id"),
+    )
+
+
+class SignpostContent(Base):
+    """Rich educational content for signposts."""
+    
+    __tablename__ = "signpost_content"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    signpost_id = Column(Integer, ForeignKey("signposts.id"), nullable=False, unique=True)
+    why_matters = Column(Text, nullable=True)
+    current_state = Column(Text, nullable=True)
+    key_papers = Column(JSONB, nullable=True)
+    key_announcements = Column(JSONB, nullable=True)
+    technical_explanation = Column(Text, nullable=True)
+    updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    signpost = relationship("Signpost", back_populates="content")
+    
+    __table_args__ = (
+        Index("idx_signpost_content_signpost", "signpost_id"),
+    )
+
+
+class PaceAnalysis(Base):
+    """Human-written pace analysis comparing progress to roadmap predictions."""
+    
+    __tablename__ = "pace_analysis"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    signpost_id = Column(Integer, ForeignKey("signposts.id"), nullable=False)
+    roadmap_id = Column(Integer, ForeignKey("roadmaps.id"), nullable=False)
+    analysis_text = Column(Text, nullable=False)
+    last_updated = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    signpost = relationship("Signpost", back_populates="pace_analyses")
+    roadmap = relationship("Roadmap", back_populates="pace_analyses")
+    
+    __table_args__ = (
+        Index("idx_pace_analysis_signpost", "signpost_id"),
+        Index("idx_pace_analysis_roadmap", "roadmap_id"),
     )
 

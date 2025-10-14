@@ -21,8 +21,11 @@ from app.models import (
     Claim,
     ClaimSignpost,
     IndexSnapshot,
+    PaceAnalysis,
     Roadmap,
+    RoadmapPrediction,
     Signpost,
+    SignpostContent,
     Source,
 )
 
@@ -213,7 +216,177 @@ async def get_signpost(signpost_id: int, db: Session = Depends(get_db)):
         "target_value": float(signpost.target_value) if signpost.target_value else None,
         "methodology_url": signpost.methodology_url,
         "first_class": signpost.first_class,
+        "short_explainer": signpost.short_explainer,
+        "icon_emoji": signpost.icon_emoji,
         "evidence_count": evidence_counts,
+    }
+
+
+@app.get("/v1/signposts/by-code/{code}")
+async def get_signpost_by_code(code: str, db: Session = Depends(get_db)):
+    """Get signpost by code."""
+    signpost = db.query(Signpost).filter(Signpost.code == code).first()
+    
+    if not signpost:
+        raise HTTPException(status_code=404, detail="Signpost not found")
+    
+    return {
+        "id": signpost.id,
+        "code": signpost.code,
+        "name": signpost.name,
+        "description": signpost.description,
+        "category": signpost.category,
+        "metric_name": signpost.metric_name,
+        "unit": signpost.unit,
+        "direction": signpost.direction,
+        "baseline_value": float(signpost.baseline_value) if signpost.baseline_value else None,
+        "target_value": float(signpost.target_value) if signpost.target_value else None,
+        "methodology_url": signpost.methodology_url,
+        "first_class": signpost.first_class,
+        "short_explainer": signpost.short_explainer,
+        "icon_emoji": signpost.icon_emoji,
+    }
+
+
+@app.get("/v1/signposts/by-code/{code}/content")
+async def get_signpost_content(code: str, db: Session = Depends(get_db)):
+    """Get rich educational content for a signpost."""
+    signpost = db.query(Signpost).filter(Signpost.code == code).first()
+    
+    if not signpost:
+        raise HTTPException(status_code=404, detail="Signpost not found")
+    
+    content = db.query(SignpostContent).filter(SignpostContent.signpost_id == signpost.id).first()
+    
+    if not content:
+        raise HTTPException(status_code=404, detail="Content not found for this signpost")
+    
+    return {
+        "signpost_code": signpost.code,
+        "why_matters": content.why_matters,
+        "current_state": content.current_state,
+        "key_papers": content.key_papers,
+        "key_announcements": content.key_announcements,
+        "technical_explanation": content.technical_explanation,
+        "updated_at": content.updated_at.isoformat() if content.updated_at else None,
+    }
+
+
+@app.get("/v1/signposts/by-code/{code}/predictions")
+async def get_signpost_predictions(code: str, db: Session = Depends(get_db)):
+    """Get roadmap predictions for a signpost."""
+    signpost = db.query(Signpost).filter(Signpost.code == code).first()
+    
+    if not signpost:
+        raise HTTPException(status_code=404, detail="Signpost not found")
+    
+    predictions = db.query(RoadmapPrediction).filter(
+        RoadmapPrediction.signpost_id == signpost.id
+    ).all()
+    
+    results = []
+    for pred in predictions:
+        roadmap = db.query(Roadmap).filter(Roadmap.id == pred.roadmap_id).first()
+        results.append({
+            "roadmap_name": roadmap.name if roadmap else None,
+            "roadmap_slug": roadmap.slug if roadmap else None,
+            "prediction_text": pred.prediction_text,
+            "predicted_date": pred.predicted_date.isoformat() if pred.predicted_date else None,
+            "confidence_level": pred.confidence_level,
+            "source_page": pred.source_page,
+            "notes": pred.notes,
+        })
+    
+    return {"predictions": results}
+
+
+@app.get("/v1/signposts/by-code/{code}/pace")
+async def get_pace_analysis(code: str, db: Session = Depends(get_db)):
+    """Get pace analysis comparing current progress to roadmap predictions."""
+    signpost = db.query(Signpost).filter(Signpost.code == code).first()
+    
+    if not signpost:
+        raise HTTPException(status_code=404, detail="Signpost not found")
+    
+    # Get current value from latest claim
+    latest_claim_signpost = (
+        db.query(ClaimSignpost)
+        .filter(ClaimSignpost.signpost_id == signpost.id)
+        .join(Claim)
+        .filter(Claim.retracted == False)
+        .order_by(desc(Claim.observed_at))
+        .first()
+    )
+    
+    current_value = None
+    current_date = None
+    if latest_claim_signpost:
+        claim = db.query(Claim).filter(Claim.id == latest_claim_signpost.claim_id).first()
+        if claim:
+            current_value = float(claim.metric_value) if claim.metric_value else None
+            current_date = claim.observed_at.date()
+    
+    # Get predictions
+    predictions = db.query(RoadmapPrediction).filter(
+        RoadmapPrediction.signpost_id == signpost.id
+    ).all()
+    
+    # Calculate ahead/behind for each roadmap (simplified linear interpolation)
+    today = date.today()
+    pace_metrics = []
+    
+    for pred in predictions:
+        if current_value and pred.predicted_date and signpost.target_value:
+            # Calculate progress (0-1)
+            baseline = float(signpost.baseline_value) if signpost.baseline_value else 0.0
+            target = float(signpost.target_value)
+            
+            if signpost.direction == ">=":
+                progress = (current_value - baseline) / (target - baseline) if target != baseline else 0
+            else:  # "<="
+                progress = (baseline - current_value) / (baseline - target) if baseline != target else 0
+            
+            progress = max(0.0, min(1.0, progress))
+            
+            # Simple linear interpolation for expected progress
+            days_until_target = (pred.predicted_date - today).days
+            days_since_baseline = (today - date(2023, 1, 1)).days  # Approximate baseline date
+            
+            if days_since_baseline > 0:
+                expected_progress = days_since_baseline / (days_since_baseline + days_until_target)
+                days_ahead = int((progress - expected_progress) * days_until_target)
+            else:
+                days_ahead = 0
+            
+            roadmap = db.query(Roadmap).filter(Roadmap.id == pred.roadmap_id).first()
+            
+            pace_metrics.append({
+                "roadmap_name": roadmap.name if roadmap else None,
+                "roadmap_slug": roadmap.slug if roadmap else None,
+                "days_ahead": days_ahead,
+                "status": "ahead" if days_ahead > 0 else "behind" if days_ahead < 0 else "on_track",
+                "current_value": current_value,
+                "current_progress": round(progress * 100, 1),
+                "predicted_date": pred.predicted_date.isoformat(),
+            })
+    
+    # Get human-written analyses
+    analyses_records = db.query(PaceAnalysis).filter(
+        PaceAnalysis.signpost_id == signpost.id
+    ).all()
+    
+    analyses = {}
+    for analysis in analyses_records:
+        roadmap = db.query(Roadmap).filter(Roadmap.id == analysis.roadmap_id).first()
+        if roadmap:
+            analyses[roadmap.slug] = analysis.analysis_text
+    
+    return {
+        "signpost_code": signpost.code,
+        "current_value": current_value,
+        "current_date": current_date.isoformat() if current_date else None,
+        "pace_metrics": pace_metrics,
+        "analyses": analyses,
     }
 
 
