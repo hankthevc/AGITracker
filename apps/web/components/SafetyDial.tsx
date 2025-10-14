@@ -53,6 +53,7 @@ export function SafetyDial({ safetyMargin }: SafetyDialProps) {
               dominantBaseline="middle"
               className="text-3xl font-bold fill-current"
               fill={isNegative ? 'rgb(239, 68, 68)' : 'rgb(34, 197, 94)'}
+              data-testid="safety-margin"
             >
               {formatPercent(clampedMargin)}
             </text>

@@ -30,7 +30,12 @@ export function LaneProgress({ lanes }: LaneProgressProps) {
           <div key={lane.label} className="space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium">{lane.label}</span>
-              <span className="text-sm font-bold">{formatPercent(lane.value)}</span>
+              <span 
+                className="text-sm font-bold" 
+                data-testid={`${lane.label.toLowerCase()}-value`}
+              >
+                {formatPercent(lane.value)}
+              </span>
             </div>
             <div className="relative h-3 bg-gray-200 rounded-full overflow-hidden">
               {/* Uncertainty band (lighter shade) */}

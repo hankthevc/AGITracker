@@ -20,7 +20,7 @@ export function PresetSwitcher() {
   }
   
   return (
-    <div className="flex gap-2 p-1 bg-muted rounded-lg">
+    <div className="flex gap-2 p-1 bg-muted rounded-lg" data-testid="preset-switcher">
       {PRESETS.map((preset) => (
         <button
           key={preset.value}
@@ -30,6 +30,7 @@ export function PresetSwitcher() {
               ? 'bg-primary text-primary-foreground'
               : 'hover:bg-background'
           }`}
+          data-testid={`preset-${preset.value}`}
         >
           {preset.label}
         </button>

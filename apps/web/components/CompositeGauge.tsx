@@ -64,7 +64,7 @@ export function CompositeGauge({ value, label = "Overall Proximity", description
           </svg>
         </div>
         <div className="text-center">
-          <div className="text-4xl font-bold" style={{ color }}>
+          <div className="text-4xl font-bold" style={{ color }} data-testid="overall-value">
             {formatPercent(clampedValue)}
           </div>
           <div className="text-sm text-muted-foreground mt-1">
