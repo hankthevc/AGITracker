@@ -78,7 +78,7 @@ async def fetch_gpqa_score() -> float:
 
 
 def seed_roadmaps(db: Session):
-    """Seed roadmap presets."""
+    """Seed roadmap presets (idempotent)."""
     roadmaps_data = [
         {
             "slug": "aschenbrenner",
@@ -101,15 +101,18 @@ def seed_roadmaps(db: Session):
     ]
     
     for data in roadmaps_data:
-        roadmap = Roadmap(**data)
-        db.add(roadmap)
+        # Check if exists
+        existing = db.query(Roadmap).filter(Roadmap.slug == data["slug"]).first()
+        if not existing:
+            roadmap = Roadmap(**data)
+            db.add(roadmap)
     
     db.commit()
-    print("✓ Seeded 3 roadmaps")
+    print("✓ Seeded 3 roadmaps (idempotent)")
 
 
 def seed_benchmarks(db: Session):
-    """Seed benchmark definitions."""
+    """Seed benchmark definitions (idempotent)."""
     benchmarks_data = [
         {
             "code": "swe_bench_verified",
@@ -138,11 +141,14 @@ def seed_benchmarks(db: Session):
     ]
     
     for data in benchmarks_data:
-        benchmark = Benchmark(**data)
-        db.add(benchmark)
+        # Check if exists
+        existing = db.query(Benchmark).filter(Benchmark.code == data["code"]).first()
+        if not existing:
+            benchmark = Benchmark(**data)
+            db.add(benchmark)
     
     db.commit()
-    print("✓ Seeded 4 benchmarks")
+    print("✓ Seeded 4 benchmarks (idempotent)")
 
 
 def seed_signposts(db: Session):
@@ -466,11 +472,14 @@ def seed_signposts(db: Session):
     ]
     
     for data in signposts_data:
-        signpost = Signpost(**data)
-        db.add(signpost)
+        # Check if exists
+        existing = db.query(Signpost).filter(Signpost.code == data["code"]).first()
+        if not existing:
+            signpost = Signpost(**data)
+            db.add(signpost)
     
     db.commit()
-    print("✓ Seeded 25 signposts")
+    print("✓ Seeded 25 signposts (idempotent)")
 
 
 async def seed_initial_claims(db: Session):
@@ -517,9 +526,14 @@ async def seed_initial_claims(db: Session):
     
     sources = []
     for data in sources_data:
-        source = Source(**data)
-        db.add(source)
-        sources.append(source)
+        # Check if exists
+        existing = db.query(Source).filter(Source.url == data["url"]).first()
+        if existing:
+            sources.append(existing)
+        else:
+            source = Source(**data)
+            db.add(source)
+            sources.append(source)
     
     db.commit()
     
@@ -573,11 +587,17 @@ async def seed_initial_claims(db: Session):
     ]
     
     for data in claims_data:
-        claim = Claim(**data)
-        db.add(claim)
+        # Check if exists by url_hash and metric_name
+        existing = db.query(Claim).filter(
+            Claim.url_hash == data["url_hash"],
+            Claim.metric_name == data["metric_name"]
+        ).first()
+        if not existing:
+            claim = Claim(**data)
+            db.add(claim)
     
     db.commit()
-    print(f"✓ Seeded 4 initial claims with current leaderboard data")
+    print(f"✓ Seeded initial claims with current leaderboard data (idempotent)")
     print(f"  - SWE-bench: {swe_score}%")
     print(f"  - OSWorld: {os_score}%")
     print(f"  - WebArena: {web_score}%")
