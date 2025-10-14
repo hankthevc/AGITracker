@@ -1,4 +1,4 @@
-.PHONY: bootstrap dev migrate seed test lint e2e build clean
+.PHONY: bootstrap dev migrate seed seed-content test lint e2e build clean
 
 bootstrap:
 	@echo "🚀 Bootstrapping AGI Signpost Tracker..."
@@ -22,6 +22,13 @@ migrate-create:
 seed:
 	@echo "🌱 Seeding database..."
 	cd scripts && python seed.py
+
+seed-content:
+	@echo "📚 Seeding rich educational content..."
+	cd scripts && python extract_roadmap_predictions.py
+	cd scripts && python seed_rich_content.py
+	cd scripts && python write_pace_analyses.py
+	@echo "✅ Content seeding complete."
 
 test:
 	@echo "🧪 Running tests..."
