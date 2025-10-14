@@ -6,6 +6,7 @@ import { CompositeGauge } from '@/components/CompositeGauge'
 import { LaneProgress } from '@/components/LaneProgress'
 import { SafetyDial } from '@/components/SafetyDial'
 import { PresetSwitcher } from '@/components/PresetSwitcher'
+import { ChangelogPanel } from '@/components/ChangelogPanel'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useIndex } from '@/hooks/useIndex'
 import { formatDate } from '@/lib/utils'
@@ -97,21 +98,7 @@ function HomeContent() {
       <LaneProgress lanes={lanes} />
       
       {/* What moved this week */}
-      <Card>
-        <CardHeader>
-          <CardTitle>What Moved This Week?</CardTitle>
-          <CardDescription>Recent significant changes to the index</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            Changelog integration coming soon. Check the{' '}
-            <a href="/changelog" className="text-primary hover:underline">
-              Changelog page
-            </a>{' '}
-            for updates.
-          </p>
-        </CardContent>
-      </Card>
+      <ChangelogPanel />
       
       {/* Explanation */}
       <Card className="bg-blue-50 border-blue-200">
