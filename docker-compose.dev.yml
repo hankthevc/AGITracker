@@ -1,0 +1,111 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: ankane/pgvector:latest
+    container_name: agi-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: agi_signpost_tracker
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: agi-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ./services/etl
+      dockerfile: ../../infra/docker/Dockerfile.api
+    container_name: agi-api
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/agi_signpost_tracker
+      REDIS_URL: redis://redis:6379/0
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      LLM_BUDGET_DAILY_USD: ${LLM_BUDGET_DAILY_USD:-20}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./services/etl:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  etl-worker:
+    build:
+      context: ./services/etl
+      dockerfile: ../../infra/docker/Dockerfile.etl
+    container_name: agi-etl-worker
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/agi_signpost_tracker
+      REDIS_URL: redis://redis:6379/0
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      LLM_BUDGET_DAILY_USD: ${LLM_BUDGET_DAILY_USD:-20}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./services/etl:/app
+    command: celery -A app.celery_app worker --loglevel=info
+
+  etl-beat:
+    build:
+      context: ./services/etl
+      dockerfile: ../../infra/docker/Dockerfile.etl
+    container_name: agi-etl-beat
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/agi_signpost_tracker
+      REDIS_URL: redis://redis:6379/0
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      LLM_BUDGET_DAILY_USD: ${LLM_BUDGET_DAILY_USD:-20}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./services/etl:/app
+    command: celery -A app.celery_app beat --loglevel=info
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: ../../infra/docker/Dockerfile.web
+    container_name: agi-web
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./apps/web:/app
+      - /app/node_modules
+      - /app/.next
+    command: npm run dev
+
+volumes:
+  postgres_data:
+  redis_data:
+

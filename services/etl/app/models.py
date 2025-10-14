@@ -1,0 +1,260 @@
+"""SQLAlchemy ORM models mirroring the database schema."""
+from datetime import datetime
+
+from pgvector.sqlalchemy import Vector
+from sqlalchemy import (
+    TIMESTAMP,
+    Boolean,
+    CheckConstraint,
+    Column,
+    Date,
+    ForeignKey,
+    Index,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    func,
+)
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.orm import relationship
+
+from app.database import Base
+
+
+class Roadmap(Base):
+    """Roadmap model."""
+    
+    __tablename__ = "roadmaps"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    slug = Column(String(100), unique=True, nullable=False, index=True)
+    name = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    preset_weights = Column(JSONB, nullable=True)
+    created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
+    
+    # Relationships
+    signposts = relationship("Signpost", back_populates="roadmap")
+
+
+class Signpost(Base):
+    """Signpost model."""
+    
+    __tablename__ = "signposts"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String(100), unique=True, nullable=False, index=True)
+    roadmap_id = Column(Integer, ForeignKey("roadmaps.id"), nullable=True)
+    name = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    category = Column(String(20), nullable=False)
+    metric_name = Column(String(100), nullable=True)
+    unit = Column(String(50), nullable=True)
+    direction = Column(String(5), nullable=False)
+    baseline_value = Column(Numeric, nullable=True)
+    target_value = Column(Numeric, nullable=True)
+    methodology_url = Column(Text, nullable=True)
+    first_class = Column(Boolean, default=False)
+    embedding = Column(Vector(1536), nullable=True)
+    created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
+    
+    # Relationships
+    roadmap = relationship("Roadmap", back_populates="signposts")
+    claim_signposts = relationship("ClaimSignpost", back_populates="signpost")
+    
+    __table_args__ = (
+        CheckConstraint(
+            "category IN ('capabilities', 'agents', 'inputs', 'security')",
+            name="check_signpost_category"
+        ),
+        CheckConstraint(
+            "direction IN ('>=', '<=')",
+            name="check_signpost_direction"
+        ),
+        Index("idx_signposts_category", "category"),
+        Index("idx_signposts_first_class", "first_class"),
+    )
+
+
+class Benchmark(Base):
+    """Benchmark model."""
+    
+    __tablename__ = "benchmarks"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String(100), unique=True, nullable=False, index=True)
+    name = Column(String(255), nullable=False)
+    url = Column(Text, nullable=True)
+    family = Column(String(50), nullable=False)
+    created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
+    
+    # Relationships
+    claim_benchmarks = relationship("ClaimBenchmark", back_populates="benchmark")
+    
+    __table_args__ = (
+        CheckConstraint(
+            "family IN ('SWE_BENCH_VERIFIED', 'OSWORLD', 'WEBARENA', 'GPQA_DIAMOND', 'OTHER')",
+            name="check_benchmark_family"
+        ),
+    )
+
+
+class Source(Base):
+    """Source model."""
+    
+    __tablename__ = "sources"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    url = Column(Text, unique=True, nullable=False)
+    domain = Column(String(255), nullable=True)
+    source_type = Column(String(50), nullable=False)
+    credibility = Column(String(1), nullable=False)
+    first_seen_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
+    
+    # Relationships
+    claims = relationship("Claim", back_populates="source")
+    
+    __table_args__ = (
+        CheckConstraint(
+            "source_type IN ('paper', 'leaderboard', 'model_card', 'press', 'blog', 'social')",
+            name="check_source_type"
+        ),
+        CheckConstraint(
+            "credibility IN ('A', 'B', 'C', 'D')",
+            name="check_credibility"
+        ),
+        Index("idx_sources_credibility", "credibility"),
+    )
+
+
+class Claim(Base):
+    """Claim model."""
+    
+    __tablename__ = "claims"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String(500), nullable=True)
+    summary = Column(Text, nullable=True)
+    metric_name = Column(String(100), nullable=True)
+    metric_value = Column(Numeric, nullable=True)
+    unit = Column(String(50), nullable=True)
+    observed_at = Column(TIMESTAMP(timezone=True), nullable=False)
+    source_id = Column(Integer, ForeignKey("sources.id"), nullable=True)
+    url_hash = Column(String(64), unique=True, nullable=True)
+    extraction_confidence = Column(Numeric, nullable=True)
+    raw_json = Column(JSONB, nullable=True)
+    retracted = Column(Boolean, default=False)
+    created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
+    
+    # Relationships
+    source = relationship("Source", back_populates="claims")
+    claim_benchmarks = relationship("ClaimBenchmark", back_populates="claim")
+    claim_signposts = relationship("ClaimSignpost", back_populates="claim")
+    changelogs = relationship("ChangelogEntry", back_populates="claim")
+    
+    __table_args__ = (
+        Index("idx_claims_observed_at", "observed_at"),
+        Index("idx_claims_retracted", "retracted"),
+    )
+
+
+class ClaimBenchmark(Base):
+    """Many-to-many relationship between claims and benchmarks."""
+    
+    __tablename__ = "claim_benchmarks"
+    
+    claim_id = Column(Integer, ForeignKey("claims.id", ondelete="CASCADE"), primary_key=True)
+    benchmark_id = Column(Integer, ForeignKey("benchmarks.id", ondelete="CASCADE"), primary_key=True)
+    
+    # Relationships
+    claim = relationship("Claim", back_populates="claim_benchmarks")
+    benchmark = relationship("Benchmark", back_populates="claim_benchmarks")
+
+
+class ClaimSignpost(Base):
+    """Many-to-many relationship between claims and signposts with mapping metadata."""
+    
+    __tablename__ = "claim_signposts"
+    
+    claim_id = Column(Integer, ForeignKey("claims.id", ondelete="CASCADE"), primary_key=True)
+    signpost_id = Column(Integer, ForeignKey("signposts.id", ondelete="CASCADE"), primary_key=True)
+    fit_score = Column(Numeric, nullable=True)
+    impact_estimate = Column(Numeric, nullable=True)
+    
+    # Relationships
+    claim = relationship("Claim", back_populates="claim_signposts")
+    signpost = relationship("Signpost", back_populates="claim_signposts")
+
+
+class IndexSnapshot(Base):
+    """Index snapshot model."""
+    
+    __tablename__ = "index_snapshots"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    as_of_date = Column(Date, unique=True, nullable=False)
+    capabilities = Column(Numeric, nullable=True)
+    agents = Column(Numeric, nullable=True)
+    inputs = Column(Numeric, nullable=True)
+    security = Column(Numeric, nullable=True)
+    overall = Column(Numeric, nullable=True)
+    safety_margin = Column(Numeric, nullable=True)
+    preset = Column(String(50), default="equal")
+    details = Column(JSONB, nullable=True)
+    created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
+
+
+class ChangelogEntry(Base):
+    """Changelog entry model."""
+    
+    __tablename__ = "changelog"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    occurred_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
+    type = Column(String(20), nullable=False)
+    title = Column(String(500), nullable=True)
+    body = Column(Text, nullable=True)
+    claim_id = Column(Integer, ForeignKey("claims.id"), nullable=True)
+    reason = Column(Text, nullable=True)
+    created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
+    
+    # Relationships
+    claim = relationship("Claim", back_populates="changelogs")
+    
+    __table_args__ = (
+        CheckConstraint(
+            "type IN ('add', 'update', 'retract')",
+            name="check_changelog_type"
+        ),
+    )
+
+
+class WeeklyDigest(Base):
+    """Weekly digest model."""
+    
+    __tablename__ = "weekly_digest"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    week_start = Column(Date, unique=True, nullable=False)
+    json = Column(JSONB, nullable=True)
+
+
+class APIKey(Base):
+    """API key model."""
+    
+    __tablename__ = "api_keys"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100), nullable=True)
+    hashed_key = Column(String(255), unique=True, nullable=False)
+    role = Column(String(20), nullable=False)
+    created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
+    
+    __table_args__ = (
+        CheckConstraint(
+            "role IN ('admin', 'readonly')",
+            name="check_api_key_role"
+        ),
+    )
+

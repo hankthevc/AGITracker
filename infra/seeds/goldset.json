@@ -1,0 +1,73 @@
+{
+  "version": "1.0",
+  "description": "Golden test set for claim extraction and mapping evaluation",
+  "examples": [
+    {
+      "id": 1,
+      "news_snippet": "New AI model achieves 68% on SWE-bench Verified, surpassing previous best",
+      "expected_claims": [
+        {
+          "metric_name": "SWE-bench Verified",
+          "metric_value": 68.0,
+          "unit": "%"
+        }
+      ],
+      "expected_benchmarks": ["swe_bench_verified"],
+      "expected_signposts": ["swe_bench_85", "swe_bench_90"]
+    },
+    {
+      "id": 2,
+      "news_snippet": "GPT-5 scores 72% on GPQA Diamond, approaching PhD-level performance",
+      "expected_claims": [
+        {
+          "metric_name": "GPQA Diamond",
+          "metric_value": 72.0,
+          "unit": "%"
+        }
+      ],
+      "expected_benchmarks": ["gpqa_diamond"],
+      "expected_signposts": ["gpqa_sota", "gpqa_phd_parity"]
+    },
+    {
+      "id": 3,
+      "news_snippet": "OpenAI announces training run using 10^26 FLOP",
+      "expected_claims": [
+        {
+          "metric_name": "Training FLOP",
+          "metric_value": 26.0,
+          "unit": "log10"
+        }
+      ],
+      "expected_benchmarks": [],
+      "expected_signposts": ["compute_1e26"]
+    },
+    {
+      "id": 4,
+      "news_snippet": "OSWorld benchmark: Latest model reaches 28% task completion",
+      "expected_claims": [
+        {
+          "metric_name": "OSWorld",
+          "metric_value": 28.0,
+          "unit": "%"
+        }
+      ],
+      "expected_benchmarks": ["osworld"],
+      "expected_signposts": ["osworld_65", "osworld_85"]
+    },
+    {
+      "id": 5,
+      "news_snippet": "WebArena: New agent achieves 52% success rate on web tasks",
+      "expected_claims": [
+        {
+          "metric_name": "WebArena",
+          "metric_value": 52.0,
+          "unit": "%"
+        }
+      ],
+      "expected_benchmarks": ["webarena"],
+      "expected_signposts": ["webarena_70", "webarena_85"]
+    }
+  ],
+  "notes": "This is a minimal golden set with 5 examples. A production system would have 100+ examples covering edge cases, ambiguous claims, multi-metric claims, and various source types."
+}
+
