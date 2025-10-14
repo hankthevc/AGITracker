@@ -1,6 +1,14 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import Link from 'next/link'
 
 export default function BenchmarksPage() {
+  const benchmarkCodes: Record<string, string> = {
+    'SWE-bench Verified': 'swe_bench_85',
+    'OSWorld': 'osworld_50',
+    'WebArena': 'webarena_60',
+    'GPQA Diamond': 'gpqa_75',
+  }
+  
   const benchmarks = [
     {
       name: 'SWE-bench Verified',
@@ -64,7 +72,7 @@ export default function BenchmarksPage() {
                 </div>
               </div>
               
-              <div className="pt-4 border-t">
+              <div className="pt-4 border-t space-y-3">
                 <div className="flex items-center justify-between">
                   <span className={`text-sm font-medium px-3 py-1 rounded-full ${
                     benchmark.status === 'In Progress' 
@@ -82,6 +90,17 @@ export default function BenchmarksPage() {
                     View Leaderboard →
                   </a>
                 </div>
+                
+                {benchmarkCodes[benchmark.name] && (
+                  <div className="pt-2">
+                    <Link 
+                      href={`/signposts/${benchmarkCodes[benchmark.name]}`}
+                      className="text-sm font-medium text-primary hover:underline flex items-center gap-1"
+                    >
+                      📚 Learn more: Why this benchmark matters →
+                    </Link>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
