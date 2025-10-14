@@ -51,7 +51,7 @@ def upgrade() -> None:
         sa.Column('target_value', sa.Numeric(), nullable=True),
         sa.Column('methodology_url', sa.Text(), nullable=True),
         sa.Column('first_class', sa.Boolean(), nullable=True),
-        sa.Column('embedding', postgresql.ARRAY(sa.Float(), dimensions=1), nullable=True),
+        sa.Column('embedding', sa.Text(), nullable=True),  # Will be cast to VECTOR after creation
         sa.Column('created_at', sa.TIMESTAMP(timezone=True), server_default=sa.text('now()'), nullable=True),
         sa.CheckConstraint("category IN ('capabilities', 'agents', 'inputs', 'security')", name='check_signpost_category'),
         sa.CheckConstraint("direction IN ('>=', '<=')", name='check_signpost_direction'),
@@ -63,6 +63,9 @@ def upgrade() -> None:
     op.create_index(op.f('ix_signposts_id'), 'signposts', ['id'], unique=False)
     op.create_index('idx_signposts_category', 'signposts', ['category'], unique=False)
     op.create_index('idx_signposts_first_class', 'signposts', ['first_class'], unique=False)
+    
+    # Convert embedding column to vector type
+    op.execute('ALTER TABLE signposts ALTER COLUMN embedding TYPE vector(1536) USING embedding::vector')
     
     # Create benchmarks table
     op.create_table('benchmarks',

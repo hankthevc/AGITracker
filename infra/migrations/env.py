@@ -9,8 +9,12 @@ from sqlalchemy import engine_from_config, pool
 # Add the ETL service to the path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../services/etl'))
 
-from app.database import Base
-from app.models import *  # noqa: F401, F403
+# Import Base directly from SQLAlchemy to avoid triggering engine creation
+from sqlalchemy.ext.declarative import declarative_base
+Base = declarative_base()
+
+# Now import models to register them with the Base
+from app import models  # noqa: F401
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -27,8 +31,10 @@ target_metadata = Base.metadata
 
 # Override sqlalchemy.url from environment variable if available
 database_url = os.getenv('DATABASE_URL')
-if database_url:
-    config.set_main_option('sqlalchemy.url', database_url)
+if not database_url:
+    # Use the updated connection string with psycopg driver
+    database_url = 'postgresql+psycopg://postgres:postgres@localhost:5432/agi_signpost_tracker'
+config.set_main_option('sqlalchemy.url', database_url)
 
 
 def run_migrations_offline() -> None:

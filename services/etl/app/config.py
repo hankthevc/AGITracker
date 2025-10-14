@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     """Application settings."""
     
     # Database
-    database_url: str = "postgresql://postgres:postgres@localhost:5432/agi_signpost_tracker"
+    database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5432/agi_signpost_tracker"
     
     # Redis
     redis_url: str = "redis://localhost:6379/0"
