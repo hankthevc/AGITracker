@@ -1,4 +1,5 @@
 """FastAPI main application for AGI Signpost Tracker API."""
+import os
 import sys
 from datetime import date, datetime
 from pathlib import Path
@@ -492,14 +493,17 @@ async def list_evidence(
 async def public_feed(db: Session = Depends(get_db)):
     """
     Public JSON feed of extracted claims (CC BY 4.0).
-    Safe for public consumption - excludes retracted/provisional.
+    Safe for public consumption - excludes retracted/provisional and dev fixtures.
     """
     # Only include A/B tier (verified) claims
-    source_ids = (
-        db.query(Source.id)
-        .filter(Source.credibility.in_(["A", "B"]))
-        .all()
-    )
+    # Exclude dev fixtures unless INCLUDE_DEV_FIXTURES env var is set
+    include_dev_fixtures = os.getenv("INCLUDE_DEV_FIXTURES", "false").lower() == "true"
+    
+    query = db.query(Source.id).filter(Source.credibility.in_(["A", "B"]))
+    if not include_dev_fixtures:
+        query = query.filter(Source.domain != "dev-fixture.local")
+    
+    source_ids = query.all()
     source_ids = [s[0] for s in source_ids]
     
     claims = (

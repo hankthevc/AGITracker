@@ -30,6 +30,12 @@ seed-content:
 	cd scripts && python write_pace_analyses.py
 	@echo "✅ Content seeding complete."
 
+seed-dev-fixtures:
+	@echo "🧪 Seeding development fixtures..."
+	@echo "⚠️  This adds synthetic test data - use only in dev/test environments!"
+	DEV_FIXTURE_INPUTS=true cd scripts && python seed_dev_fixtures.py
+	@echo "✅ Dev fixtures seeded. Run 'curl -X POST http://localhost:8000/v1/recompute' to update index."
+
 test:
 	@echo "🧪 Running tests..."
 	npm test
