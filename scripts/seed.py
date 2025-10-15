@@ -2,8 +2,8 @@
 
 Fetches current leaderboard values via Playwright and populates:
 - 3 roadmaps
-- 6 benchmarks  
-- 32 signposts across capabilities/agents/inputs/security
+- 7 benchmarks (including HLE)
+- 27 signposts across capabilities/agents/inputs/security (including 2 monitor-only HLE signposts)
 - Initial claims from current leaderboard data
 """
 import asyncio
@@ -150,6 +150,12 @@ def seed_benchmarks(db: Session):
             "url": "https://github.com/idavidrein/gpqa",
             "family": "GPQA_DIAMOND"
         },
+        {
+            "code": "humanitys_last_exam_text",
+            "name": "Humanity's Last Exam (Text-Only)",
+            "url": "https://scale.com/leaderboard/hle",
+            "family": "HLE_TEXT"
+        },
     ]
     
     for data in benchmarks_data:
@@ -160,11 +166,11 @@ def seed_benchmarks(db: Session):
             db.add(benchmark)
     
     db.commit()
-    print("✓ Seeded 6 benchmarks (idempotent)")
+    print("✓ Seeded 7 benchmarks (idempotent)")
 
 
 def seed_signposts(db: Session):
-    """Seed 25 signposts across all categories."""
+    """Seed 27 signposts across all categories (including 2 monitor-only HLE signposts)."""
     signposts_data = [
         # CAPABILITIES (8)
         {
@@ -270,6 +276,32 @@ def seed_signposts(db: Session):
             "target_value": 85.0,
             "methodology_url": "https://github.com/idavidrein/gpqa",
             "first_class": True,
+        },
+        {
+            "code": "hle_text_50",
+            "name": "HLE Text ≥50%",
+            "description": "AI achieves 50% on Humanity's Last Exam text-only (PhD-level reasoning breadth)",
+            "category": "capabilities",
+            "metric_name": "HLE Text Accuracy",
+            "unit": "%",
+            "direction": ">=",
+            "baseline_value": 20.0,
+            "target_value": 50.0,
+            "methodology_url": "https://scale.com/leaderboard/hle",
+            "first_class": False,  # Monitor-only, doesn't affect main gauges
+        },
+        {
+            "code": "hle_text_70",
+            "name": "HLE Text ≥70%",
+            "description": "AI achieves 70% on Humanity's Last Exam text-only (long-horizon milestone)",
+            "category": "capabilities",
+            "metric_name": "HLE Text Accuracy",
+            "unit": "%",
+            "direction": ">=",
+            "baseline_value": 20.0,
+            "target_value": 70.0,
+            "methodology_url": "https://scale.com/leaderboard/hle",
+            "first_class": False,  # Monitor-only, calibrated for 2026-2028
         },
         
         # AGENTS (5)
@@ -575,7 +607,7 @@ def seed_signposts(db: Session):
             db.add(signpost)
     
     db.commit()
-    print("✓ Seeded 25 signposts (idempotent)")
+    print("✓ Seeded 27 signposts (idempotent)")
 
 
 async def seed_initial_claims(db: Session):
