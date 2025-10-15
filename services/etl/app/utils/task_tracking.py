@@ -104,6 +104,7 @@ def get_all_task_statuses() -> dict:
         "fetch_osworld",
         "fetch_webarena",
         "fetch_gpqa",
+        "fetch_hle",
         "seed_inputs",
         "security_maturity",
         "snap_index",

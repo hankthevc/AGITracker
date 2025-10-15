@@ -49,6 +49,10 @@ celery_app.conf.beat_schedule = {
         "task": "fetch_gpqa",
         "schedule": crontab(hour=7, minute=54),  # 7:54 AM UTC daily
     },
+    "fetch-hle": {
+        "task": "fetch_hle",
+        "schedule": crontab(hour=8, minute=2),  # 8:02 AM UTC daily (monitor-only)
+    },
     "snap-index-daily": {
         "task": "app.tasks.snap_index.compute_daily_snapshot",
         "schedule": crontab(hour=8, minute=5),  # 8:05 AM UTC daily (after all fetches)
