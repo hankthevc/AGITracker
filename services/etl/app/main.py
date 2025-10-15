@@ -14,6 +14,9 @@ from fastapi_cache import FastAPICache
 from fastapi_cache.backends.redis import RedisBackend
 from fastapi_cache.decorator import cache
 from redis import asyncio as aioredis
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 from sqlalchemy import and_, desc, func
 from sqlalchemy.orm import Session
 
@@ -45,11 +48,18 @@ except ImportError:
         compute_index_from_categories,
     )
 
+# Initialize rate limiter
+limiter = Limiter(key_func=get_remote_address)
+
 app = FastAPI(
     title="AGI Signpost Tracker API",
     version="1.0.0",
     description="Evidence-first dashboard tracking proximity to AGI via measurable signposts",
 )
+
+# Add rate limit state and exception handler
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # CORS middleware - configurable via CORS_ORIGINS env var
 app.add_middleware(
@@ -105,6 +115,7 @@ async def health_full():
 
 
 @app.get("/v1/index")
+@limiter.limit(f"{settings.rate_limit_per_minute}/minute")
 @cache(expire=settings.index_cache_ttl_seconds)
 async def get_index(
     request: Request,
@@ -221,8 +232,10 @@ async def get_index(
 
 
 @app.get("/v1/signposts")
+@limiter.limit(f"{settings.rate_limit_per_minute}/minute")
 @cache(expire=settings.signposts_cache_ttl_seconds)
 async def list_signposts(
+    request: Request,
     category: Optional[str] = Query(None, regex="^(capabilities|agents|inputs|security)$"),
     first_class: Optional[bool] = None,
     roadmap: Optional[str] = None,
@@ -482,8 +495,10 @@ async def get_pace_analysis(code: str, db: Session = Depends(get_db)):
 
 
 @app.get("/v1/evidence")
+@limiter.limit(f"{settings.rate_limit_per_minute}/minute")
 @cache(expire=settings.evidence_cache_ttl_seconds)
 async def list_evidence(
+    request: Request,
     signpost_id: Optional[int] = None,
     tier: Optional[str] = Query(None, regex="^[ABCD]$"),
     skip: int = 0,
@@ -553,8 +568,9 @@ async def list_evidence(
 
 
 @app.get("/v1/feed.json")
+@limiter.limit(f"{settings.rate_limit_per_minute}/minute")
 @cache(expire=settings.feed_cache_ttl_seconds)
-async def public_feed(db: Session = Depends(get_db)):
+async def public_feed(request: Request, db: Session = Depends(get_db)):
     """
     Public JSON feed of extracted claims (CC BY 4.0).
     Safe for public consumption - excludes retracted/provisional and dev fixtures.
@@ -608,7 +624,8 @@ async def public_feed(db: Session = Depends(get_db)):
 
 
 @app.get("/v1/changelog")
-async def changelog(skip: int = 0, limit: int = 50, db: Session = Depends(get_db)):
+@limiter.limit(f"{settings.rate_limit_per_minute}/minute")
+async def changelog(request: Request, skip: int = 0, limit: int = 50, db: Session = Depends(get_db)):
     """Get recent changelog entries."""
     limit = min(limit, 100)
     

@@ -39,6 +39,9 @@ class Settings(BaseSettings):
     evidence_cache_ttl_seconds: int = 180  # 3 minutes
     feed_cache_ttl_seconds: int = 300  # 5 minutes
     
+    # Rate Limiting
+    rate_limit_per_minute: int = 100  # Requests per minute per IP
+    
     class Config:
         env_file = ".env"
         case_sensitive = False
