@@ -27,7 +27,31 @@ export function CompositeGauge({ value, label = "Overall Proximity", description
   return (
     <Card data-testid="composite-gauge" className="w-full">
       <CardHeader>
-        <CardTitle>{label}</CardTitle>
+        <div className="flex items-center gap-2">
+          <CardTitle>{label}</CardTitle>
+          <a 
+            href="/methodology" 
+            className="text-muted-foreground hover:text-primary transition-colors"
+            title="Learn about our scoring methodology"
+            aria-label="Learn about our scoring methodology"
+          >
+            <svg 
+              xmlns="http://www.w3.org/2000/svg" 
+              width="18" 
+              height="18" 
+              viewBox="0 0 24 24" 
+              fill="none" 
+              stroke="currentColor" 
+              strokeWidth="2" 
+              strokeLinecap="round" 
+              strokeLinejoin="round"
+            >
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="16" x2="12" y2="12"></line>
+              <line x1="12" y1="8" x2="12.01" y2="8"></line>
+            </svg>
+          </a>
+        </div>
         {description && <CardDescription>{description}</CardDescription>}
       </CardHeader>
       <CardContent className="flex flex-col items-center justify-center p-6">

@@ -7,228 +7,228 @@ export default function MethodologyPage() {
       <div>
         <h1 className="text-4xl font-bold tracking-tight mb-4">Methodology</h1>
         <p className="text-xl text-muted-foreground">
-          How we track progress toward AGI using evidence-first, measurable signposts
+          How we track AGI progress through evidence-based signposts
         </p>
       </div>
-      
+
+      {/* Evidence Tiers */}
       <Card>
         <CardHeader>
-          <CardTitle>Operational Definition of AGI</CardTitle>
-          <CardDescription>For this product only</CardDescription>
-        </CardHeader>
-        <CardContent className="prose prose-sm max-w-none">
-          <p>
-            We track proximity to AGI via measurable signposts rather than claiming the exact "moment."
-            Our working notion: a general-purpose AI system that can:
-          </p>
-          <ol>
-            <li>
-              <strong>Autonomously perform</strong> the majority of economically valuable remote cognitive tasks
-              at median professional quality and cost with oversight-level supervision
-            </li>
-            <li>
-              <strong>Demonstrate strong generalization</strong> across "computer-using" and "reasoning" benchmarks
-            </li>
-          </ol>
-          <p>
-            We operationalize this via thresholds on four first-class benchmark families:
-          </p>
-          <ul>
-            <li>SWE-bench Verified (real-world software engineering)</li>
-            <li>OSWorld (operating system-level tasks)</li>
-            <li>WebArena (web navigation and interaction)</li>
-            <li>GPQA Diamond (PhD-level scientific reasoning)</li>
-          </ul>
-        </CardContent>
-      </Card>
-      
-      <Card>
-        <CardHeader>
-          <CardTitle>Evidence Policy</CardTitle>
+          <CardTitle>Evidence Credibility Tiers</CardTitle>
+          <CardDescription>
+            We classify all evidence by source credibility using a 4-tier system
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-3">
             <div className="flex items-start gap-3">
-              <Badge variant="default" className="bg-green-600 mt-1">A</Badge>
+              <Badge className="bg-green-600">A</Badge>
               <div>
-                <p className="font-semibold">Primary Evidence</p>
+                <p className="font-semibold">Peer-Reviewed Research</p>
                 <p className="text-sm text-muted-foreground">
-                  Peer-reviewed papers, official leaderboards/APIs, model cards with reproducible evals.
-                  These directly move the main gauges.
+                  Published papers in top-tier conferences (NeurIPS, ICLR, ICML, etc.) with verified results.
+                  Undergone rigorous peer review and reproducibility checks.
                 </p>
               </div>
             </div>
-            
+
             <div className="flex items-start gap-3">
-              <Badge variant="default" className="bg-blue-600 mt-1">B</Badge>
+              <Badge className="bg-blue-600">B</Badge>
               <div>
-                <p className="font-semibold">Official Lab Communications</p>
+                <p className="font-semibold">Official Benchmarks & Lab Reports</p>
                 <p className="text-sm text-muted-foreground">
-                  Official blog posts and model cards from OpenAI, Anthropic, DeepMind, Meta.
-                  Provisional, but contributes to main metrics.
+                  Publicly accessible leaderboards (HuggingFace, Papers with Code), official lab announcements.
+                  Provisional until peer-reviewed or independently verified.
                 </p>
               </div>
             </div>
-            
+
             <div className="flex items-start gap-3">
-              <Badge variant="default" className="bg-yellow-600 mt-1">C</Badge>
+              <Badge variant="secondary">C</Badge>
               <div>
-                <p className="font-semibold">Reputable Press</p>
+                <p className="font-semibold">Industry Claims</p>
                 <p className="text-sm text-muted-foreground">
-                  Reuters, AP, Bloomberg, FT. Displayed as unverified; does not move main gauges.
+                  Company blog posts, product announcements, CEO statements. Not peer-reviewed.
+                  Displayed for awareness but <strong>does not move the main gauges</strong>.
                 </p>
               </div>
             </div>
-            
+
             <div className="flex items-start gap-3">
-              <Badge variant="default" className="bg-orange-600 mt-1">D</Badge>
+              <Badge variant="outline">D</Badge>
               <div>
-                <p className="font-semibold">Social Media</p>
+                <p className="font-semibold">Rumors & Leaks</p>
                 <p className="text-sm text-muted-foreground">
-                  Twitter/X, Reddit. Displayed as unverified; never moves main gauges.
+                  Unverified claims, Twitter threads, speculation. Explicitly marked and{' '}
+                  <strong>never affects scores</strong>. Included only for context.
                 </p>
               </div>
             </div>
           </div>
-          
-          <p className="text-sm text-muted-foreground pt-4 border-t">
-            If credible press (C) arrives before leaderboard data, we show it as provisional and auto-monitor
-            for updates. Only A/B evidence moves the main proximity index.
-          </p>
+
+          <div className="mt-6 p-4 bg-muted rounded-lg">
+            <p className="text-sm font-semibold mb-2">📊 Evidence Policy</p>
+            <ul className="text-sm text-muted-foreground space-y-1">
+              <li>✓ Tiers A & B move the main gauges and contribute to overall progress</li>
+              <li>✗ Tiers C & D are displayed but do not affect scores</li>
+              <li>⚠️  All evidence is timestamped and can be retracted if debunked</li>
+            </ul>
+          </div>
         </CardContent>
       </Card>
-      
+
+      {/* Scoring & Aggregation */}
       <Card>
         <CardHeader>
-          <CardTitle>Scoring Algorithm</CardTitle>
-        </CardHeader>
-        <CardContent className="prose prose-sm max-w-none">
-          <h4>Signpost Progress</h4>
-          <p>Each signpost has a baseline and target value. Progress is calculated as:</p>
-          <pre className="bg-muted p-3 rounded text-xs overflow-x-auto">
-{`// For increasing metrics (direction: ">=")
-progress = (observed - baseline) / (target - baseline)
-
-// For decreasing metrics (direction: "<=")
-progress = (baseline - observed) / (baseline - target)
-
-// Clamped to [0, 1]`}
-          </pre>
-          
-          <h4>Category Aggregation</h4>
-          <p>
-            Category scores (Capabilities, Agents, Inputs, Security) are weighted means of constituent signposts.
-            First-class signposts receive 2x weight.
-          </p>
-          
-          <h4>Overall Proximity</h4>
-          <p>
-            Computed using <strong>harmonic mean</strong> of combined Capabilities and Inputs:
-          </p>
-          <pre className="bg-muted p-3 rounded text-xs">
-{`overall = 2 / (1/capabilities + 1/inputs)`}
-          </pre>
-          <p className="text-sm">
-            The harmonic mean ensures both dimensions must advance together—a bottleneck in either
-            significantly reduces the overall score.
-          </p>
-          
-          <h4>Safety Margin</h4>
-          <pre className="bg-muted p-3 rounded text-xs">
-{`safety_margin = security - capabilities`}
-          </pre>
-          <p className="text-sm">
-            Negative values (red) indicate capabilities are advancing faster than security readiness.
-          </p>
-        </CardContent>
-      </Card>
-      
-      <Card>
-        <CardHeader>
-          <CardTitle>Roadmap Presets</CardTitle>
+          <CardTitle>Scoring & Aggregation</CardTitle>
+          <CardDescription>
+            How we convert evidence into progress percentages
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <h4 className="font-semibold">Equal</h4>
-            <p className="text-sm text-muted-foreground">
-              All categories weighted equally (25% each). Neutral baseline view.
+            <h3 className="font-semibold text-lg mb-2">Signpost Progress</h3>
+            <p className="text-sm text-muted-foreground mb-2">
+              Each signpost has a defined baseline and target value. Progress is computed as:
+            </p>
+            <div className="bg-muted p-3 rounded font-mono text-sm">
+              progress = (current - baseline) / (target - baseline)
+            </div>
+            <p className="text-sm text-muted-foreground mt-2">
+              Clamped to [0, 1] range. If current value exceeds target, progress = 1.0 (100%).
             </p>
           </div>
-          
+
           <div>
-            <h4 className="font-semibold">Aschenbrenner's Situational Awareness</h4>
-            <p className="text-sm text-muted-foreground">
-              Overweights Inputs (40%) and Agents (30%), focusing on effective compute OOMs and algorithmic "unhobbling."
+            <h3 className="font-semibold text-lg mb-2">Category Aggregation (Harmonic Mean)</h3>
+            <p className="text-sm text-muted-foreground mb-2">
+              Categories (Capabilities, Agents, Inputs, Security) aggregate signpost progress using a{' '}
+              <strong>harmonic mean</strong>, which penalizes imbalanced progress:
+            </p>
+            <div className="bg-muted p-3 rounded font-mono text-sm">
+              harmonic_mean = n / Σ(1/xᵢ)
+            </div>
+            <p className="text-sm text-muted-foreground mt-2">
+              This ensures no single signpost can "carry" the category. All signposts must advance together.
             </p>
           </div>
-          
+
           <div>
-            <h4 className="font-semibold">AI 2027 Scenario</h4>
+            <h3 className="font-semibold text-lg mb-2">Overall Index</h3>
+            <p className="text-sm text-muted-foreground mb-2">
+              The overall AGI proximity index is computed from category scores using weighted roadmap presets:
+            </p>
+            <ul className="text-sm text-muted-foreground space-y-1 ml-4 list-disc">
+              <li><strong>Equal</strong>: All categories weighted equally (25% each)</li>
+              <li><strong>Aschenbrenner (Situational Awareness)</strong>: Capabilities 40%, Agents 30%, Inputs 20%, Security 10%</li>
+              <li><strong>AI 2027</strong>: Custom weights based on Leopold Aschenbrenner's AGI timeline</li>
+            </ul>
+          </div>
+
+          <div className="mt-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+            <p className="text-sm font-semibold mb-2">⚠️  The N/A Rule</p>
             <p className="text-sm text-muted-foreground">
-              Emphasizes Agents (35%) and Capabilities (30%) with timeline alignment to near-term scenarios.
+              Until <strong>both Inputs and Security</strong> categories have at least one A/B-tier signpost with non-zero progress,
+              they are marked as <strong>N/A</strong> and do not contribute to the overall index. This prevents premature AGI proximity claims
+              when foundational infrastructure (compute, data centers, security) is not yet in place.
             </p>
           </div>
         </CardContent>
       </Card>
-      
+
+      {/* Confidence Bands */}
       <Card>
         <CardHeader>
-          <CardTitle>Uncertainty & Confidence Bands</CardTitle>
-        </CardHeader>
-        <CardContent className="prose prose-sm max-w-none">
-          <p>
-            Progress bars show shaded confidence bands based on evidence quality and quantity:
-          </p>
-          <ul>
-            <li>More A/B tier evidence = narrower bands (higher confidence)</li>
-            <li>Relying on C/D tier = wider bands (lower confidence)</li>
-            <li>No evidence = maximum uncertainty</li>
-          </ul>
-          <p className="text-sm text-muted-foreground">
-            Evidence quality weights: A=1.0, B=0.8, C=0.3, D=0.1
-          </p>
-        </CardContent>
-      </Card>
-      
-      <Card>
-        <CardHeader>
-          <CardTitle>Update Frequency</CardTitle>
+          <CardTitle>Confidence Bands</CardTitle>
+          <CardDescription>
+            Uncertainty quantification for the overall index
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <ul className="space-y-2 text-sm">
-            <li>
-              <strong>Feed ingestion:</strong> Daily at 6:00 AM UTC (arXiv, lab blogs, leaderboards)
-            </li>
-            <li>
-              <strong>Index snapshots:</strong> Computed daily at 7:00 AM UTC
-            </li>
-            <li>
-              <strong>Weekly digest:</strong> Generated Sundays at 8:00 AM UTC
-            </li>
-            <li>
-              <strong>Dashboard refresh:</strong> Live data with 1-minute cache
-            </li>
-          </ul>
+          <p className="text-sm text-muted-foreground mb-3">
+            The overall index includes a ±10% confidence band to reflect measurement uncertainty, model disagreement,
+            and the inherent difficulty of predicting AGI timelines.
+          </p>
+          <div className="bg-muted p-3 rounded text-sm">
+            <p className="font-mono">confidence_lower = max(0, overall - 0.10)</p>
+            <p className="font-mono">confidence_upper = min(1, overall + 0.10)</p>
+          </div>
+          <p className="text-sm text-muted-foreground mt-3">
+            These bands widen when evidence is sparse or contradictory, and narrow as consensus emerges.
+          </p>
         </CardContent>
       </Card>
-      
-      <Card className="border-blue-200 bg-blue-50">
+
+      {/* Safety Margin */}
+      <Card>
         <CardHeader>
-          <CardTitle>Open & Reproducible</CardTitle>
+          <CardTitle>Safety Margin</CardTitle>
+          <CardDescription>
+            Tracking the gap between capability and security progress
+          </CardDescription>
         </CardHeader>
-        <CardContent className="text-sm space-y-2">
-          <p>
-            All code, data pipelines, and scoring algorithms are open source. The public JSON feed
-            is available under <strong>CC BY 4.0</strong>.
+        <CardContent>
+          <p className="text-sm text-muted-foreground mb-3">
+            The Safety Margin measures whether security measures are keeping pace with capability advances:
           </p>
-          <p>
-            <a href="https://github.com/..." className="text-primary font-medium hover:underline">
-              View source code on GitHub →
-            </a>
-          </p>
-          <p>
-            <a href="/v1/feed.json" className="text-primary font-medium hover:underline">
-              Access public JSON feed →
+          <div className="bg-muted p-3 rounded font-mono text-sm mb-3">
+            safety_margin = security_progress - capability_progress
+          </div>
+          <div className="space-y-2 text-sm">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+              <span className="text-muted-foreground">
+                <strong>Positive margin</strong>: Security ahead (safer trajectory)
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+              <span className="text-muted-foreground">
+                <strong>Near zero</strong>: Capabilities and security in balance
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+              <span className="text-muted-foreground">
+                <strong>Negative margin</strong>: Capability sprint (higher risk)
+              </span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Data Sources */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Data Sources & Updates</CardTitle>
+          <CardDescription>
+            How we keep the tracker current
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ul className="text-sm text-muted-foreground space-y-2">
+            <li>
+              <strong>Automated connectors</strong>: Daily scrapes of public leaderboards (SWE-bench, OSWorld, WebArena, GPQA)
+            </li>
+            <li>
+              <strong>Manual curation</strong>: Weekly review of arXiv, HuggingFace, Papers with Code, and major lab announcements
+            </li>
+            <li>
+              <strong>Community contributions</strong>: Submit evidence via GitHub issues with source links and tier justification
+            </li>
+            <li>
+              <strong>Retractions</strong>: Claims can be retracted by admins if debunked or corrected, with full audit trail
+            </li>
+          </ul>
+          <p className="text-sm text-muted-foreground mt-4">
+            All raw data and scoring logic is open-source at{' '}
+            <a 
+              href="https://github.com/hankthevc/AGITracker" 
+              className="text-primary hover:underline"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              github.com/hankthevc/AGITracker
             </a>
           </p>
         </CardContent>
@@ -236,4 +236,3 @@ progress = (baseline - observed) / (baseline - target)
     </div>
   )
 }
-
