@@ -1,3 +1,7 @@
+> **Archived note:** Non-authoritative; engineering must follow code & issues.
+
+---
+
 # V0.2 Verification & Launch Polish - COMPLETE ✅
 
 All 14 tasks from the v0.2 verification and launch polish plan have been successfully implemented.
