@@ -15,10 +15,10 @@ from app.tasks.fetch_hle import (
 from app.models import Benchmark, Claim, Signpost, Source
 
 
-@pytest.mark.asyncio
-async def test_fetch_hle_scale_fixture():
+def test_fetch_hle_scale_fixture():
     """Test Scale SEAL HLE parser with fixtures (SCRAPE_REAL=false)."""
-    data = await fetch_hle_scale()
+    import asyncio
+    data = asyncio.run(fetch_hle_scale())
     
     assert data is not None
     assert "model" in data
@@ -31,10 +31,10 @@ async def test_fetch_hle_scale_fixture():
     print(f"✓ Scale SEAL fixture parsed: {data['model']} @ {data['score_percent']}%")
 
 
-@pytest.mark.asyncio
-async def test_fetch_hle_artificial_analysis_fixture():
+def test_fetch_hle_artificial_analysis_fixture():
     """Test Artificial Analysis HLE parser with fixtures."""
-    data = await fetch_hle_artificial_analysis()
+    import asyncio
+    data = asyncio.run(fetch_hle_artificial_analysis())
     
     assert data is not None
     assert "model" in data
@@ -118,14 +118,14 @@ def test_hle_maps_to_signposts(db_session):
     
     assert len(mappings) == 2  # Should map to both signposts
     
-    # Check score impacts
+    # Check impact estimates
     for mapping in mappings:
         if mapping.signpost_id == hle_50.id:
             # (55 - 20) / (50 - 20) = 35/30 = 1.16, clamped to 1.0
-            assert mapping.score_impact >= 1.0
+            assert mapping.impact_estimate >= 1.0
         elif mapping.signpost_id == hle_70.id:
             # (55 - 20) / (70 - 20) = 35/50 = 0.7
-            assert 0.6 < mapping.score_impact < 0.8
+            assert 0.6 < mapping.impact_estimate < 0.8
     
     print(f"✓ HLE claim correctly mapped to 2 signposts with expected impacts")
 
