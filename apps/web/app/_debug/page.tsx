@@ -11,11 +11,21 @@ interface HealthResponse {
   version?: string
 }
 
+interface TaskStatus {
+  status: string
+  last_run: string | null
+  last_success: string | null
+  last_error: string | null
+  error_msg: string | null
+  age_seconds: number | null
+}
+
 interface HealthFullResponse {
   status: string
   preset_default: string
   cors_origins: string[]
   time: string
+  tasks: Record<string, TaskStatus>
 }
 
 interface IndexResponse {
@@ -152,6 +162,45 @@ export default function DebugPage() {
                       <li key={i}>{origin}</li>
                     ))}
                   </ul>
+                </div>
+              )}
+              
+              {/* Task Watchdogs */}
+              {healthFull?.tasks && (
+                <div className="mt-6">
+                  <h3 className="text-sm font-semibold mb-3">Task Watchdogs</h3>
+                  <div className="space-y-2">
+                    {Object.entries(healthFull.tasks).map(([name, task]) => (
+                      <div key={name} className="flex items-center justify-between text-sm p-2 rounded bg-muted/50">
+                        <span className="font-mono">{name}</span>
+                        <div className="flex items-center gap-3">
+                          <Badge 
+                            variant={
+                              task.status === 'OK' ? 'default' :
+                              task.status === 'DEGRADED' ? 'secondary' :
+                              task.status === 'ERROR' ? 'destructive' :
+                              'outline'
+                            }
+                          >
+                            {task.status}
+                          </Badge>
+                          {task.age_seconds !== null && (
+                            <span className="text-muted-foreground text-xs">
+                              {task.age_seconds < 3600 
+                                ? `${Math.floor(task.age_seconds / 60)}m ago`
+                                : `${Math.floor(task.age_seconds / 3600)}h ago`
+                              }
+                            </span>
+                          )}
+                          {task.error_msg && (
+                            <span className="text-destructive text-xs truncate max-w-xs" title={task.error_msg}>
+                              {task.error_msg}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>

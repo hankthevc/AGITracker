@@ -216,42 +216,58 @@ def map_claim_to_signposts(db, claim: Claim):
 @celery_app.task(name="app.tasks.fetch_swebench.fetch_swebench_verified")
 def fetch_swebench_verified():
     """Celery task to fetch SWE-bench Verified scores."""
+    from app.utils.task_tracking import update_task_status
+    
     print("📊 Starting SWE-bench Verified fetch task...")
     
-    # Run async fetch
-    data = asyncio.run(fetch_swebench_data())
-    
-    if not data:
-        print("❌ Failed to fetch SWE-bench data from all sources")
-        return {"status": "failed", "error": "Could not fetch data"}
-    
-    print(f"✓ Fetched SWE-bench Verified: {data['score']}% ({data['model']})")
-    
-    # Store in database
-    db = SessionLocal()
     try:
-        claim = create_or_update_claim(db, data)
-        print(f"✓ Created claim ID {claim.id}")
+        # Run async fetch
+        data = asyncio.run(fetch_swebench_data())
         
-        map_claim_to_signposts(db, claim)
+        if not data:
+            error_msg = "Failed to fetch SWE-bench data from all sources"
+            print(f"❌ {error_msg}")
+            update_task_status("fetch_swebench", "error", error_msg)
+            return {"status": "failed", "error": error_msg}
         
-        # Trigger snapshot recomputation
-        from app.tasks.snap_index import compute_daily_snapshot
-        compute_daily_snapshot()
+        print(f"✓ Fetched SWE-bench Verified: {data['score']}% ({data['model']})")
         
-        return {
-            "status": "success",
-            "score": data["score"],
-            "model": data["model"],
-            "claim_id": claim.id,
-        }
-        
+        # Store in database
+        db = SessionLocal()
+        try:
+            claim = create_or_update_claim(db, data)
+            print(f"✓ Created claim ID {claim.id}")
+            
+            map_claim_to_signposts(db, claim)
+            
+            # Trigger snapshot recomputation
+            from app.tasks.snap_index import compute_daily_snapshot
+            compute_daily_snapshot()
+            
+            # Mark success
+            update_task_status("fetch_swebench", "success")
+            
+            return {
+                "status": "success",
+                "score": data["score"],
+                "model": data["model"],
+                "claim_id": claim.id,
+            }
+            
+        except Exception as e:
+            error_msg = f"Error storing claim: {e}"
+            print(f"❌ {error_msg}")
+            db.rollback()
+            update_task_status("fetch_swebench", "error", error_msg)
+            return {"status": "error", "error": str(e)}
+        finally:
+            db.close()
+            
     except Exception as e:
-        print(f"❌ Error storing claim: {e}")
-        db.rollback()
+        error_msg = f"Task execution failed: {e}"
+        print(f"❌ {error_msg}")
+        update_task_status("fetch_swebench", "error", error_msg)
         return {"status": "error", "error": str(e)}
-    finally:
-        db.close()
 
 
 # Standalone function for manual execution

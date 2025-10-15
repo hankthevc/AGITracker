@@ -126,14 +126,29 @@ async def health():
 @app.get("/health/full")
 async def health_full():
     """
-    Full health check with configuration details for debugging.
-    Returns API configuration and status.
+    Full health check with configuration details and task watchdogs.
+    Returns API configuration, task status, and system health.
     """
+    from app.utils.task_tracking import get_all_task_statuses
+    
+    task_statuses = get_all_task_statuses()
+    
+    # Overall system health based on task statuses
+    has_errors = any(t["status"] == "ERROR" for t in task_statuses.values())
+    has_degraded = any(t["status"] == "DEGRADED" for t in task_statuses.values())
+    
+    system_status = "ok"
+    if has_errors:
+        system_status = "degraded"
+    elif has_degraded:
+        system_status = "warning"
+    
     return {
-        "status": "ok",
+        "status": system_status,
         "preset_default": "equal",
         "cors_origins": [origin.strip() for origin in settings.cors_origins.split(",")],
         "time": datetime.utcnow().isoformat() + "Z",
+        "tasks": task_statuses,
     }
 
 
