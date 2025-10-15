@@ -212,16 +212,16 @@ def fetch_osworld(self):
             claims_created += 1
             
             # Map to signposts based on score thresholds
-            # OSW_65: 65% task success (Capabilities)
-            # OSW_85: 85% task success (Agents)
+            # osworld_65: 65% task success (Capabilities)
+            # osworld_85: 85% task success (Capabilities - advanced)
             score = data['task_success_rate']
             benchmark_code = "OSWORLD_VERIFIED" if data['benchmark_version'] == 'verified' else "OSWORLD"
             
             signpost_mappings = []
             if score >= 65:
-                signpost_mappings.append(('OSW_65', 'capabilities', 0.10))
+                signpost_mappings.append(('osworld_65', 'capabilities', 0.10))
             if score >= 85:
-                signpost_mappings.append(('OSW_85', 'agents', 0.15))
+                signpost_mappings.append(('osworld_85', 'capabilities', 0.15))
             
             for signpost_code, category, contribution in signpost_mappings:
                 signpost = db.query(Signpost).filter(Signpost.code == signpost_code).first()

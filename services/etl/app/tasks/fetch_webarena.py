@@ -230,15 +230,15 @@ def fetch_webarena(self):
             claims_created += 1
             
             # Map to signposts based on score thresholds
-            # WEB_70: 70% task success (Agents)
-            # WEB_85: 85% task success (Agents, advanced)
+            # webarena_70: 70% task success (Agents)
+            # webarena_85: 85% task success (Agents, advanced)
             score = data['task_success_rate']
             
             signpost_mappings = []
             if score >= 70:
-                signpost_mappings.append(('WEB_70', 'agents', 0.12))
+                signpost_mappings.append(('webarena_70', 'agents', 0.12))
             if score >= 85:
-                signpost_mappings.append(('WEB_85', 'agents', 0.18))
+                signpost_mappings.append(('webarena_85', 'agents', 0.18))
             
             for signpost_code, category, contribution in signpost_mappings:
                 signpost = db.query(Signpost).filter(Signpost.code == signpost_code).first()

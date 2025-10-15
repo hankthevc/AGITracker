@@ -244,15 +244,15 @@ def fetch_gpqa(self):
             claims_created += 1
             
             # Map to signposts based on accuracy thresholds
-            # GPQA_75: 75% accuracy (Capabilities - reasoning)
-            # GPQA_85: 85% accuracy (Capabilities - expert reasoning)
+            # gpqa_sota: 75% accuracy (Capabilities - PhD-level reasoning)
+            # gpqa_phd_parity: 85% accuracy (Capabilities - PhD expert parity)
             accuracy = data['accuracy']
             
             signpost_mappings = []
             if accuracy >= 75:
-                signpost_mappings.append(('GPQA_75', 'capabilities', 0.08))
+                signpost_mappings.append(('gpqa_sota', 'capabilities', 0.08))
             if accuracy >= 85:
-                signpost_mappings.append(('GPQA_85', 'capabilities', 0.12))
+                signpost_mappings.append(('gpqa_phd_parity', 'capabilities', 0.12))
             
             for signpost_code, category, contribution in signpost_mappings:
                 signpost = db.query(Signpost).filter(Signpost.code == signpost_code).first()
