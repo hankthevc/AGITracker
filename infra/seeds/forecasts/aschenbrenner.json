@@ -1,0 +1,27 @@
+[
+  {
+    "signpost_code": "compute_1e26",
+    "target_date": "2025-12-31",
+    "label": "10^26 FLOP by end 2025",
+    "confidence": 0.7,
+    "rationale": "Situational Awareness compute trajectory",
+    "provisional": true
+  },
+  {
+    "signpost_code": "compute_1e27",
+    "target_date": "2027-03-31",
+    "label": "10^27 FLOP by Q1 2027",
+    "confidence": 0.6,
+    "rationale": "OOM/year scaling assumption",
+    "provisional": true
+  },
+  {
+    "signpost_code": "swe_bench_90",
+    "target_date": "2027-12-31",
+    "label": "Fully automated SWE",
+    "confidence": 0.5,
+    "rationale": "AGI by 2027 scenario",
+    "provisional": true
+  }
+]
+
