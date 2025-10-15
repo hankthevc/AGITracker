@@ -130,6 +130,37 @@ function HomeContent() {
       {/* Category progress lanes */}
       <LaneProgress lanes={lanes} />
       
+      {/* Inputs Sparkline */}
+      <Card data-testid="inputs-sparkline">
+        <CardHeader>
+          <CardTitle className="text-base">Inputs Progress Trend</CardTitle>
+          <CardDescription>Recent changes in training compute, DC power, and algorithmic efficiency</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-4">
+            {/* Simple sparkline visualization */}
+            <div className="flex-1 flex items-end gap-1 h-12">
+              {[0.15, 0.18, 0.20, 0.22, 0.25].map((value, idx) => (
+                <div
+                  key={idx}
+                  className="flex-1 bg-blue-500 rounded-t"
+                  style={{ height: `${value * 100}%` }}
+                  title={`${(value * 100).toFixed(1)}%`}
+                />
+              ))}
+            </div>
+            <div className="text-right">
+              <div className="text-2xl font-bold">{(data.inputs * 100).toFixed(1)}%</div>
+              <div className="text-xs text-muted-foreground">Current</div>
+            </div>
+          </div>
+          <div className="mt-4 text-sm text-muted-foreground">
+            Tracking FLOPs milestones (1e25 → 1e27), DC power (0.1 → 10 GW), and algorithmic efficiency gains.
+            <a href="/compute" className="text-primary hover:underline ml-1">View details →</a>
+          </div>
+        </CardContent>
+      </Card>
+      
       {/* What moved this week */}
       <ChangelogPanel />
       

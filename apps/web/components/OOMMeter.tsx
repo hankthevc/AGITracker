@@ -1,62 +1,115 @@
-'use client'
+"use client"
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 
-interface OOMMeterProps {
-  currentOOM: number
-  targetOOM: number
-  label?: string
+interface Milestone {
+  label: string
+  value: number
+  unit: string
+  achieved: boolean
+  date?: string
 }
 
-export function OOMMeter({ currentOOM, targetOOM, label = "Effective Compute" }: OOMMeterProps) {
-  // OOM scale from 24 to 27 (10^24 to 10^27 FLOP)
-  const minOOM = 24
-  const maxOOM = 27
-  const range = maxOOM - minOOM
-  
-  // Calculate percentages
-  const currentPercent = ((currentOOM - minOOM) / range) * 100
-  const targetPercent = ((targetOOM - minOOM) / range) * 100
-  
+interface OOMMeterProps {
+  milestones: Milestone[]
+  title?: string
+  description?: string
+}
+
+export function OOMMeter({ 
+  milestones, 
+  title = "Inputs OOM Milestones",
+  description = "Orders of magnitude progress in training compute, DC power, and algorithmic efficiency"
+}: OOMMeterProps) {
+  // Log scale visualization
+  const getLogPosition = (value: number, min: number, max: number) => {
+    const logValue = Math.log10(value)
+    const logMin = Math.log10(min)
+    const logMax = Math.log10(max)
+    return ((logValue - logMin) / (logMax - logMin)) * 100
+  }
+
+  // Determine range from milestones
+  const values = milestones.map(m => m.value)
+  const minValue = Math.min(...values) / 10 // Start one OOM below
+  const maxValue = Math.max(...values) * 10 // End one OOM above
+
   return (
-    <Card>
+    <Card data-testid="oom-meter">
       <CardHeader>
-        <CardTitle>{label}</CardTitle>
-        <CardDescription>Training run compute (FLOP)</CardDescription>
+        <CardTitle>{title}</CardTitle>
+        <CardDescription>{description}</CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col items-center p-6">
-        <div className="relative w-16 h-64 bg-gray-200 rounded-full overflow-hidden">
-          {/* Target marker */}
-          <div
-            className="absolute left-0 right-0 h-1 bg-red-500 border-t-2 border-red-600"
-            style={{ bottom: `${targetPercent}%` }}
-          />
-          
-          {/* Current fill */}
-          <div
-            className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-blue-600 to-blue-400 transition-all duration-500"
-            style={{ height: `${currentPercent}%` }}
-          />
-        </div>
-        
-        <div className="mt-6 text-center space-y-2">
-          <div>
-            <div className="text-2xl font-bold">10^{currentOOM.toFixed(1)}</div>
-            <div className="text-sm text-muted-foreground">Current</div>
+      <CardContent>
+        <div className="space-y-6">
+          {/* Log scale bar */}
+          <div className="relative h-12 bg-muted rounded-lg">
+            <div className="absolute inset-0 flex items-center px-4">
+              <div className="w-full h-1 bg-border relative">
+                {milestones.map((milestone, idx) => {
+                  const position = getLogPosition(milestone.value, minValue, maxValue)
+                  return (
+                    <div
+                      key={idx}
+                      className="absolute"
+                      style={{ left: `${position}%`, transform: 'translateX(-50%)' }}
+                    >
+                      <div 
+                        className={`w-3 h-3 rounded-full -mt-1 ${
+                          milestone.achieved 
+                            ? 'bg-green-500' 
+                            : 'bg-gray-400'
+                        }`}
+                        title={`${milestone.label}: ${milestone.value} ${milestone.unit}`}
+                      />
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
           </div>
-          <div className="text-sm">
-            <div className="text-muted-foreground">Target: 10^{targetOOM}</div>
+
+          {/* Milestone list */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {milestones.map((milestone, idx) => (
+              <div
+                key={idx}
+                className={`p-3 rounded-lg border ${
+                  milestone.achieved 
+                    ? 'bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800' 
+                    : 'bg-muted border-border'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="font-medium text-sm">{milestone.label}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {milestone.value.toExponential(0)} {milestone.unit}
+                    </div>
+                  </div>
+                  <Badge 
+                    variant={milestone.achieved ? "default" : "outline"}
+                    className={milestone.achieved ? "bg-green-600" : ""}
+                  >
+                    {milestone.achieved ? '✓' : '○'}
+                  </Badge>
+                </div>
+                {milestone.date && (
+                  <div className="text-xs text-muted-foreground mt-1">
+                    {milestone.achieved ? 'Achieved' : 'Projected'}: {milestone.date}
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
-        </div>
-        
-        {/* Legend */}
-        <div className="mt-4 space-y-1 text-xs text-muted-foreground">
-          <div>10^24: GPT-3 scale</div>
-          <div>10^26: Intermediate</div>
-          <div>10^27: Target threshold</div>
+
+          {/* Summary */}
+          <div className="text-sm text-center text-muted-foreground">
+            {milestones.filter(m => m.achieved).length} of {milestones.length} milestones achieved
+          </div>
         </div>
       </CardContent>
     </Card>
   )
 }
-
