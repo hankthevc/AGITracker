@@ -1,0 +1,121 @@
+name: CI Nightly E2E
+
+on:
+  schedule:
+    - cron: '0 2 * * *'  # 2 AM UTC daily
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  e2e-full:
+    name: Full E2E Test Suite
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: agi_signpost_tracker_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm install
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install Python dependencies
+        run: |
+          cd services/etl
+          pip install -e .
+      
+      - name: Run database migrations
+        run: |
+          cd infra/migrations
+          alembic upgrade head
+        env:
+          DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/agi_signpost_tracker_test
+      
+      - name: Seed database
+        run: |
+          cd scripts
+          python seed.py
+        env:
+          DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/agi_signpost_tracker_test
+      
+      - name: Install Playwright browsers
+        run: |
+          cd apps/web
+          npx playwright install chromium --with-deps
+      
+      - name: Start API server
+        run: |
+          cd services/etl
+          uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+          sleep 10
+        env:
+          DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/agi_signpost_tracker_test
+          REDIS_URL: redis://localhost:6379/0
+      
+      - name: Build Next.js app
+        run: |
+          cd apps/web
+          npm run build
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8000
+      
+      - name: Start Next.js server
+        run: |
+          cd apps/web
+          npm start &
+          sleep 10
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8000
+      
+      - name: Run Playwright E2E tests
+        run: |
+          cd apps/web
+          npm run e2e
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8000
+      
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report-nightly
+          path: apps/web/playwright-report/
+          retention-days: 14
+          if-no-files-found: ignore
+      
+      - name: Notify on failure
+        if: failure()
+        run: echo "::warning::Nightly E2E tests failed. Check artifacts for details."
+
