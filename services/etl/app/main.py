@@ -55,6 +55,20 @@ app.add_middleware(
 )
 
 
+@app.get("/_routes")
+async def list_routes():
+    """Temporary endpoint to list all registered routes."""
+    routes = []
+    for route in app.routes:
+        if hasattr(route, "methods") and hasattr(route, "path"):
+            routes.append({
+                "path": route.path,
+                "methods": list(route.methods),
+                "name": route.name,
+            })
+    return {"routes": routes}
+
+
 @app.get("/health")
 async def health():
     """Health check endpoint."""
