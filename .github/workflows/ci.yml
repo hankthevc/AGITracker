@@ -103,13 +103,12 @@ jobs:
       - name: Install Python dependencies
         run: |
           cd services/etl
-          pip install -e .
-          pip install pytest pytest-asyncio
+          pip install -e . || (pip install -e . && pip install pytest pytest-asyncio pytest-cov)
       
       - name: Run Python unit tests
         run: |
           cd services/etl
-          pytest -v
+          python -m pytest -v
         env:
           DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/agi_signpost_tracker_test
           REDIS_URL: redis://localhost:6379/0
