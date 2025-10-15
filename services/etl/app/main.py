@@ -851,7 +851,9 @@ async def list_events(
 
 @app.get("/v1/events/{event_id}")
 async def get_event(event_id: int, db: Session = Depends(get_db)):
-    """Get detailed event information with signpost links and entities."""
+    """Get detailed event information with signpost links, entities, and forecast comparison."""
+    from app.services.forecast_comparison import get_forecast_comparison_for_event_link
+    
     event = db.query(Event).filter(Event.id == event_id).first()
     
     if not event:
@@ -867,6 +869,9 @@ async def get_event(event_id: int, db: Session = Depends(get_db)):
     for link in links:
         signpost = db.query(Signpost).filter(Signpost.id == link.signpost_id).first()
         if signpost:
+            # Get forecast comparison for this link
+            forecast_comp = get_forecast_comparison_for_event_link(event.id, signpost.id, db)
+            
             signpost_links.append({
                 "signpost_id": signpost.id,
                 "signpost_code": signpost.code,
@@ -876,6 +881,7 @@ async def get_event(event_id: int, db: Session = Depends(get_db)):
                 "rationale": link.rationale,
                 "value": float(link.value) if link.value else None,
                 "observed_at": link.observed_at.isoformat() if link.observed_at else None,
+                "forecast_comparison": forecast_comp if forecast_comp else None,
             })
     
     # Get entities
@@ -970,6 +976,27 @@ async def events_feed(
             else "All tiers included. C/D tier: displayed but NEVER moves gauges."
         ),
         "items": feed_items,
+    }
+
+
+@app.get("/v1/roadmaps/compare")
+@limiter.limit(f"{settings.rate_limit_per_minute}/minute")
+@cache(expire=settings.index_cache_ttl_seconds)
+async def roadmaps_compare(request: Request, db: Session = Depends(get_db)):
+    """
+    Compare all signposts against roadmap predictions.
+    
+    Returns:
+        List of signposts with current values and forecast comparisons
+        showing ahead/on_track/behind status for each roadmap.
+    """
+    from app.services.forecast_comparison import get_all_forecast_comparisons
+    
+    comparisons = get_all_forecast_comparisons(db)
+    
+    return {
+        "generated_at": datetime.utcnow().isoformat(),
+        "signposts": comparisons,
     }
 
 
