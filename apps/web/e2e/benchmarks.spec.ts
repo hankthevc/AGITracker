@@ -63,5 +63,27 @@ test.describe('Benchmarks Page', () => {
     await expect(qualityNote).toBeVisible()
     await expect(qualityNote).toContainText(/Bio|Chem|quality/i)
   })
+
+  test('HLE tile shows monitor-only chip and optional version pill', async ({ page }) => {
+    await page.goto('/benchmarks')
+    
+    // HLE tile should be visible
+    const hleTile = page.getByTestId('hle-benchmark-tile')
+    await expect(hleTile).toBeVisible()
+    
+    // Should have Monitor-Only status chip
+    const monitorOnlyChip = page.getByTestId('hle-monitor-only')
+    await expect(monitorOnlyChip).toBeVisible()
+    await expect(monitorOnlyChip).toContainText('Monitor-Only')
+    
+    // Should have version pill (optional, but present in our data)
+    const versionPill = page.getByTestId('hle-version-pill')
+    await expect(versionPill).toBeVisible()
+    await expect(versionPill).toContainText(/Text-2500/i)
+    
+    // Monitor-Only chip should have tooltip with quality context
+    const tooltip = await monitorOnlyChip.getAttribute('title')
+    expect(tooltip).toContain('long-horizon')
+  })
 })
 

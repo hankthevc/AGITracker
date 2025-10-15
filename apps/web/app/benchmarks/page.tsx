@@ -52,7 +52,9 @@ export default function BenchmarksPage() {
       target: '50-70%',
       status: 'Monitor-Only',
       provisional: true,
+      version: 'Text-2500', // Optional version identifier
       qualityNote: 'Note: Bio/Chem subsets have known label-quality issues. Currently B-tier (Provisional) evidence only.',
+      qualityTooltip: 'HLE is tracked as a long-horizon indicator (2026-2028) but does not affect main composite gauges until A-tier evidence becomes available.',
     },
   ]
   
@@ -75,15 +77,26 @@ export default function BenchmarksPage() {
             <CardHeader>
               <div className="flex items-start justify-between gap-2">
                 <CardTitle className="flex-1">{benchmark.name}</CardTitle>
-                {benchmark.provisional && (
-                  <Badge 
-                    variant="secondary" 
-                    className="bg-orange-100 text-orange-800 hover:bg-orange-200"
-                    data-testid="hle-provisional-badge"
-                  >
-                    Provisional
-                  </Badge>
-                )}
+                <div className="flex flex-wrap gap-2 items-start">
+                  {benchmark.provisional && (
+                    <Badge 
+                      variant="secondary" 
+                      className="bg-orange-100 text-orange-800 hover:bg-orange-200"
+                      data-testid="hle-provisional-badge"
+                    >
+                      Provisional
+                    </Badge>
+                  )}
+                  {(benchmark as any).version && (
+                    <Badge 
+                      variant="outline" 
+                      className="bg-slate-50 text-slate-700 border-slate-300"
+                      data-testid="hle-version-pill"
+                    >
+                      v{(benchmark as any).version}
+                    </Badge>
+                  )}
+                </div>
               </div>
               <CardDescription>{benchmark.description}</CardDescription>
             </CardHeader>
@@ -118,13 +131,17 @@ export default function BenchmarksPage() {
               
               <div className="pt-4 border-t space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className={`text-sm font-medium px-3 py-1 rounded-full ${
-                    benchmark.status === 'In Progress' 
-                      ? 'bg-yellow-100 text-yellow-800' 
-                      : benchmark.status === 'Monitor-Only'
-                      ? 'bg-blue-100 text-blue-800'
-                      : 'bg-gray-100 text-gray-800'
-                  }`}>
+                  <span 
+                    className={`text-sm font-medium px-3 py-1 rounded-full ${
+                      benchmark.status === 'In Progress' 
+                        ? 'bg-yellow-100 text-yellow-800' 
+                        : benchmark.status === 'Monitor-Only'
+                        ? 'bg-blue-100 text-blue-800'
+                        : 'bg-gray-100 text-gray-800'
+                    }`}
+                    data-testid={benchmark.status === 'Monitor-Only' ? 'hle-monitor-only' : undefined}
+                    title={(benchmark as any).qualityTooltip}
+                  >
                     {benchmark.status}
                   </span>
                   <a
