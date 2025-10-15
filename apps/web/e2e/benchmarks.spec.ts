@@ -45,5 +45,23 @@ test.describe('Benchmarks Page', () => {
     // Should show agent benchmarks
     await expect(page.getByText(/Agents|Autonomous/i)).toBeVisible()
   })
+
+  test('HLE tile shows provisional badge and quality note', async ({ page }) => {
+    await page.goto('/benchmarks')
+    
+    // HLE tile should be visible
+    const hleTile = page.getByTestId('hle-benchmark-tile')
+    await expect(hleTile).toBeVisible()
+    
+    // Should have Provisional badge
+    const provisionalBadge = page.getByTestId('hle-provisional-badge')
+    await expect(provisionalBadge).toBeVisible()
+    await expect(provisionalBadge).toContainText('Provisional')
+    
+    // Should show quality note/warning
+    const qualityNote = page.getByTestId('hle-quality-note')
+    await expect(qualityNote).toBeVisible()
+    await expect(qualityNote).toContainText(/Bio|Chem|quality/i)
+  })
 })
 
