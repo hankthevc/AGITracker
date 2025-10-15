@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     # Admin API Key
     admin_api_key: str = "change-me-in-production"
     
+    # CORS
+    cors_origins: str = "http://localhost:3000,https://*.vercel.app"
+    
     class Config:
         env_file = ".env"
         case_sensitive = False

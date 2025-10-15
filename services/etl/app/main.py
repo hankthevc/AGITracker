@@ -45,10 +45,10 @@ app = FastAPI(
     description="Evidence-first dashboard tracking proximity to AGI via measurable signposts",
 )
 
-# CORS middleware
+# CORS middleware - configurable via CORS_ORIGINS env var
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "https://*.vercel.app"],
+    allow_origins=[origin.strip() for origin in settings.cors_origins.split(",")],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -59,6 +59,20 @@ app.add_middleware(
 async def health():
     """Health check endpoint."""
     return {"status": "ok", "service": "agi-tracker-api", "version": "1.0.0"}
+
+
+@app.get("/health/full")
+async def health_full():
+    """
+    Full health check with configuration details for debugging.
+    Returns API configuration and status.
+    """
+    return {
+        "status": "ok",
+        "preset_default": "equal",
+        "cors_origins": [origin.strip() for origin in settings.cors_origins.split(",")],
+        "time": datetime.utcnow().isoformat() + "Z",
+    }
 
 
 @app.get("/v1/index")
