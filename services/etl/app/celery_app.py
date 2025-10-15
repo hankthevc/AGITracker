@@ -71,6 +71,45 @@ celery_app.conf.beat_schedule = {
         "task": "app.tasks.snap_index.generate_weekly_digest",
         "schedule": crontab(day_of_week=0, hour=8, minute=8),  # Sunday 8:08 AM UTC
     },
+    # News ingestion tasks (v0.3) - Priority order: B > A > D > C
+    # Run twice daily (morning & evening) to catch breaking news
+    "ingest-company-blogs-morning": {
+        "task": "ingest_company_blogs",
+        "schedule": crontab(hour=5, minute=15),  # 5:15 AM UTC daily (B-tier, priority 1)
+    },
+    "ingest-company-blogs-evening": {
+        "task": "ingest_company_blogs",
+        "schedule": crontab(hour=17, minute=15),  # 5:15 PM UTC daily
+    },
+    "ingest-arxiv-morning": {
+        "task": "ingest_arxiv",
+        "schedule": crontab(hour=5, minute=35),  # 5:35 AM UTC daily (A-tier, priority 2)
+    },
+    "ingest-arxiv-evening": {
+        "task": "ingest_arxiv",
+        "schedule": crontab(hour=17, minute=35),  # 5:35 PM UTC daily
+    },
+    "ingest-social-morning": {
+        "task": "ingest_social",
+        "schedule": crontab(hour=5, minute=55),  # 5:55 AM UTC daily (D-tier, priority 3, opt-in)
+    },
+    "ingest-press-morning": {
+        "task": "ingest_press_reuters_ap",
+        "schedule": crontab(hour=6, minute=15),  # 6:15 AM UTC daily (C-tier, priority 4)
+    },
+    "ingest-press-evening": {
+        "task": "ingest_press_reuters_ap",
+        "schedule": crontab(hour=18, minute=15),  # 6:15 PM UTC daily
+    },
+    # Event mapping task (runs after morning & evening ingestion waves)
+    "map-events-morning": {
+        "task": "map_events_to_signposts",
+        "schedule": crontab(hour=6, minute=30),  # 6:30 AM UTC daily (after morning ingestion)
+    },
+    "map-events-evening": {
+        "task": "map_events_to_signposts",
+        "schedule": crontab(hour=18, minute=30),  # 6:30 PM UTC daily (after evening ingestion)
+    },
 }
 
 if __name__ == "__main__":
