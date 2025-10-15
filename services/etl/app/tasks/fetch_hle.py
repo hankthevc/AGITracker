@@ -164,20 +164,20 @@ def create_or_update_claim(db, data: Dict) -> Claim:
         db.commit()
         db.refresh(source)
     
-    # Create claim hash
-    claim_hash = hashlib.sha256(
+    # Create URL hash for idempotency
+    url_hash = hashlib.sha256(
         f"{data['source_url']}:{data['model']}:{data['score_percent']}:{data['version']}".encode()
     ).hexdigest()
     
     # Check if exists
-    existing = db.query(Claim).filter(Claim.claim_hash == claim_hash).first()
+    existing = db.query(Claim).filter(Claim.url_hash == url_hash).first()
     if existing:
         print(f"  - Claim already exists: {data['model']} @ {data['score_percent']}%")
         return existing
     
     # Create new claim
     claim = Claim(
-        claim_hash=claim_hash,
+        url_hash=url_hash,
         title=f"HLE Text-Only: {data['model']} achieves {data['score_percent']}%",
         summary=f"{data['model']} scores {data['score_percent']}% on Humanity's Last Exam (text-only variant)",
         metric_name="HLE Text Accuracy",
