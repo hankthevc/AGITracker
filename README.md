@@ -222,6 +222,51 @@ make seed
 - **Web:** http://localhost:3000
 - **API Docs:** http://localhost:8000/docs
 - **API Health:** http://localhost:8000/health
+- **Debug:** http://localhost:3000/_debug
+
+### API Connectivity & Debugging
+
+The web app automatically resolves the API base URL in this order:
+
+1. **`NEXT_PUBLIC_API_URL` environment variable** (set in `.env.local`)
+2. **Browser auto-detection** (port 8000 if web is on :3000)
+3. **Fallback:** `http://localhost:8000`
+
+**Set custom API URL:**
+```bash
+# apps/web/.env.local
+NEXT_PUBLIC_API_URL=http://localhost:8000
+```
+
+**Default preset behavior:**
+The `/v1/index` endpoint defaults to `preset=equal` if no query param is provided, so calling `/v1/index` without parameters returns valid data.
+
+**CORS Configuration:**
+The API CORS middleware is configurable via environment variable:
+```bash
+# services/etl/.env
+CORS_ORIGINS=http://localhost:3000,https://your-frontend.vercel.app
+```
+
+**Debugging connectivity issues:**
+
+1. Visit **http://localhost:3000/_debug** to see:
+   - Resolved API base URL
+   - `/health` and `/health/full` status
+   - Sample `/v1/index` response
+   - CORS configuration
+   - Troubleshooting tips
+
+2. Check browser console for:
+   - Network requests (should point to the base URL shown on `/_debug`)
+   - CORS errors (ensure `localhost:3000` in API's CORS origins)
+   - HTTP status codes and error messages
+
+3. Verify API is running:
+   ```bash
+   curl http://localhost:8000/health
+   # Should return: {"status":"ok","service":"agi-tracker-api","version":"1.0.0"}
+   ```
 
 ### Development Commands
 

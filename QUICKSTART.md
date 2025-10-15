@@ -129,6 +129,54 @@ Navigate to http://localhost:3000 and you should see:
 - Safety margin dial
 - Preset switcher (Equal / Aschenbrenner / AI-2027)
 
+## API Connectivity & Environment
+
+### Setting Custom API URL
+
+The web app auto-detects the API location, but you can override it:
+
+```bash
+# Create apps/web/.env.local
+NEXT_PUBLIC_API_URL=http://localhost:8000
+```
+
+**Resolution order:**
+1. `NEXT_PUBLIC_API_URL` environment variable
+2. Auto-detect from browser (port 8000 if web is on :3000)
+3. Fallback to `http://localhost:8000`
+
+### Debugging Connection Issues
+
+If you see "Error Loading Data" on the home page:
+
+1. **Visit http://localhost:3000/_debug**
+   - Shows the resolved API URL
+   - Displays `/health`, `/health/full`, and `/v1/index` responses
+   - Lists CORS configuration
+   - Provides troubleshooting tips
+
+2. **Check API is running:**
+   ```bash
+   curl http://localhost:8000/health
+   # Should return: {"status":"ok","service":"agi-tracker-api","version":"1.0.0"}
+   ```
+
+3. **Verify CORS allows localhost:3000:**
+   ```bash
+   curl -I http://localhost:8000/health -H "Origin: http://localhost:3000"
+   # Look for: Access-Control-Allow-Origin: http://localhost:3000
+   ```
+
+4. **Check browser console:**
+   - Open DevTools (F12)
+   - Go to Network tab
+   - Look for requests to `/v1/index`
+   - Check for CORS errors or 404/500 status codes
+
+### Default Preset Behavior
+
+The API's `/v1/index` endpoint defaults to `preset=equal` if not specified, so visiting the home page without a `?preset=` parameter will work correctly.
+
 ## Common Issues & Solutions
 
 ### Port 5432 Already in Use
