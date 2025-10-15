@@ -23,6 +23,9 @@ We operationalize this via thresholds on **four first-class benchmark families:*
 
 Plus **Inputs** (training compute, algorithmic efficiency) and **Security** posture.
 
+**Monitor-Only Benchmarks:**
+- **HLE (Humanity's Last Exam):** PhD-level reasoning breadth benchmark with known label-quality issues in Bio/Chem subsets. Currently B-tier (Provisional). Does not affect main composite until A-tier evidence available.
+
 ### Evidence Policy
 
 - **A (Primary):** Peer-reviewed/archived papers, official leaderboards/APIs, model cards with reproducible evals → Directly moves main gauges
