@@ -7,6 +7,7 @@ from app.tasks.fetch_swebench import *  # noqa: F401, F403
 from app.tasks.fetch_osworld import *  # noqa: F401, F403
 from app.tasks.fetch_webarena import *  # noqa: F401, F403
 from app.tasks.fetch_gpqa import *  # noqa: F401, F403
+from app.tasks.fetch_hle import *  # noqa: F401, F403
 from app.tasks.seed_inputs import *  # noqa: F401, F403
 from app.tasks.security_maturity import *  # noqa: F401, F403
 from app.tasks.healthchecks import *  # noqa: F401, F403
