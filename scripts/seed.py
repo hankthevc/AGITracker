@@ -2,8 +2,8 @@
 
 Fetches current leaderboard values via Playwright and populates:
 - 3 roadmaps
-- 4 benchmarks  
-- 25 signposts across capabilities/agents/inputs/security
+- 6 benchmarks  
+- 32 signposts across capabilities/agents/inputs/security
 - Initial claims from current leaderboard data
 """
 import asyncio
@@ -334,7 +334,43 @@ def seed_signposts(db: Session):
             "first_class": False,
         },
         
-        # INPUTS (7)
+        # INPUTS (11)
+        {
+            "code": "inputs_flops_25",
+            "name": "Training Compute 10^25 FLOP",
+            "description": "Single training run reaches 10^25 FLOP milestone",
+            "category": "inputs",
+            "metric_name": "Training FLOPs",
+            "unit": "FLOPs",
+            "direction": ">=",
+            "baseline_value": 1e24,
+            "target_value": 1e25,
+            "first_class": False,
+        },
+        {
+            "code": "inputs_flops_26",
+            "name": "Training Compute 10^26 FLOP",
+            "description": "Single training run reaches 10^26 FLOP milestone",
+            "category": "inputs",
+            "metric_name": "Training FLOPs",
+            "unit": "FLOPs",
+            "direction": ">=",
+            "baseline_value": 1e25,
+            "target_value": 1e26,
+            "first_class": True,
+        },
+        {
+            "code": "inputs_flops_27",
+            "name": "Training Compute 10^27 FLOP",
+            "description": "Single training run reaches 10^27 FLOP milestone",
+            "category": "inputs",
+            "metric_name": "Training FLOPs",
+            "unit": "FLOPs",
+            "direction": ">=",
+            "baseline_value": 1e26,
+            "target_value": 1e27,
+            "first_class": True,
+        },
         {
             "code": "compute_1e26",
             "name": "Training Compute 10^26 FLOP",
@@ -384,6 +420,42 @@ def seed_signposts(db: Session):
             "first_class": False,
         },
         {
+            "code": "inputs_dc_1gw",
+            "name": "DC Power 1 GW Milestone",
+            "description": "Data center power committed reaches 1 GW milestone",
+            "category": "inputs",
+            "metric_name": "DC Power",
+            "unit": "GW",
+            "direction": ">=",
+            "baseline_value": 0.1,
+            "target_value": 1.0,
+            "first_class": True,
+        },
+        {
+            "code": "inputs_dc_10gw",
+            "name": "DC Power 10 GW Milestone",
+            "description": "Data center power committed reaches 10 GW milestone",
+            "category": "inputs",
+            "metric_name": "DC Power",
+            "unit": "GW",
+            "direction": ">=",
+            "baseline_value": 1.0,
+            "target_value": 10.0,
+            "first_class": True,
+        },
+        {
+            "code": "inputs_algo_oom",
+            "name": "Algorithmic Efficiency OOM Milestones",
+            "description": "Orders of magnitude improvement in algorithmic efficiency since 2020",
+            "category": "inputs",
+            "metric_name": "Algorithmic Efficiency",
+            "unit": "x",
+            "direction": ">=",
+            "baseline_value": 10.0,
+            "target_value": 100.0,
+            "first_class": True,
+        },
+        {
             "code": "dc_power_100mw",
             "name": "DC Power 0.1 GW",
             "description": "Data center power committed reaches 0.1 GW for single cluster",
@@ -420,7 +492,19 @@ def seed_signposts(db: Session):
             "first_class": True,
         },
         
-        # SECURITY (5)
+        # SECURITY (6)
+        {
+            "code": "sec_maturity",
+            "name": "Security Maturity Index",
+            "description": "Aggregate security maturity score (0-1) based on weighted signals",
+            "category": "security",
+            "metric_name": "Security Maturity",
+            "unit": "score",
+            "direction": ">=",
+            "baseline_value": 0.0,
+            "target_value": 1.0,
+            "first_class": True,
+        },
         {
             "code": "security_l1_weights",
             "name": "Security Maturity L1: Model Weights",
