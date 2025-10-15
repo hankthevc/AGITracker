@@ -1,4 +1,4 @@
-.PHONY: bootstrap dev migrate seed seed-content seed-dev-fixtures test lint typecheck e2e build clean backfill ci-local
+.PHONY: bootstrap dev migrate seed seed-content seed-dev-fixtures test lint typecheck e2e build clean backfill backfill-news ci-local
 
 bootstrap:
 	@echo "🚀 Bootstrapping AGI Signpost Tracker..."
@@ -92,6 +92,32 @@ backfill:
 		print('📊 6/6 Computing Security Maturity...'); security_maturity_task(); \
 		print('✅ Backfill complete')"
 	@echo "✅ All connectors backfilled. Run 'make seed' if needed."
+
+backfill-news:
+	@echo "📰 Backfilling news events (last 12 months)..."
+	@echo "   Using fixtures (default) - safe for testing"
+	@echo "   Set ENABLE_SOCIAL_INGEST=true to include D-tier social (opt-in)"
+	@if [ "$(BACKFILL_REAL)" = "true" ]; then \
+		echo "⚠️  Live scraping enabled (BACKFILL_REAL=true)"; \
+		export SCRAPE_REAL=true; \
+	else \
+		echo "✓ Using fixtures (recommended for initial setup)"; \
+		export SCRAPE_REAL=false; \
+	fi; \
+	export DATABASE_URL="$${DATABASE_URL:-postgresql+psycopg://postgres:postgres@localhost:5432/agi_signposts}"; \
+	cd scripts && python -c "import sys; sys.path.insert(0, '../services/etl'); \
+		from app.tasks.news.ingest_company_blogs import ingest_company_blogs_task; \
+		from app.tasks.news.ingest_arxiv import ingest_arxiv_task; \
+		from app.tasks.news.ingest_press_reuters_ap import ingest_press_reuters_ap_task; \
+		from app.tasks.news.ingest_social import ingest_social_task; \
+		from app.tasks.news.map_events_to_signposts import map_events_to_signposts_task; \
+		print('📰 1/5 Ingesting company blogs (B-tier)...'); ingest_company_blogs_task(); \
+		print('📰 2/5 Ingesting arXiv papers (A-tier)...'); ingest_arxiv_task(); \
+		print('📰 3/5 Ingesting press (C-tier)...'); ingest_press_reuters_ap_task(); \
+		print('📰 4/5 Ingesting social (D-tier, opt-in)...'); ingest_social_task(); \
+		print('📰 5/5 Mapping events to signposts...'); stats = map_events_to_signposts_task(); \
+		print(f'✅ News backfill complete: {stats}')"
+	@echo "✅ News events ingested and mapped. Check /v1/events API for results."
 
 ci-local:
 	@echo "🔬 Running CI checks locally..."
