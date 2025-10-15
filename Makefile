@@ -1,4 +1,4 @@
-.PHONY: bootstrap dev migrate seed seed-content seed-dev-fixtures test lint typecheck e2e build clean backfill
+.PHONY: bootstrap dev migrate seed seed-content seed-dev-fixtures test lint typecheck e2e build clean backfill ci-local
 
 bootstrap:
 	@echo "🚀 Bootstrapping AGI Signpost Tracker..."
@@ -92,4 +92,24 @@ backfill:
 		print('📊 6/6 Computing Security Maturity...'); security_maturity_task(); \
 		print('✅ Backfill complete')"
 	@echo "✅ All connectors backfilled. Run 'make seed' if needed."
+
+ci-local:
+	@echo "🔬 Running CI checks locally..."
+	@echo ""
+	@echo "1️⃣  Installing Python dependencies..."
+	cd services/etl && . .venv/bin/activate && pip install -e . && pip install pytest pytest-asyncio pytest-cov
+	@echo ""
+	@echo "2️⃣  Running Python unit tests..."
+	cd services/etl && . .venv/bin/activate && python -m pytest -v
+	@echo ""
+	@echo "3️⃣  Installing Node dependencies..."
+	npm ci || npm install
+	@echo ""
+	@echo "4️⃣  Installing Playwright browsers..."
+	npx playwright install --with-deps chromium
+	@echo ""
+	@echo "5️⃣  Running E2E tests..."
+	npm run e2e
+	@echo ""
+	@echo "✅ Local CI checks complete!"
 
