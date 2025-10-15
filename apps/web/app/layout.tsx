@@ -50,6 +50,9 @@ export default function RootLayout({
                   <Link href="/" className="text-sm font-medium hover:text-primary transition-colors">
                     Home
                   </Link>
+                  <Link href="/events" className="text-sm font-medium hover:text-primary transition-colors">
+                    Events
+                  </Link>
                   <Link href="/benchmarks" className="text-sm font-medium hover:text-primary transition-colors">
                     Benchmarks
                   </Link>
@@ -65,6 +68,9 @@ export default function RootLayout({
                   <Link href="/methodology" className="text-sm font-medium hover:text-primary transition-colors">
                     Methodology
                   </Link>
+                  <Link href="/admin/review" className="text-sm font-medium hover:text-primary transition-colors">
+                    Admin
+                  </Link>
                 </div>
               </div>
             </div>
@@ -78,10 +84,19 @@ export default function RootLayout({
                 <div>
                   <p>© 2025 AGI Signpost Tracker</p>
                   <p className="mt-1">
-                    Public JSON feed:{' '}
+                    JSON feeds:{' '}
                     <a href="/v1/feed.json" className="text-primary hover:underline">
-                      CC BY 4.0
+                      Index
                     </a>
+                    {' • '}
+                    <a href="/v1/events/feed.json" className="text-primary hover:underline">
+                      Events (Public)
+                    </a>
+                    {' • '}
+                    <a href="/v1/events/feed.json?include_research=true" className="text-primary hover:underline">
+                      Events (Research)
+                    </a>
+                    {' (CC BY 4.0)'}
                   </p>
                 </div>
                 <div className="text-right">

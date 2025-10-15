@@ -43,5 +43,81 @@ export const apiClient = {
   getFeed: async () => {
     return fetcher('/v1/feed.json')
   },
+  
+  // Events API
+  getEvents: async (params?: {
+    tier?: string
+    signpost_id?: number
+    needs_review?: boolean
+    start_date?: string
+    end_date?: string
+    skip?: number
+    limit?: number
+  }) => {
+    const searchParams = new URLSearchParams()
+    if (params?.tier) searchParams.append('tier', params.tier)
+    if (params?.signpost_id) searchParams.append('signpost_id', String(params.signpost_id))
+    if (params?.needs_review !== undefined) searchParams.append('needs_review', String(params.needs_review))
+    if (params?.start_date) searchParams.append('start_date', params.start_date)
+    if (params?.end_date) searchParams.append('end_date', params.end_date)
+    if (params?.skip) searchParams.append('skip', String(params.skip))
+    if (params?.limit) searchParams.append('limit', String(params.limit))
+    return fetcher(`/v1/events?${searchParams}`)
+  },
+  
+  getEvent: async (id: number) => {
+    return fetcher(`/v1/events/${id}`)
+  },
+  
+  getEventsFeed: async () => {
+    return fetcher('/v1/events/feed.json')
+  },
+  
+  getRoadmapComparison: async (params?: {
+    signpost_code?: string
+    roadmap?: string
+  }) => {
+    const searchParams = new URLSearchParams()
+    if (params?.signpost_code) searchParams.append('signpost_code', params.signpost_code)
+    if (params?.roadmap) searchParams.append('roadmap', params.roadmap)
+    return fetcher(`/v1/roadmaps/compare?${searchParams}`)
+  },
+  
+  approveEvent: async (id: number, token?: string) => {
+    const baseUrl = getApiBaseUrl()
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    }
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
+    }
+    const response = await fetch(`${baseUrl}/v1/admin/events/${id}/approve`, {
+      method: 'POST',
+      headers,
+    })
+    if (!response.ok) {
+      throw new Error(`Failed to approve event: ${response.statusText}`)
+    }
+    return response.json()
+  },
+  
+  rejectEvent: async (id: number, reason?: string, token?: string) => {
+    const baseUrl = getApiBaseUrl()
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    }
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
+    }
+    const response = await fetch(`${baseUrl}/v1/admin/events/${id}/reject`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ reason }),
+    })
+    if (!response.ok) {
+      throw new Error(`Failed to reject event: ${response.statusText}`)
+    }
+    return response.json()
+  },
 }
 

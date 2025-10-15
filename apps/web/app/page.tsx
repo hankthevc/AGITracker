@@ -7,6 +7,7 @@ import { LaneProgress } from '@/components/LaneProgress'
 import { SafetyDial } from '@/components/SafetyDial'
 import { PresetSwitcher } from '@/components/PresetSwitcher'
 import { ChangelogPanel } from '@/components/ChangelogPanel'
+import { ThisWeeksMovesStrip } from '@/components/ThisWeeksMovesStrip'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useIndex } from '@/hooks/useIndex'
 import { formatDate } from '@/lib/utils'
@@ -162,6 +163,9 @@ function HomeContent() {
       </Card>
       
       {/* What moved this week */}
+      <ThisWeeksMovesStrip />
+      
+      {/* Recent changelog */}
       <ChangelogPanel />
       
       {/* Explanation */}
