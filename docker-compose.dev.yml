@@ -33,8 +33,8 @@ services:
 
   api:
     build:
-      context: ./services/etl
-      dockerfile: ../../infra/docker/Dockerfile.api
+      context: .
+      dockerfile: ./infra/docker/Dockerfile.api
     container_name: agi-api
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/agi_signpost_tracker
@@ -54,8 +54,8 @@ services:
 
   etl-worker:
     build:
-      context: ./services/etl
-      dockerfile: ../../infra/docker/Dockerfile.etl
+      context: .
+      dockerfile: ./infra/docker/Dockerfile.etl
     container_name: agi-etl-worker
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/agi_signpost_tracker
@@ -73,8 +73,8 @@ services:
 
   etl-beat:
     build:
-      context: ./services/etl
-      dockerfile: ../../infra/docker/Dockerfile.etl
+      context: .
+      dockerfile: ./infra/docker/Dockerfile.etl
     container_name: agi-etl-beat
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/agi_signpost_tracker
@@ -92,8 +92,8 @@ services:
 
   web:
     build:
-      context: ./apps/web
-      dockerfile: ../../infra/docker/Dockerfile.web
+      context: .
+      dockerfile: ./infra/docker/Dockerfile.web
     container_name: agi-web
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:8000
