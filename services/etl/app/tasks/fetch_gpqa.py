@@ -1,7 +1,6 @@
 """GPQA-Diamond leaderboard scraper."""
 import asyncio
 import hashlib
-import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, Dict, List
@@ -12,6 +11,7 @@ from playwright.async_api import async_playwright, TimeoutError as PlaywrightTim
 from app.celery_app import celery_app
 from app.database import SessionLocal
 from app.models import Claim, ClaimSignpost, Source, Signpost
+from app.utils import check_robots_txt, get_user_agent, should_scrape_real
 
 
 async def fetch_gpqa_leaderboard() -> Optional[List[Dict]]:
@@ -21,12 +21,11 @@ async def fetch_gpqa_leaderboard() -> Optional[List[Dict]]:
     Returns list of entries with model, accuracy, date.
     Note: Marked as B-tier unless backed by paper/model card link.
     """
-    print("🔍 Fetching GPQA-Diamond from artificialanalysis.ai...")
+    url = "https://artificialanalysis.ai/evaluations/gpqa-diamond"
+    print(f"🔍 Fetching GPQA-Diamond from {url}...")
     
     # Check if we should scrape real data
-    scrape_real = os.getenv("SCRAPE_REAL", "false").lower() == "true"
-    
-    if not scrape_real:
+    if not should_scrape_real():
         print("⚠️  SCRAPE_REAL=false, using cached fixture if available")
         cache_dir = Path(__file__).parent.parent.parent.parent.parent / "infra" / "cache"
         cache_files = sorted(cache_dir.glob("gpqa_*.html"), reverse=True)
@@ -35,13 +34,21 @@ async def fetch_gpqa_leaderboard() -> Optional[List[Dict]]:
             # In production, parse the cached HTML here
             return []
     
+    # Check robots.txt
+    if not check_robots_txt(url):
+        print(f"❌ Scraping disallowed by robots.txt: {url}")
+        return None
+    
     try:
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
             page = await browser.new_page()
             
+            # Set User-Agent
+            await page.set_extra_http_headers({"User-Agent": get_user_agent()})
+            
             # Navigate to GPQA-Diamond evaluation page
-            await page.goto("https://artificialanalysis.ai/evaluations/gpqa-diamond", timeout=30000)
+            await page.goto(url, timeout=30000)
             await page.wait_for_load_state("networkidle", timeout=15000)
             
             # Cache HTML snapshot

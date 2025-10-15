@@ -2,7 +2,6 @@
 import asyncio
 import hashlib
 import json
-import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, Dict, List
@@ -13,6 +12,7 @@ from playwright.async_api import async_playwright, TimeoutError as PlaywrightTim
 from app.celery_app import celery_app
 from app.database import SessionLocal
 from app.models import Claim, ClaimSignpost, Source, Signpost
+from app.utils import check_robots_txt, get_user_agent, should_scrape_real
 
 
 def load_fixture() -> List[Dict]:
@@ -37,15 +37,24 @@ async def scrape_webarena_github() -> Optional[List[Dict]]:
     Note: WebArena often requires local hosting, so this is primarily for reference.
     The fixture should be the primary data source.
     """
-    print("🔍 Scraping WebArena from GitHub repo...")
+    url = "https://github.com/web-arena-x/webarena"
+    print(f"🔍 Scraping WebArena from {url}...")
+    
+    # Check robots.txt
+    if not check_robots_txt(url):
+        print(f"❌ Scraping disallowed by robots.txt: {url}")
+        return None
     
     try:
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
             page = await browser.new_page()
             
+            # Set User-Agent
+            await page.set_extra_http_headers({"User-Agent": get_user_agent()})
+            
             # Navigate to WebArena repo
-            await page.goto("https://github.com/web-arena-x/webarena", timeout=30000)
+            await page.goto(url, timeout=30000)
             await page.wait_for_load_state("networkidle", timeout=15000)
             
             # Cache HTML
@@ -172,9 +181,7 @@ def fetch_webarena(self):
     
     try:
         # Decide on data source
-        scrape_real = os.getenv("SCRAPE_REAL", "false").lower() == "true"
-        
-        if scrape_real:
+        if should_scrape_real():
             print("⚠️  SCRAPE_REAL=true, attempting GitHub scrape...")
             loop = asyncio.get_event_loop()
             results = loop.run_until_complete(scrape_webarena_github())

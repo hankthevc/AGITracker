@@ -1,7 +1,6 @@
 """OSWorld & OSWorld-Verified leaderboard scraper."""
 import asyncio
 import hashlib
-import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, Dict, List
@@ -12,6 +11,7 @@ from playwright.async_api import async_playwright, TimeoutError as PlaywrightTim
 from app.celery_app import celery_app
 from app.database import SessionLocal
 from app.models import Claim, ClaimSignpost, Source, Signpost
+from app.utils import check_robots_txt, get_user_agent, should_scrape_real
 
 
 async def fetch_osworld_leaderboard() -> Optional[List[Dict]]:
@@ -20,12 +20,11 @@ async def fetch_osworld_leaderboard() -> Optional[List[Dict]]:
     
     Returns list of entries with model, task_success_rate, benchmark_version, date.
     """
-    print("🔍 Fetching OSWorld from os-world.github.io...")
+    url = "https://os-world.github.io/"
+    print(f"🔍 Fetching OSWorld from {url}...")
     
     # Check if we should scrape real data or use fixture
-    scrape_real = os.getenv("SCRAPE_REAL", "false").lower() == "true"
-    
-    if not scrape_real:
+    if not should_scrape_real():
         print("⚠️  SCRAPE_REAL=false, using cached fixture if available")
         cache_dir = Path(__file__).parent.parent.parent.parent.parent / "infra" / "cache"
         cache_files = sorted(cache_dir.glob("osworld_*.html"), reverse=True)
@@ -35,13 +34,21 @@ async def fetch_osworld_leaderboard() -> Optional[List[Dict]]:
             # For now, return empty to avoid errors
             return []
     
+    # Check robots.txt
+    if not check_robots_txt(url):
+        print(f"❌ Scraping disallowed by robots.txt: {url}")
+        return None
+    
     try:
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
             page = await browser.new_page()
             
+            # Set User-Agent
+            await page.set_extra_http_headers({"User-Agent": get_user_agent()})
+            
             # Navigate to OSWorld site
-            await page.goto("https://os-world.github.io/", timeout=30000)
+            await page.goto(url, timeout=30000)
             await page.wait_for_load_state("networkidle", timeout=15000)
             
             # Cache HTML snapshot
