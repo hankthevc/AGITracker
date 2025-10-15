@@ -33,6 +33,12 @@ class Settings(BaseSettings):
     # CORS
     cors_origins: str = "http://localhost:3000,https://*.vercel.app"
     
+    # Caching
+    index_cache_ttl_seconds: int = 120  # 2 minutes
+    signposts_cache_ttl_seconds: int = 300  # 5 minutes
+    evidence_cache_ttl_seconds: int = 180  # 3 minutes
+    feed_cache_ttl_seconds: int = 300  # 5 minutes
+    
     class Config:
         env_file = ".env"
         case_sensitive = False

@@ -1,13 +1,19 @@
 """FastAPI main application for AGI Signpost Tracker API."""
+import hashlib
+import json
 import os
 import sys
 from datetime import date, datetime
 from pathlib import Path
 from typing import Optional
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Query
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi_cache import FastAPICache
+from fastapi_cache.backends.redis import RedisBackend
+from fastapi_cache.decorator import cache
+from redis import asyncio as aioredis
 from sqlalchemy import and_, desc, func
 from sqlalchemy.orm import Session
 
@@ -55,18 +61,27 @@ app.add_middleware(
 )
 
 
-@app.get("/_routes")
-async def list_routes():
-    """Temporary endpoint to list all registered routes."""
-    routes = []
-    for route in app.routes:
-        if hasattr(route, "methods") and hasattr(route, "path"):
-            routes.append({
-                "path": route.path,
-                "methods": list(route.methods),
-                "name": route.name,
-            })
-    return {"routes": routes}
+# Startup: Initialize cache
+@app.on_event("startup")
+async def startup():
+    """Initialize FastAPI cache with Redis backend."""
+    try:
+        redis = aioredis.from_url(settings.redis_url, encoding="utf-8", decode_responses=True)
+        FastAPICache.init(RedisBackend(redis), prefix="fastapi-cache")
+        print(f"✓ FastAPI cache initialized with Redis: {settings.redis_url}")
+    except Exception as e:
+        print(f"⚠️  Could not connect to Redis for caching: {e}")
+        print("   API will work without caching")
+
+
+def generate_etag(content: str, preset: str = "equal") -> str:
+    """
+    Generate ETag from response content + preset.
+    
+    Ensures cache key varies by preset parameter (Task 0e requirement).
+    """
+    hash_input = f"{content}:{preset}"
+    return hashlib.md5(hash_input.encode()).hexdigest()
 
 
 @app.get("/health")
@@ -90,7 +105,10 @@ async def health_full():
 
 
 @app.get("/v1/index")
+@cache(expire=settings.index_cache_ttl_seconds)
 async def get_index(
+    request: Request,
+    response: Response,
     date_param: Optional[str] = Query(None, alias="date"),
     preset: str = Query("equal", regex="^(equal|aschenbrenner|ai2027|custom)$"),
     db: Session = Depends(get_db),
@@ -163,7 +181,7 @@ async def get_index(
     # (harmonic mean with zero produces zero, which is uninformative)
     insufficient_overall = (inputs_val == 0.0 or security_val == 0.0)
     
-    return {
+    result = {
         "as_of_date": str(snapshot.as_of_date),
         "overall": float(snapshot.overall) if snapshot.overall else 0.0,
         "capabilities": capabilities_val,
@@ -185,9 +203,25 @@ async def get_index(
             }
         },
     }
+    
+    # Generate ETag (varies by preset per Task 0e)
+    content_json = json.dumps(result, sort_keys=True)
+    etag = generate_etag(content_json, preset)
+    
+    # Check If-None-Match header
+    if_none_match = request.headers.get("if-none-match")
+    if if_none_match and if_none_match == etag:
+        return Response(status_code=304)  # Not Modified
+    
+    # Set ETag header
+    response.headers["ETag"] = etag
+    response.headers["Cache-Control"] = f"public, max-age={settings.index_cache_ttl_seconds}"
+    
+    return result
 
 
 @app.get("/v1/signposts")
+@cache(expire=settings.signposts_cache_ttl_seconds)
 async def list_signposts(
     category: Optional[str] = Query(None, regex="^(capabilities|agents|inputs|security)$"),
     first_class: Optional[bool] = None,
@@ -448,6 +482,7 @@ async def get_pace_analysis(code: str, db: Session = Depends(get_db)):
 
 
 @app.get("/v1/evidence")
+@cache(expire=settings.evidence_cache_ttl_seconds)
 async def list_evidence(
     signpost_id: Optional[int] = None,
     tier: Optional[str] = Query(None, regex="^[ABCD]$"),
@@ -518,6 +553,7 @@ async def list_evidence(
 
 
 @app.get("/v1/feed.json")
+@cache(expire=settings.feed_cache_ttl_seconds)
 async def public_feed(db: Session = Depends(get_db)):
     """
     Public JSON feed of extracted claims (CC BY 4.0).
