@@ -742,7 +742,7 @@ async def retract_claim(
     }
 
 
-@app.post("/v1/recompute")
+@app.post("/v1/admin/recompute")
 async def recompute_index(
     verified: bool = Depends(verify_api_key),
     db: Session = Depends(get_db),
@@ -763,4 +763,14 @@ async def recompute_index(
         return {"status": "success", "result": result, "cache_purged": True}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Recompute failed: {str(e)}")
+
+
+@app.post("/v1/recompute")
+async def recompute_deprecated():
+    """Deprecated: Moved to /v1/admin/recompute."""
+    return Response(
+        status_code=410,
+        content=json.dumps({"error": "Endpoint moved to /v1/admin/recompute"}),
+        media_type="application/json"
+    )
 
