@@ -54,7 +54,7 @@ def test_hle_maps_to_signposts(db_session):
         code="humanitys_last_exam_text",
         name="Humanity's Last Exam (Text-Only)",
         url="https://scale.com/leaderboard/hle",
-        family="HLE_TEXT"
+        family="OTHER"
     )
     db_session.add(benchmark)
     

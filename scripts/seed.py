@@ -154,7 +154,7 @@ def seed_benchmarks(db: Session):
             "code": "humanitys_last_exam_text",
             "name": "Humanity's Last Exam (Text-Only)",
             "url": "https://scale.com/leaderboard/hle",
-            "family": "HLE_TEXT"
+            "family": "OTHER"  # Use OTHER since HLE_TEXT not in constraint
         },
     ]
     
