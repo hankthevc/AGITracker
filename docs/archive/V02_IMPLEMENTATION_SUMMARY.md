@@ -1,3 +1,7 @@
+> **Archived note:** Non‑authoritative; engineering must follow code & issues.
+
+---
+
 # V0.2 Implementation Summary
 
 ## 🎉 Implementation Complete!

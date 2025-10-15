@@ -593,6 +593,12 @@ Environment variables: `DATABASE_URL`, `REDIS_URL`, `OPENAI_API_KEY`, `LLM_BUDGE
 - **Discussions:** GitHub Discussions
 - **Email:** contact@example.com
 
+## Documentation
+
+- **Quickstart:** [QUICKSTART.md](QUICKSTART.md) for local setup
+- **Methodology:** See `/methodology` page in web app for scoring details
+- **Archive:** Historical planning docs in [docs/archive/](docs/archive/)
+
 ## Acknowledgments
 
 Built with insights from:

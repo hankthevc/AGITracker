@@ -1,3 +1,7 @@
+> **Archived note:** Non‑authoritative; engineering must follow code & issues.
+
+---
+
 # V0.1 Implementation Status
 
 **Implementation Date:** October 14, 2025  

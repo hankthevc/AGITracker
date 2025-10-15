@@ -1,3 +1,7 @@
+> **Archived note:** Non‑authoritative; engineering must follow code & issues.
+
+---
+
 # Deploy to GitHub Instructions
 
 ## Push to https://github.com/hankthevc/AGITracker
