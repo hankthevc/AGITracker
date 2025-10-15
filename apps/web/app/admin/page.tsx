@@ -71,12 +71,16 @@ export default function AdminPage() {
 
     try {
       const apiUrl = getApiBaseUrl()
-      const response = await fetch(`${apiUrl}/v1/retract?claim_id=${claimId}&reason=${encodeURIComponent(reason)}`, {
+      const response = await fetch(`${apiUrl}/v1/admin/retract`, {
         method: "POST",
         headers: {
           "X-API-Key": apiKey,
           "Content-Type": "application/json",
         },
+        body: JSON.stringify({
+          claim_id: claimId,
+          reason: reason,
+        }),
       })
 
       if (!response.ok) {

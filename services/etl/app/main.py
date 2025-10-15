@@ -704,18 +704,21 @@ def verify_api_key(x_api_key: str = Header(...)):
     return True
 
 
-@app.post("/v1/retract")
+@app.post("/v1/admin/retract")
 async def retract_claim(
     claim_id: int,
     reason: str,
     verified: bool = Depends(verify_api_key),
     db: Session = Depends(get_db),
 ):
-    """Retract a claim (admin only)."""
+    """Retract a claim (admin only). Requires X-API-Key header."""
     claim = db.query(Claim).filter(Claim.id == claim_id).first()
     
     if not claim:
         raise HTTPException(status_code=404, detail="Claim not found")
+    
+    if claim.retracted:
+        raise HTTPException(status_code=400, detail="Claim already retracted")
     
     claim.retracted = True
     
@@ -723,15 +726,20 @@ async def retract_claim(
     changelog_entry = ChangelogEntry(
         type="retract",
         title=f"Retracted: {claim.title}",
-        body=f"Claim {claim_id} has been retracted.",
+        body=f"Claim #{claim_id} retracted: {reason}",
         claim_id=claim_id,
         reason=reason,
     )
     db.add(changelog_entry)
-    
     db.commit()
+    db.refresh(changelog_entry)
     
-    return {"status": "success", "claim_id": claim_id, "retracted": True}
+    return {
+        "status": "success",
+        "claim_id": claim_id,
+        "changelog_id": changelog_entry.id,
+        "retracted": True,
+    }
 
 
 @app.post("/v1/recompute")
