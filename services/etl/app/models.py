@@ -278,6 +278,7 @@ class RoadmapPrediction(Base):
     id = Column(Integer, primary_key=True, index=True)
     roadmap_id = Column(Integer, ForeignKey("roadmaps.id"), nullable=False)
     signpost_id = Column(Integer, ForeignKey("signposts.id"), nullable=True)
+    signpost_code = Column(String(100), nullable=True, index=True)  # For JSON-based predictions
     prediction_text = Column(Text, nullable=False)
     predicted_date = Column(Date, nullable=True)
     confidence_level = Column(String(20), nullable=False)
