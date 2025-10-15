@@ -1,3 +1,7 @@
+> **Archived note:** Non-authoritative; engineering must follow code & issues.
+
+---
+
 ⚠️ **NON-AUTHORITATIVE** - This is a historical checkpoint document. The codebase is the source of truth.
 
 ---
