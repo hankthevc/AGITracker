@@ -1,0 +1,111 @@
+[
+  {
+    "id": "goldset_001",
+    "title": "OpenAI announces GPT-5 with 90% SWE-bench performance",
+    "summary": "New model achieves 90.5% on SWE-bench Verified, marking significant progress in automated code generation.",
+    "evidence_tier": "B",
+    "expected_signposts": ["swe_bench_90"],
+    "expected_values": [90.5],
+    "rationale": "Explicit percentage match for SWE-bench-90 threshold"
+  },
+  {
+    "id": "goldset_002",
+    "title": "Anthropic's Claude achieves 73% on GPQA Diamond",
+    "summary": "Claude 4 scores 73.2% on GPQA Diamond benchmark, approaching expert-level performance.",
+    "evidence_tier": "B",
+    "expected_signposts": ["gpqa_75"],
+    "expected_values": [73.2],
+    "rationale": "GPQA Diamond keyword + percentage"
+  },
+  {
+    "id": "goldset_003",
+    "title": "New AI training run uses 10^27 FLOPs",
+    "summary": "Anonymous lab confirms training run exceeding 10^27 floating point operations.",
+    "evidence_tier": "C",
+    "expected_signposts": ["compute_1e27"],
+    "expected_values": [1e27],
+    "rationale": "Compute exponent extraction (10^27)"
+  },
+  {
+    "id": "goldset_004",
+    "title": "WebArena success rate hits 70% milestone",
+    "summary": "Latest agentic system achieves 70.8% success on WebArena benchmark tasks.",
+    "evidence_tier": "B",
+    "expected_signposts": ["webarena_70"],
+    "expected_values": [70.8],
+    "rationale": "WebArena keyword + percentage at 70% threshold"
+  },
+  {
+    "id": "goldset_005",
+    "title": "OSWorld computer use benchmark reaches 50%",
+    "summary": "New multimodal agent achieves 50.2% on OSWorld tasks.",
+    "evidence_tier": "B",
+    "expected_signposts": ["osworld_50"],
+    "expected_values": [50.2],
+    "rationale": "OSWorld keyword + percentage"
+  },
+  {
+    "id": "goldset_006",
+    "title": "arXiv: Scaling Laws Beyond 10^26 FLOPs",
+    "summary": "Paper analyzes training dynamics at 10^26 FLOP scale, projecting continued improvements.",
+    "evidence_tier": "A",
+    "expected_signposts": ["compute_1e26"],
+    "expected_values": [1e26],
+    "rationale": "arXiv paper (A-tier) with 10^26 exponent"
+  },
+  {
+    "id": "goldset_007",
+    "title": "Datacenter announces 5 GW power capacity",
+    "summary": "New facility will provide 5 gigawatts of power for AI training.",
+    "evidence_tier": "C",
+    "expected_signposts": ["dc_power_10gw"],
+    "expected_values": [5.0],
+    "rationale": "Power extraction (5 GW) maps to 10gw signpost"
+  },
+  {
+    "id": "goldset_008",
+    "title": "Humanity's Last Exam: New model scores 55%",
+    "summary": "Latest LLM achieves 55% on HLE text-only subset.",
+    "evidence_tier": "B",
+    "expected_signposts": ["hle_text_50"],
+    "expected_values": [55.0],
+    "rationale": "HLE keyword + percentage above 50% threshold"
+  },
+  {
+    "id": "goldset_009",
+    "title": "Twitter rumor: GPT-6 in development",
+    "summary": "Unverified reports suggest next-generation model in training.",
+    "evidence_tier": "D",
+    "expected_signposts": [],
+    "expected_values": [],
+    "rationale": "D-tier social with no specific metrics - should not map"
+  },
+  {
+    "id": "goldset_010",
+    "title": "SWE-bench Verified leaderboard updated: 87% top score",
+    "summary": "Latest leaderboard shows top model at 87.3% on SWE-bench Verified.",
+    "evidence_tier": "A",
+    "expected_signposts": ["swe_bench_85"],
+    "expected_values": [87.3],
+    "rationale": "A-tier leaderboard + SWE-bench keyword + value > 85%"
+  },
+  {
+    "id": "goldset_011",
+    "title": "Weather forecast for next week",
+    "summary": "Sunny skies and mild temperatures expected.",
+    "evidence_tier": "C",
+    "expected_signposts": [],
+    "expected_values": [],
+    "rationale": "Unrelated content - should not map to any signposts"
+  },
+  {
+    "id": "goldset_012",
+    "title": "Multiple benchmarks improve: SWE-bench 86%, GPQA 74%",
+    "summary": "New model shows progress across multiple evaluations.",
+    "evidence_tier": "B",
+    "expected_signposts": ["swe_bench_85", "gpqa_75"],
+    "expected_values": [86.0, 74.0],
+    "rationale": "Multiple signpost mapping with distinct values"
+  }
+]
+
