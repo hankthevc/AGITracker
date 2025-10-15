@@ -19,7 +19,7 @@ export function initSentry() {
       // Low sample rate for production
       tracesSampleRate: 0.05, // 5% of transactions
       // Scrub PII
-      beforeSend(event) {
+      beforeSend(event: any) {
         // Remove user IP
         if (event.user) {
           delete event.user.ip_address

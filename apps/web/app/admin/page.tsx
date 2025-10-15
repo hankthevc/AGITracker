@@ -123,8 +123,8 @@ export default function AdminPage() {
                 type="password"
                 placeholder="Enter admin API key"
                 value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                onKeyPress={(e) => e.key === "Enter" && handleLogin()}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setApiKey(e.target.value)}
+                onKeyPress={(e: React.KeyboardEvent<HTMLInputElement>) => e.key === "Enter" && handleLogin()}
               />
               <p className="text-xs text-muted-foreground mt-1">
                 Key is stored in memory only (not persisted)
@@ -219,7 +219,7 @@ export default function AdminPage() {
                     <Input
                       placeholder="Reason for retraction..."
                       value={retractReason[claim.id] || ""}
-                      onChange={(e) =>
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                         setRetractReason({ ...retractReason, [claim.id]: e.target.value })
                       }
                       className="flex-1"
