@@ -21,8 +21,11 @@ class Settings(BaseSettings):
     llm_budget_daily_usd: float = 20.0
     
     # Observability
-    sentry_dsn: Optional[str] = None
+    sentry_dsn: Optional[str] = None  # Legacy - use sentry_dsn_api instead
+    sentry_dsn_api: Optional[str] = None
+    sentry_dsn_web: Optional[str] = None
     healthchecks_url: Optional[str] = None
+    log_level: str = "INFO"
     
     # Environment
     environment: str = "development"
@@ -41,6 +44,12 @@ class Settings(BaseSettings):
     
     # Rate Limiting
     rate_limit_per_minute: int = 100  # Requests per minute per IP
+    
+    # Scrapers
+    scrape_real: bool = False  # Use fixtures by default
+    http_timeout_seconds: int = 20
+    http_max_retries: int = 3
+    http_backoff_base_seconds: int = 1
     
     class Config:
         env_file = ".env"
