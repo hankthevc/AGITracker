@@ -94,6 +94,86 @@ test.describe('Home Page', () => {
   })
 })
 
+test.describe('Home Page - Error Handling', () => {
+  test('shows detailed error when API returns 500', async ({ page }) => {
+    // Intercept /v1/index and return 500 error
+    await page.route('**/v1/index*', route => {
+      route.fulfill({
+        status: 500,
+        contentType: 'application/json',
+        body: JSON.stringify({ detail: 'forced error for test' })
+      })
+    })
+    
+    await page.goto('/')
+    
+    // Should show error title
+    await expect(page.getByText('Error Loading Data')).toBeVisible()
+    
+    // Should show status code
+    await expect(page.getByText(/Status.*500/)).toBeVisible()
+    
+    // Should show link to debug page
+    await expect(page.getByRole('link', { name: '/_debug' })).toBeVisible()
+    
+    // Click "Show details" toggle
+    const detailsToggle = page.locator('[data-testid="error-details-toggle"]')
+    await expect(detailsToggle).toBeVisible()
+    await detailsToggle.click()
+    
+    // Should show the error detail
+    await expect(page.getByText('forced error for test')).toBeVisible()
+  })
+  
+  test('shows error when API is unreachable', async ({ page }) => {
+    // Intercept and abort the request to simulate network failure
+    await page.route('**/v1/index*', route => route.abort('failed'))
+    
+    await page.goto('/')
+    
+    // Should show error state
+    await expect(page.getByText('Error Loading Data')).toBeVisible()
+    
+    // Error details toggle should be present
+    await expect(page.locator('[data-testid="error-details-toggle"]')).toBeVisible()
+  })
+  
+  test('successfully loads when API is available (no interception)', async ({ page }) => {
+    // No route interception - let real API calls through
+    await page.goto('/')
+    
+    // Wait for capabilities to load
+    const capabilitiesValue = page.locator('[data-testid="capabilities-value"]')
+    await capabilitiesValue.waitFor({ state: 'visible', timeout: 10000 })
+    
+    // Should NOT show error
+    await expect(page.getByText('Error Loading Data')).not.toBeVisible()
+    
+    // Should show gauge components
+    await expect(page.locator('[data-testid="composite-gauge"]')).toBeVisible()
+    await expect(page.locator('[data-testid="safety-dial"]')).toBeVisible()
+  })
+})
+
+test.describe('Debug Page', () => {
+  test('loads and displays all debug sections', async ({ page }) => {
+    await page.goto('/_debug')
+    
+    // Check page title
+    await expect(page.locator('h1')).toContainText('API Connectivity Debug')
+    
+    // Check for all data-testid elements
+    await expect(page.locator('[data-testid="debug-api-base"]')).toBeVisible()
+    await expect(page.locator('[data-testid="debug-health"]')).toBeVisible()
+    await expect(page.locator('[data-testid="debug-health-full"]')).toBeVisible()
+    await expect(page.locator('[data-testid="debug-index"]')).toBeVisible()
+    
+    // Verify API base shows a URL
+    const apiBase = await page.locator('[data-testid="debug-api-base"]').textContent()
+    expect(apiBase).toMatch(/http/)
+  })
+})
+
 test.describe('Benchmarks Page', () => {
   test('shows benchmark cards', async ({ page }) => {
     await page.goto('/benchmarks')
