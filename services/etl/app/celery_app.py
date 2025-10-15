@@ -27,41 +27,45 @@ celery_app.conf.update(
 )
 
 # Beat schedule (periodic tasks)
+# Note: Times staggered by 3-8 minutes to prevent thundering herd
 celery_app.conf.beat_schedule = {
     "fetch-feeds-daily": {
         "task": "app.tasks.fetch_feeds.fetch_all_feeds",
-        "schedule": crontab(hour=6, minute=0),  # 6 AM UTC daily
+        "schedule": crontab(hour=6, minute=3),  # 6:03 AM UTC daily
     },
-    "snap-index-daily": {
-        "task": "app.tasks.snap_index.compute_daily_snapshot",
-        "schedule": crontab(hour=7, minute=0),  # 7 AM UTC daily (after fetch)
+    "fetch-swebench": {
+        "task": "fetch_swebench",
+        "schedule": crontab(hour=7, minute=12),  # 7:12 AM UTC daily
     },
-    # New benchmark connectors (v0.2)
     "fetch-osworld": {
         "task": "fetch_osworld",
-        "schedule": crontab(hour=7, minute=30),  # 7:30 AM UTC daily
+        "schedule": crontab(hour=7, minute=28),  # 7:28 AM UTC daily
     },
     "fetch-webarena": {
         "task": "fetch_webarena",
-        "schedule": crontab(hour=7, minute=45),  # 7:45 AM UTC daily
+        "schedule": crontab(hour=7, minute=41),  # 7:41 AM UTC daily
     },
     "fetch-gpqa": {
         "task": "fetch_gpqa",
-        "schedule": crontab(hour=8, minute=0),  # 8:00 AM UTC daily
+        "schedule": crontab(hour=7, minute=54),  # 7:54 AM UTC daily
+    },
+    "snap-index-daily": {
+        "task": "app.tasks.snap_index.compute_daily_snapshot",
+        "schedule": crontab(hour=8, minute=5),  # 8:05 AM UTC daily (after all fetches)
     },
     # Inputs & Security tasks (weekly on Monday)
     "seed-inputs": {
         "task": "seed_inputs",
-        "schedule": crontab(hour=8, minute=15, day_of_week=1),  # Monday 8:15 AM UTC
+        "schedule": crontab(hour=8, minute=17, day_of_week=1),  # Monday 8:17 AM UTC
     },
     "security-maturity": {
         "task": "security_maturity",
-        "schedule": crontab(hour=8, minute=30, day_of_week=1),  # Monday 8:30 AM UTC
+        "schedule": crontab(hour=8, minute=32, day_of_week=1),  # Monday 8:32 AM UTC
     },
     # Weekly digest
     "digest-weekly": {
         "task": "app.tasks.snap_index.generate_weekly_digest",
-        "schedule": crontab(day_of_week=0, hour=8, minute=0),  # Sunday 8 AM UTC
+        "schedule": crontab(day_of_week=0, hour=8, minute=8),  # Sunday 8:08 AM UTC
     },
 }
 
