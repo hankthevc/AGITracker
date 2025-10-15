@@ -356,10 +356,17 @@ class Event(Base):
     title = Column(Text, nullable=False)
     summary = Column(Text, nullable=True)
     source_url = Column(Text, nullable=False, unique=True)  # URL is unique for idempotency
+    source_domain = Column(String(255), nullable=True)
+    source_type = Column(String(50), nullable=False, index=True)  # news, paper, blog, leaderboard, gov
     publisher = Column(String(255), nullable=True, index=True)
     published_at = Column(TIMESTAMP(timezone=True), nullable=True, index=True)
     ingested_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
-    evidence_tier = Column(String(1), nullable=False, index=True)  # A, B, C, D
+    evidence_tier = Column(String(1), nullable=False, index=True)  # A, B, C, D (aka outlet_cred)
+    content_text = Column(Text, nullable=True)  # Full article content
+    author = Column(String(255), nullable=True)
+    byline = Column(String(500), nullable=True)
+    lang = Column(String(10), nullable=False, server_default="en")
+    retracted = Column(Boolean, nullable=False, server_default="false")
     provisional = Column(Boolean, nullable=False, server_default="true")
     parsed = Column(JSONB, nullable=True)  # Extracted fields (metric, value, etc.)
     needs_review = Column(Boolean, nullable=False, server_default="false", index=True)
@@ -372,6 +379,10 @@ class Event(Base):
         CheckConstraint(
             "evidence_tier IN ('A', 'B', 'C', 'D')",
             name="check_evidence_tier"
+        ),
+        CheckConstraint(
+            "source_type IN ('news', 'paper', 'blog', 'leaderboard', 'gov')",
+            name="check_source_type"
         ),
     )
 
@@ -413,4 +424,28 @@ class EventEntity(Base):
     
     # Relationships
     event = relationship("Event", back_populates="entities")
+
+
+class IngestRun(Base):
+    """
+    Tracks ETL connector runs for monitoring and debugging.
+    """
+    
+    __tablename__ = "ingest_runs"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    connector_name = Column(String(100), nullable=False, index=True)
+    started_at = Column(TIMESTAMP(timezone=True), nullable=False, index=True)
+    finished_at = Column(TIMESTAMP(timezone=True), nullable=True)
+    status = Column(String(20), nullable=False, index=True)  # success, fail, running
+    new_events_count = Column(Integer, nullable=False, server_default="0")
+    new_links_count = Column(Integer, nullable=False, server_default="0")
+    error = Column(Text, nullable=True)
+    
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('success', 'fail', 'running')",
+            name="check_ingest_status"
+        ),
+    )
 
