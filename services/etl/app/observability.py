@@ -16,10 +16,18 @@ except ImportError:
 
 
 def setup_logging():
-    """Configure structured logging with structlog."""
+    """Configure structured logging with structlog (JSON output)."""
+    # Determine log level from settings
+    log_level = getattr(logging, settings.log_level.upper(), logging.INFO)
+    logging.basicConfig(
+        format="%(message)s",
+        stream=sys.stdout,
+        level=log_level,
+    )
+    
     structlog.configure(
         processors=[
-            merge_contextvars,
+            merge_contextvars,  # Merges request_id from ContextVar
             structlog.stdlib.filter_by_level,
             structlog.processors.TimeStamper(fmt="iso"),
             structlog.stdlib.add_logger_name,
@@ -27,8 +35,7 @@ def setup_logging():
             structlog.processors.StackInfoRenderer(),
             structlog.processors.format_exc_info,
             structlog.processors.UnicodeDecoder(),
-            structlog.processors.JSONRenderer() if settings.environment == "production"
-            else structlog.dev.ConsoleRenderer(),
+            structlog.processors.JSONRenderer(),  # Always use JSON for observability
         ],
         wrapper_class=structlog.stdlib.BoundLogger,
         context_class=dict,

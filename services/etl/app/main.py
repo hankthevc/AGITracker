@@ -3,6 +3,8 @@ import hashlib
 import json
 import os
 import sys
+import uuid
+from contextvars import ContextVar
 from datetime import date, datetime
 from pathlib import Path
 from typing import Optional
@@ -51,6 +53,9 @@ except ImportError:
 # Initialize rate limiter
 limiter = Limiter(key_func=get_remote_address)
 
+# Context variable for request tracing
+request_id_context: ContextVar[str] = ContextVar("request_id", default="")
+
 app = FastAPI(
     title="AGI Signpost Tracker API",
     version="1.0.0",
@@ -69,6 +74,24 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# Request ID middleware - adds X-Request-ID to all requests/responses
+@app.middleware("http")
+async def add_request_id(request: Request, call_next):
+    """Add X-Request-ID header to requests and responses for tracing."""
+    import structlog
+    
+    request_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
+    request_id_context.set(request_id)
+    
+    # Bind request_id to structlog context for all logs in this request
+    structlog.contextvars.clear_contextvars()
+    structlog.contextvars.bind_contextvars(request_id=request_id)
+    
+    response = await call_next(request)
+    response.headers["X-Request-ID"] = request_id
+    return response
 
 
 # Startup: Initialize cache
