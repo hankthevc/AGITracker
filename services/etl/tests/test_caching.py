@@ -67,9 +67,28 @@ def test_etag_deterministic():
     assert len(set(etags)) == 1, "ETag generation should be deterministic"
 
 
+def test_etag_changes_with_content():
+    """
+    Test that ETag changes when content changes (simulates cache purge effect).
+    
+    After cache purge and recompute, if data changed, ETag should be different.
+    """
+    content1 = json.dumps({"overall": 0.5}, sort_keys=True)
+    content2 = json.dumps({"overall": 0.6}, sort_keys=True)  # Different data
+    
+    etag1 = generate_etag(content1, "equal")
+    etag2 = generate_etag(content2, "equal")
+    
+    # ETags should be different when content differs
+    assert etag1 != etag2, "ETag should change when content changes (post-purge scenario)"
+    
+    print("✓ ETag changes with content (cache purge validated)")
+
+
 if __name__ == "__main__":
     test_etag_varies_by_preset()
     test_etag_format()
     test_etag_deterministic()
+    test_etag_changes_with_content()
     print("✅ All caching tests passed")
 

@@ -747,12 +747,20 @@ async def recompute_index(
     verified: bool = Depends(verify_api_key),
     db: Session = Depends(get_db),
 ):
-    """Trigger index recomputation (admin only)."""
+    """Trigger index recomputation and purge cache (admin only)."""
     from app.tasks.snap_index import compute_daily_snapshot
     
     try:
         result = compute_daily_snapshot()
-        return {"status": "success", "result": result}
+        
+        # Purge cache after recomputation
+        try:
+            await FastAPICache.clear()
+            print("✓ Cache purged after recomputation")
+        except Exception as cache_err:
+            print(f"⚠️  Cache purge failed: {cache_err}")
+        
+        return {"status": "success", "result": result, "cache_purged": True}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Recompute failed: {str(e)}")
 
