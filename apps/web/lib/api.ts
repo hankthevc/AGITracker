@@ -2,17 +2,12 @@
  * API client for AGI Signpost Tracker
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+import { getApiBaseUrl } from './apiBase'
+import { fetchJson } from './fetchJson'
 
 export async function fetcher(url: string) {
-  const res = await fetch(`${API_BASE_URL}${url}`)
-  
-  if (!res.ok) {
-    const error = new Error('An error occurred while fetching the data.')
-    throw error
-  }
-  
-  return res.json()
+  const baseUrl = getApiBaseUrl()
+  return fetchJson(`${baseUrl}${url}`)
 }
 
 export const apiClient = {

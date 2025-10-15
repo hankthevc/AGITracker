@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense } from 'react'
+import { Suspense, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { CompositeGauge } from '@/components/CompositeGauge'
 import { LaneProgress } from '@/components/LaneProgress'
@@ -10,10 +10,12 @@ import { ChangelogPanel } from '@/components/ChangelogPanel'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useIndex } from '@/hooks/useIndex'
 import { formatDate } from '@/lib/utils'
+import { getApiBaseUrl } from '@/lib/apiBase'
 
 function HomeContent() {
   const searchParams = useSearchParams()
   const preset = searchParams.get('preset') || 'equal'
+  const [showErrorDetails, setShowErrorDetails] = useState(false)
   
   const { data, isLoading, isError } = useIndex(preset)
   
@@ -29,16 +31,47 @@ function HomeContent() {
   }
   
   if (isError || !data) {
+    const apiUrl = getApiBaseUrl()
+    const errorMessage = isError?.message || 'Unknown error'
+    const errorStatus = isError?.status || 'N/A'
+    const errorDetail = isError?.detail || errorMessage
+    
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <Card className="border-destructive">
+        <Card className="border-destructive max-w-2xl">
           <CardHeader>
             <CardTitle className="text-destructive">Error Loading Data</CardTitle>
             <CardDescription>
-              Unable to fetch index data. Please ensure the API is running at{' '}
-              <code className="text-xs">http://localhost:8000</code>
+              Unable to fetch index data from{' '}
+              <code className="text-xs">{apiUrl}/v1/index</code>
+              {errorStatus !== 'N/A' && (
+                <span className="block mt-2">
+                  <strong>Status:</strong> {errorStatus}
+                </span>
+              )}
             </CardDescription>
           </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-4">
+              Make sure the API server is running. Visit{' '}
+              <a href="/_debug" className="text-primary hover:underline">
+                /_debug
+              </a>{' '}
+              for connectivity details.
+            </p>
+            <button
+              onClick={() => setShowErrorDetails(!showErrorDetails)}
+              className="text-sm text-primary hover:underline"
+              data-testid="error-details-toggle"
+            >
+              {showErrorDetails ? '▼ Hide details' : '▶ Show details'}
+            </button>
+            {showErrorDetails && (
+              <pre className="mt-2 p-3 bg-muted rounded text-xs overflow-auto max-h-40">
+                {errorDetail}
+              </pre>
+            )}
+          </CardContent>
         </Card>
       </div>
     )
