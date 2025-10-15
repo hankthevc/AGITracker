@@ -2,6 +2,21 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 
+/**
+ * Check if HLE data should show smoothing indicator.
+ * Display-only guard: if latest sample < 7 days old and only 1 sample,
+ * suppress delta arrows and show "smoothed (≥7d)" tooltip.
+ */
+function isSmoothedHLE(claims: Array<{ observed_at: string }> | null): boolean {
+  if (!claims || claims.length === 0) return false
+  if (claims.length >= 2) return false // Multiple samples, show delta normally
+  
+  const latestDate = new Date(claims[0].observed_at)
+  const daysSinceLatest = (Date.now() - latestDate.getTime()) / (1000 * 60 * 60 * 24)
+  
+  return daysSinceLatest < 7 // Single sample < 7 days old = smoothed
+}
+
 export default function BenchmarksPage() {
   const benchmarkCodes: Record<string, string> = {
     'SWE-bench Verified': 'swe_bench_85',
@@ -55,6 +70,8 @@ export default function BenchmarksPage() {
       version: 'Text-2500', // Optional version identifier
       qualityNote: 'Note: Bio/Chem subsets have known label-quality issues. Currently B-tier (Provisional) evidence only.',
       qualityTooltip: 'HLE is tracked as a long-horizon indicator (2026-2028) but does not affect main composite gauges until A-tier evidence becomes available.',
+      // Note: When integrating live claim data, use isSmoothedHLE() to suppress
+      // weekly delta arrows for single samples <7 days old and show "smoothed (≥7d)" tooltip
     },
   ]
   
