@@ -1,3 +1,7 @@
+⚠️ **NON-AUTHORITATIVE** - This is a historical checkpoint document. The codebase is the source of truth.
+
+---
+
 # 🎉 ALL 16/16 CORE TASKS COMPLETE
 
 **Status:** Every single item from the original specification is now implemented  
@@ -502,4 +506,3 @@ The AGI Tracker is:
 **Repository:** https://github.com/hankthevc/AGITracker
 
 **Built with 🧠 for transparent AGI progress tracking**
-

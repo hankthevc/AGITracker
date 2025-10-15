@@ -1,3 +1,7 @@
+⚠️ **NON-AUTHORITATIVE** - This is a historical checkpoint document. The codebase is the source of truth.
+
+---
+
 # Educational Resource Transformation: COMPLETE ✅
 
 **Status:** All plan items implemented and deployed  
@@ -386,4 +390,3 @@ The transformation is **complete**, but you could optionally add:
 Users can explore each signpost in depth, understand why it matters, see current SOTA, compare to expert predictions, access research papers, and learn technical methodology—all in a beautiful, mobile-responsive interface.
 
 **Visit now:** http://localhost:3000/signposts/swe_bench_85
-

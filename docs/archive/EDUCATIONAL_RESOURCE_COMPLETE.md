@@ -1,3 +1,7 @@
+⚠️ **NON-AUTHORITATIVE** - This is a historical checkpoint document. The codebase is the source of truth.
+
+---
+
 # Educational Resource Transformation Complete ✅
 
 **Commit:** `81eb9d7` - "Transform AGI Tracker into rich educational resource"  
@@ -310,4 +314,3 @@ python write_pace_analyses.py
 **Latest Commit:** 81eb9d7  
 **Backend Status:** ✅ Complete  
 **Frontend Status:** 🚧 Pending UI implementation
-

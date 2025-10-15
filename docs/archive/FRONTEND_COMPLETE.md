@@ -1,3 +1,7 @@
+⚠️ **NON-AUTHORITATIVE** - This is a historical checkpoint document. The codebase is the source of truth.
+
+---
+
 # Frontend Educational Resource Complete ✅
 
 **Commit:** `3d5eb77` - "Add signpost detail pages with pace analysis UI"  
@@ -308,4 +312,3 @@ make seed-content # Seed rich educational content
 - `3d5eb77` - Frontend UI
 
 **Users can now explore each signpost in depth, understand why it matters, see current progress, and compare to expert roadmap predictions with visual ahead/behind indicators.** 🚀✨
-

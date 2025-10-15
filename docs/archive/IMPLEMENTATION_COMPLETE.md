@@ -1,3 +1,7 @@
+⚠️ **NON-AUTHORITATIVE** - This is a historical checkpoint document. The codebase is the source of truth.
+
+---
+
 # AGI Signpost Tracker - Implementation Complete ✅
 
 **Date:** October 14, 2025  
@@ -265,4 +269,3 @@ The **AGI Signpost Tracker** is now **fully implemented** with:
 ---
 
 **Built with 🧠 for transparent AGI progress tracking**
-

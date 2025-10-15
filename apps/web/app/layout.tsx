@@ -12,6 +12,20 @@ export const metadata: Metadata = {
     title: 'AGI Signpost Tracker',
     description: 'Evidence-first dashboard tracking proximity to AGI via measurable signposts',
     type: 'website',
+    images: [
+      {
+        url: '/api/og?title=AGI%20Signpost%20Tracker&description=Evidence-first%20dashboard%20tracking%20proximity%20to%20AGI',
+        width: 1200,
+        height: 630,
+        alt: 'AGI Signpost Tracker',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'AGI Signpost Tracker',
+    description: 'Evidence-first dashboard tracking proximity to AGI via measurable signposts',
+    images: ['/api/og?title=AGI%20Signpost%20Tracker&description=Evidence-first%20dashboard%20tracking%20proximity%20to%20AGI'],
   },
 }
 
