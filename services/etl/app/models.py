@@ -342,3 +342,75 @@ class PaceAnalysis(Base):
         Index("idx_pace_analysis_roadmap", "roadmap_id"),
     )
 
+
+class Event(Base):
+    """
+    News event model (v0.3).
+    
+    Stores AI news/announcements from various sources with evidence tiering.
+    """
+    
+    __tablename__ = "events"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(Text, nullable=False)
+    summary = Column(Text, nullable=True)
+    source_url = Column(Text, nullable=False, unique=True)  # URL is unique for idempotency
+    publisher = Column(String(255), nullable=True, index=True)
+    published_at = Column(TIMESTAMP(timezone=True), nullable=True, index=True)
+    ingested_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
+    evidence_tier = Column(String(1), nullable=False, index=True)  # A, B, C, D
+    provisional = Column(Boolean, nullable=False, server_default="true")
+    parsed = Column(JSONB, nullable=True)  # Extracted fields (metric, value, etc.)
+    needs_review = Column(Boolean, nullable=False, server_default="false", index=True)
+    
+    # Relationships
+    signpost_links = relationship("EventSignpostLink", back_populates="event", cascade="all, delete-orphan")
+    entities = relationship("EventEntity", back_populates="event", cascade="all, delete-orphan")
+    
+    __table_args__ = (
+        CheckConstraint(
+            "evidence_tier IN ('A', 'B', 'C', 'D')",
+            name="check_evidence_tier"
+        ),
+    )
+
+
+class EventSignpostLink(Base):
+    """
+    Link between events and signposts with confidence and extracted values.
+    """
+    
+    __tablename__ = "event_signpost_links"
+    
+    event_id = Column(Integer, ForeignKey("events.id", ondelete="CASCADE"), primary_key=True)
+    signpost_id = Column(Integer, ForeignKey("signposts.id", ondelete="CASCADE"), primary_key=True)
+    confidence = Column(Numeric(3, 2), nullable=False)  # 0.00 to 1.00
+    rationale = Column(Text, nullable=True)
+    observed_at = Column(TIMESTAMP(timezone=True), nullable=True)  # Date claim refers to
+    value = Column(Numeric, nullable=True)  # Extracted numeric value if applicable
+    
+    # Relationships
+    event = relationship("Event", back_populates="signpost_links")
+    signpost = relationship("Signpost")
+    
+    __table_args__ = (
+        Index("idx_event_signpost_signpost_observed", "signpost_id", "observed_at"),
+    )
+
+
+class EventEntity(Base):
+    """
+    Helper table for extracted entities from events (benchmarks, metrics, orgs).
+    """
+    
+    __tablename__ = "event_entities"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    event_id = Column(Integer, ForeignKey("events.id", ondelete="CASCADE"), nullable=False, index=True)
+    type = Column(String(100), nullable=False)  # e.g., "benchmark", "metric", "org"
+    value = Column(Text, nullable=False)
+    
+    # Relationships
+    event = relationship("Event", back_populates="entities")
+
