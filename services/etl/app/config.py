@@ -33,8 +33,8 @@ class Settings(BaseSettings):
     # Admin API Key
     admin_api_key: str = "change-me-in-production"
     
-    # CORS
-    cors_origins: str = "http://localhost:3000,https://*.vercel.app"
+    # CORS (comma-separated, no wildcards)
+    cors_origins: str = "http://localhost:3000"
     
     # Caching
     index_cache_ttl_seconds: int = 120  # 2 minutes
