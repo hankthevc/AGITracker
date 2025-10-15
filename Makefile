@@ -1,4 +1,4 @@
-.PHONY: bootstrap dev migrate seed seed-content test lint e2e build clean
+.PHONY: bootstrap dev migrate seed seed-content seed-dev-fixtures test lint typecheck e2e build clean backfill
 
 bootstrap:
 	@echo "🚀 Bootstrapping AGI Signpost Tracker..."
@@ -65,4 +65,31 @@ clean:
 	rm -rf apps/*/.next apps/*/dist packages/*/dist
 	rm -rf services/etl/.venv services/etl/__pycache__
 	@echo "✅ Clean complete."
+
+backfill:
+	@echo "🔄 Running backfill for all connectors..."
+	@echo "   Using fixtures (SCRAPE_REAL=false) by default"
+	@echo "   Set BACKFILL_REAL=true to use live scraping"
+	@if [ "$(BACKFILL_REAL)" = "true" ]; then \
+		echo "⚠️  Live scraping enabled (BACKFILL_REAL=true)"; \
+		export SCRAPE_REAL=true; \
+	else \
+		echo "✓ Using fixtures (safer for initial setup)"; \
+		export SCRAPE_REAL=false; \
+	fi; \
+	cd scripts && python -c "import sys; sys.path.insert(0, '../services/etl'); \
+		from app.tasks.fetch_swebench import fetch_swebench; \
+		from app.tasks.fetch_osworld import fetch_osworld_task; \
+		from app.tasks.fetch_webarena import fetch_webarena_task; \
+		from app.tasks.fetch_gpqa import fetch_gpqa_task; \
+		from app.tasks.seed_inputs import seed_inputs_task; \
+		from app.tasks.security_maturity import security_maturity_task; \
+		print('📊 1/6 Fetching SWE-bench...'); fetch_swebench(); \
+		print('📊 2/6 Fetching OSWorld...'); fetch_osworld_task(); \
+		print('📊 3/6 Fetching WebArena...'); fetch_webarena_task(); \
+		print('📊 4/6 Fetching GPQA...'); fetch_gpqa_task(); \
+		print('📊 5/6 Seeding Inputs...'); seed_inputs_task(); \
+		print('📊 6/6 Computing Security Maturity...'); security_maturity_task(); \
+		print('✅ Backfill complete')"
+	@echo "✅ All connectors backfilled. Run 'make seed' if needed."
 
