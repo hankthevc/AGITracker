@@ -212,14 +212,15 @@ def map_claim_to_signposts(db, claim: Claim):
         if existing:
             continue
         
-        # Calculate score impact (simplified - actual logic in scoring package)
-        score_impact = min(1.0, (claim.metric_value - signpost.baseline_value) / 
-                          (signpost.target_value - signpost.baseline_value))
+        # Calculate impact (simplified - actual logic in scoring package)
+        impact = min(1.0, (claim.metric_value - signpost.baseline_value) / 
+                    (signpost.target_value - signpost.baseline_value))
         
         link = ClaimSignpost(
             claim_id=claim.id,
             signpost_id=signpost.id,
-            score_impact=max(0.0, score_impact),  # Clamp to [0, 1]
+            impact_estimate=max(0.0, impact),  # Clamp to [0, 1]
+            fit_score=1.0,  # High fit since this is a direct benchmark-to-signpost mapping
         )
         db.add(link)
     
