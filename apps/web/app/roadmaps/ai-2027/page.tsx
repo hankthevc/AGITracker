@@ -1,37 +1,92 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { ScenarioTimeline } from '@/components/ScenarioTimeline'
+import { AI2027Timeline } from '@/components/AI2027Timeline'
 
 export default function AI2027RoadmapPage() {
-  const milestones = [
+  // Sample timeline items - in production, fetch from /v1/signposts/by-code/{code}/predictions
+  // and compute ahead/on/behind status based on current date vs target_date
+  const timelineItems = [
     {
-      id: 'm1',
-      name: 'SWE-bench Verified 70%',
-      targetDate: 'Q2 2025',
-      actualDate: 'Q4 2024',
+      id: 'ai2027_flops_26',
+      label: '1e26 FLOP Training Run',
+      signpost_code: 'inputs_flops_26',
+      target_date: '2025-03-01',
+      confidence: 'high',
+      rationale: 'First 1e26 FLOP training run expected by early 2025 based on current buildout',
+      observed_date: '2024-10-01',  // Example: achieved early
+      current_value: 1.0,
       status: 'ahead' as const,
     },
     {
-      id: 'm2',
-      name: 'OSWorld 50%',
-      targetDate: 'Q4 2025',
+      id: 'ai2027_swe_70',
+      label: 'Agentic Coding 70%',
+      signpost_code: 'swe_bench_85',
+      target_date: '2025-06-01',
+      confidence: 'high',
+      rationale: 'AI 2027 predicts autonomous coding agents achieving 70%+ on real-world GitHub issues by mid-2025',
+      current_value: 0.68,
+      status: 'on_track' as const,
+    },
+    {
+      id: 'ai2027_osworld_65',
+      label: 'OS-Level Tasks 65%',
+      signpost_code: 'osworld_65',
+      target_date: '2025-09-01',
+      confidence: 'medium',
+      rationale: 'Complex OS-level task automation reaching 65% success by late 2025',
       status: 'pending' as const,
     },
     {
-      id: 'm3',
-      name: 'Multi-week Autonomous Projects',
-      targetDate: 'Q2 2026',
+      id: 'ai2027_dc_1gw',
+      label: '1 GW Datacenter',
+      signpost_code: 'inputs_dc_1gw',
+      target_date: '2025-12-01',
+      confidence: 'high',
+      rationale: 'First 1 GW AI datacenter cluster expected by end of 2025 (xAI, Meta commitments)',
       status: 'pending' as const,
     },
     {
-      id: 'm4',
-      name: '10% Economic Displacement',
-      targetDate: 'Q4 2026',
+      id: 'ai2027_webarena_70',
+      label: 'Web Navigation 70%',
+      signpost_code: 'webarena_70',
+      target_date: '2025-12-01',
+      confidence: 'medium',
+      rationale: 'Autonomous web navigation and task completion reaching 70% by end of 2025',
       status: 'pending' as const,
     },
     {
-      id: 'm5',
-      name: 'AGI Threshold (Combined Metrics)',
-      targetDate: 'Q2 2027',
+      id: 'ai2027_gpqa_75',
+      label: 'PhD-Level Science 75%',
+      signpost_code: 'gpqa_sota',
+      target_date: '2025-12-01',
+      confidence: 'medium',
+      rationale: 'PhD-level science question answering at 75% accuracy by end of 2025',
+      status: 'pending' as const,
+    },
+    {
+      id: 'ai2027_swe_85',
+      label: 'Agentic Coding 85%',
+      signpost_code: 'swe_bench_90',
+      target_date: '2026-03-01',
+      confidence: 'medium',
+      rationale: 'Near-human expert performance on software engineering benchmarks expected by early 2026',
+      status: 'pending' as const,
+    },
+    {
+      id: 'ai2027_flops_27',
+      label: '1e27 FLOP Training Run',
+      signpost_code: 'inputs_flops_27',
+      target_date: '2026-06-01',
+      confidence: 'high',
+      rationale: 'Scaling to 1e27 FLOPs projected for mid-2026 based on current buildout',
+      status: 'pending' as const,
+    },
+    {
+      id: 'ai2027_job_displacement',
+      label: '10% Job Displacement',
+      signpost_code: 'economic_displacement_10pct',
+      target_date: '2026-12-01',
+      confidence: 'medium',
+      rationale: 'Economic displacement of 10% of remote knowledge work projected for late 2026',
       status: 'pending' as const,
     },
   ]
@@ -72,7 +127,7 @@ export default function AI2027RoadmapPage() {
         </CardContent>
       </Card>
       
-      <ScenarioTimeline milestones={milestones} scenarioName="AI 2027" />
+      <AI2027Timeline items={timelineItems} />
       
       <Card>
         <CardHeader>
