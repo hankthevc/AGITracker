@@ -36,6 +36,29 @@ celery_app.conf.beat_schedule = {
         "task": "app.tasks.snap_index.compute_daily_snapshot",
         "schedule": crontab(hour=7, minute=0),  # 7 AM UTC daily (after fetch)
     },
+    # New benchmark connectors (v0.2)
+    "fetch-osworld": {
+        "task": "fetch_osworld",
+        "schedule": crontab(hour=7, minute=30),  # 7:30 AM UTC daily
+    },
+    "fetch-webarena": {
+        "task": "fetch_webarena",
+        "schedule": crontab(hour=7, minute=45),  # 7:45 AM UTC daily
+    },
+    "fetch-gpqa": {
+        "task": "fetch_gpqa",
+        "schedule": crontab(hour=8, minute=0),  # 8:00 AM UTC daily
+    },
+    # Inputs & Security tasks (weekly on Monday)
+    "seed-inputs": {
+        "task": "seed_inputs",
+        "schedule": crontab(hour=8, minute=15, day_of_week=1),  # Monday 8:15 AM UTC
+    },
+    "security-maturity": {
+        "task": "security_maturity",
+        "schedule": crontab(hour=8, minute=30, day_of_week=1),  # Monday 8:30 AM UTC
+    },
+    # Weekly digest
     "digest-weekly": {
         "task": "app.tasks.snap_index.generate_weekly_digest",
         "schedule": crontab(day_of_week=0, hour=8, minute=0),  # Sunday 8 AM UTC
