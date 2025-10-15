@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import Link from 'next/link'
+import { SentryInitializer } from '@/components/SentryInitializer'
 import './globals.css'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -37,6 +38,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
+        <SentryInitializer />
         <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
           <nav className="border-b bg-white/50 backdrop-blur-sm sticky top-0 z-50">
             <div className="container mx-auto px-4 py-4">
