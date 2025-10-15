@@ -14,7 +14,7 @@ import hashlib
 from celery import shared_task
 
 from app.database import SessionLocal
-from app.models import Event
+from app.models import Event, IngestRun
 from app.config import settings
 
 
@@ -23,9 +23,11 @@ ARXIV_CATEGORIES = {"cs.AI", "cs.CL", "cs.LG", "cs.CV"}
 
 def load_fixture_data() -> List[Dict]:
     """Load arXiv fixture data for CI/testing."""
-    fixture_path = Path(__file__).parent.parent.parent.parent / "fixtures" / "news" / "arxiv.json"
+    # Updated fixture path (v0.3 hybrid)
+    fixture_path = Path(__file__).parent.parent.parent.parent.parent / "infra" / "fixtures" / "arxiv" / "cs_ai_sample.json"
     
     if not fixture_path.exists():
+        print(f"⚠️  Fixture not found: {fixture_path}")
         return []
     
     with open(fixture_path) as f:
@@ -50,7 +52,7 @@ def fetch_live_arxiv() -> List[Dict]:
 def normalize_event_data(raw_data: Dict) -> Dict:
     """Normalize raw arXiv data to event schema."""
     # Parse published_at if string
-    published_at = raw_data.get("published_at")
+    published_at = raw_data.get("published", raw_data.get("published_at"))
     if isinstance(published_at, str):
         try:
             published_at = datetime.fromisoformat(published_at.replace('Z', '+00:00'))
@@ -61,10 +63,16 @@ def normalize_event_data(raw_data: Dict) -> Dict:
     authors = raw_data.get("authors", [])
     publisher = authors[0] if authors else "arXiv"
     
+    # Extract domain from URL
+    source_url = raw_data.get("link", raw_data.get("url"))
+    source_domain = "arxiv.org"
+    
     return {
         "title": raw_data["title"],
         "summary": raw_data.get("summary", ""),
-        "source_url": raw_data["url"],
+        "source_url": source_url,
+        "source_domain": source_domain,
+        "source_type": "paper",  # v0.3 schema
         "publisher": publisher,
         "published_at": published_at,
         "evidence_tier": "A",  # arXiv papers are A-tier (peer-reviewed/archived)
@@ -107,6 +115,15 @@ def ingest_arxiv_task():
     db = SessionLocal()
     stats = {"inserted": 0, "updated": 0, "skipped": 0, "errors": 0}
     
+    # Create ingest run record
+    run = IngestRun(
+        connector_name="ingest_arxiv",
+        started_at=datetime.now(timezone.utc),
+        status="running"
+    )
+    db.add(run)
+    db.commit()
+    
     try:
         use_live = settings.scrape_real
         
@@ -141,6 +158,13 @@ def ingest_arxiv_task():
         
         db.commit()
         
+        # Update ingest run
+        run.finished_at = datetime.now(timezone.utc)
+        run.status = "success"
+        run.new_events_count = stats["inserted"]
+        run.new_links_count = 0  # Mapper will update this
+        db.commit()
+        
         print(f"\n✅ arXiv ingestion complete!")
         print(f"   Inserted: {stats['inserted']}, Updated: {stats['updated']}, Skipped: {stats['skipped']}, Errors: {stats['errors']}")
         
@@ -148,6 +172,10 @@ def ingest_arxiv_task():
     
     except Exception as e:
         db.rollback()
+        run.finished_at = datetime.now(timezone.utc)
+        run.status = "fail"
+        run.error = str(e)
+        db.commit()
         print(f"❌ Fatal error in arXiv ingestion: {e}")
         raise
     
