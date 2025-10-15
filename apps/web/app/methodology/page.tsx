@@ -159,6 +159,53 @@ export default function MethodologyPage() {
         </CardContent>
       </Card>
 
+      {/* HLE Monitor-Only Benchmark */}
+      <Card className="border-orange-200 bg-orange-50/30">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <CardTitle>Humanity&apos;s Last Exam (HLE) - Monitor-Only Benchmark</CardTitle>
+            <Badge variant="secondary" className="bg-orange-100 text-orange-800">Provisional</Badge>
+          </div>
+          <CardDescription>
+            Long-horizon PhD-level reasoning benchmark with strict quality gating
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            HLE is a PhD-level reasoning breadth benchmark tracking long-horizon capabilities (2026-2028 horizon). 
+            Currently classified as <strong>monitor-only</strong> and does not affect main gauges.
+          </p>
+
+          <div className="space-y-2">
+            <h4 className="font-semibold text-sm">📋 Benchmark Details</h4>
+            <ul className="text-sm text-muted-foreground space-y-1 ml-4 list-disc">
+              <li><strong>Versioning:</strong> Text-only variant (2,500 questions)</li>
+              <li><strong>Evidence Tier:</strong> B (Provisional) - company-run leaderboard, not peer-reviewed</li>
+              <li><strong>Signposts:</strong> hle_text_50 (≥50%), hle_text_70 (≥70%) - calibrated for 2026-2028 horizon</li>
+            </ul>
+          </div>
+
+          <div className="space-y-2">
+            <h4 className="font-semibold text-sm">⚠️  A-tier Upgrade Criteria</h4>
+            <p className="text-sm text-muted-foreground">
+              HLE evidence will be upgraded to A-tier (affecting main gauges) only when <strong>one of</strong> these conditions is met:
+            </p>
+            <ul className="text-sm text-muted-foreground space-y-1 ml-4 list-disc">
+              <li>Peer-reviewed independent reproduction of results published</li>
+              <li>Official label-quality remediation from CAIS/Scale addressing Bio/Chem subset issues</li>
+            </ul>
+          </div>
+
+          <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
+            <p className="text-sm font-semibold text-yellow-800 mb-1">🔬 Label Quality</p>
+            <p className="text-xs text-yellow-800">
+              Bio/Chem subsets have known issues per independent audits. We track HLE for long-term monitoring 
+              but maintain strict quality standards before allowing it to influence main AGI proximity scores.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Safety Margin */}
       <Card>
         <CardHeader>
