@@ -127,8 +127,20 @@ def seed_benchmarks(db: Session):
             "family": "OSWORLD"
         },
         {
+            "code": "osworld_verified",
+            "name": "OSWorld-Verified",
+            "url": "https://os-world.github.io",
+            "family": "OSWORLD"
+        },
+        {
             "code": "webarena",
             "name": "WebArena",
+            "url": "https://webarena.dev",
+            "family": "WEBARENA"
+        },
+        {
+            "code": "visualwebarena",
+            "name": "VisualWebArena",
             "url": "https://webarena.dev",
             "family": "WEBARENA"
         },
@@ -148,7 +160,7 @@ def seed_benchmarks(db: Session):
             db.add(benchmark)
     
     db.commit()
-    print("✓ Seeded 4 benchmarks (idempotent)")
+    print("✓ Seeded 6 benchmarks (idempotent)")
 
 
 def seed_signposts(db: Session):
