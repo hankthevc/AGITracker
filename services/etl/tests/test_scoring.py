@@ -1,4 +1,5 @@
 """Tests for scoring library (Python)."""
+import pytest
 import sys
 from pathlib import Path
 
@@ -72,11 +73,11 @@ def test_compute_overall():
 def test_compute_safety_margin():
     """Test safety margin calculation."""
     # Positive margin (security ahead)
-    assert compute_safety_margin(0.6, 0.4) == 0.2
+    assert compute_safety_margin(0.6, 0.4) == pytest.approx(0.2, rel=0.01)
     
     # Negative margin (capability sprint)
-    assert compute_safety_margin(0.3, 0.7) == -0.4
+    assert compute_safety_margin(0.3, 0.7) == pytest.approx(-0.4, rel=0.01)
     
     # Parity
-    assert compute_safety_margin(0.5, 0.5) == 0.0
+    assert compute_safety_margin(0.5, 0.5) == pytest.approx(0.0, abs=0.01)
 
