@@ -1,4 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 
 export default function BenchmarksPage() {
@@ -7,6 +8,7 @@ export default function BenchmarksPage() {
     'OSWorld': 'osworld_50',
     'WebArena': 'webarena_60',
     'GPQA Diamond': 'gpqa_75',
+    'Humanity\'s Last Exam (Text-Only)': 'hle_text_50',
   }
   
   const benchmarks = [
@@ -42,6 +44,16 @@ export default function BenchmarksPage() {
       target: '75-85%',
       status: 'In Progress',
     },
+    {
+      name: 'Humanity\'s Last Exam (Text-Only)',
+      description: 'PhD-level reasoning breadth benchmark across multiple subjects',
+      url: 'https://scale.com/leaderboard/hle',
+      current: '~37.5%',
+      target: '50-70%',
+      status: 'Monitor-Only',
+      provisional: true,
+      qualityNote: 'Note: Bio/Chem subsets have known label-quality issues. Currently B-tier (Provisional) evidence only.',
+    },
   ]
   
   return (
@@ -55,9 +67,24 @@ export default function BenchmarksPage() {
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {benchmarks.map((benchmark) => (
-          <Card key={benchmark.name} data-testid="benchmark-card">
+          <Card 
+            key={benchmark.name} 
+            data-testid={benchmark.provisional ? "hle-benchmark-tile" : "benchmark-card"}
+            className={benchmark.provisional ? "border-orange-200 bg-orange-50/30" : ""}
+          >
             <CardHeader>
-              <CardTitle>{benchmark.name}</CardTitle>
+              <div className="flex items-start justify-between gap-2">
+                <CardTitle className="flex-1">{benchmark.name}</CardTitle>
+                {benchmark.provisional && (
+                  <Badge 
+                    variant="secondary" 
+                    className="bg-orange-100 text-orange-800 hover:bg-orange-200"
+                    data-testid="hle-provisional-badge"
+                  >
+                    Provisional
+                  </Badge>
+                )}
+              </div>
               <CardDescription>{benchmark.description}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -72,11 +99,30 @@ export default function BenchmarksPage() {
                 </div>
               </div>
               
+              {benchmark.qualityNote && (
+                <div 
+                  className="bg-yellow-50 border border-yellow-200 rounded-md p-3 text-xs text-yellow-800"
+                  data-testid="hle-quality-note"
+                >
+                  <span className="font-semibold">⚠️ Data Quality:</span> {benchmark.qualityNote}{' '}
+                  <a 
+                    href="https://scale.com/leaderboard/hle" 
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline hover:text-yellow-900"
+                  >
+                    Learn more
+                  </a>
+                </div>
+              )}
+              
               <div className="pt-4 border-t space-y-3">
                 <div className="flex items-center justify-between">
                   <span className={`text-sm font-medium px-3 py-1 rounded-full ${
                     benchmark.status === 'In Progress' 
                       ? 'bg-yellow-100 text-yellow-800' 
+                      : benchmark.status === 'Monitor-Only'
+                      ? 'bg-blue-100 text-blue-800'
                       : 'bg-gray-100 text-gray-800'
                   }`}>
                     {benchmark.status}
@@ -113,8 +159,7 @@ export default function BenchmarksPage() {
         </CardHeader>
         <CardContent className="prose prose-sm max-w-none">
           <p>
-            These four benchmark families represent our "first-class" signposts—core capabilities
-            required for economically transformative AI:
+            These benchmark families track AI progress toward economically transformative capabilities:
           </p>
           <ul>
             <li>
@@ -133,11 +178,16 @@ export default function BenchmarksPage() {
               <strong>GPQA Diamond:</strong> Assesses scientific reasoning at PhD level across physics,
               chemistry, and biology—requiring deep domain knowledge.
             </li>
+            <li>
+              <strong>HLE (Humanity&apos;s Last Exam):</strong> Monitor-only. PhD-level reasoning breadth 
+              benchmark with known label-quality issues in Bio/Chem subsets. Currently B-tier (Provisional) 
+              evidence only. Does not affect main composite until A-tier evidence available.
+            </li>
           </ul>
           <p>
-            These benchmarks were chosen because they measure <em>economically relevant</em> capabilities
-            rather than narrow technical skills. Progress here directly correlates with ability to perform
-            valuable remote cognitive work.
+            The first four benchmarks measure <em>economically relevant</em> capabilities and directly impact 
+            our main progress gauges. HLE is tracked separately as a long-horizon indicator (2026-2028) and 
+            remains monitor-only pending data quality improvements or peer-reviewed validation.
           </p>
         </CardContent>
       </Card>
