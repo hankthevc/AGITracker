@@ -32,6 +32,9 @@ from app.models import (
     ChangelogEntry,
     Claim,
     ClaimSignpost,
+    Event,
+    EventEntity,
+    EventSignpostLink,
     IndexSnapshot,
     PaceAnalysis,
     Roadmap,
@@ -763,6 +766,277 @@ async def recompute_index(
         return {"status": "success", "result": result, "cache_purged": True}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Recompute failed: {str(e)}")
+
+
+# Events endpoints (v0.3)
+
+
+@app.get("/v1/events")
+@limiter.limit(f"{settings.rate_limit_per_minute}/minute")
+async def list_events(
+    request: Request,
+    tier: Optional[str] = Query(None, regex="^[ABCD]$"),
+    signpost_id: Optional[int] = None,
+    needs_review: Optional[bool] = None,
+    skip: int = 0,
+    limit: int = 50,
+    db: Session = Depends(get_db),
+):
+    """
+    List news events with optional filtering.
+    
+    Query params:
+    - tier: Filter by evidence tier (A/B/C/D)
+    - signpost_id: Filter by linked signpost
+    - needs_review: Filter by review status
+    - skip: Pagination offset
+    - limit: Page size (max 100)
+    """
+    limit = min(limit, 100)
+    
+    query = db.query(Event)
+    
+    if tier:
+        query = query.filter(Event.evidence_tier == tier)
+    
+    if signpost_id:
+        event_ids = (
+            db.query(EventSignpostLink.event_id)
+            .filter(EventSignpostLink.signpost_id == signpost_id)
+            .all()
+        )
+        event_ids = [e[0] for e in event_ids]
+        query = query.filter(Event.id.in_(event_ids))
+    
+    if needs_review is not None:
+        query = query.filter(Event.needs_review == needs_review)
+    
+    total = query.count()
+    events = query.order_by(desc(Event.published_at)).offset(skip).limit(limit).all()
+    
+    results = []
+    for event in events:
+        # Get linked signposts
+        links = (
+            db.query(EventSignpostLink)
+            .filter(EventSignpostLink.event_id == event.id)
+            .all()
+        )
+        signpost_links = []
+        for link in links:
+            signpost = db.query(Signpost).filter(Signpost.id == link.signpost_id).first()
+            if signpost:
+                signpost_links.append({
+                    "signpost_code": signpost.code,
+                    "signpost_name": signpost.name,
+                    "confidence": float(link.confidence) if link.confidence else None,
+                    "value": float(link.value) if link.value else None,
+                })
+        
+        results.append({
+            "id": event.id,
+            "title": event.title,
+            "summary": event.summary,
+            "source_url": event.source_url,
+            "publisher": event.publisher,
+            "published_at": event.published_at.isoformat() if event.published_at else None,
+            "evidence_tier": event.evidence_tier,
+            "provisional": event.provisional,
+            "needs_review": event.needs_review,
+            "signpost_links": signpost_links,
+        })
+    
+    return {"total": total, "skip": skip, "limit": limit, "results": results}
+
+
+@app.get("/v1/events/{event_id}")
+async def get_event(event_id: int, db: Session = Depends(get_db)):
+    """Get detailed event information with signpost links and entities."""
+    event = db.query(Event).filter(Event.id == event_id).first()
+    
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    # Get signpost links
+    links = (
+        db.query(EventSignpostLink)
+        .filter(EventSignpostLink.event_id == event.id)
+        .all()
+    )
+    signpost_links = []
+    for link in links:
+        signpost = db.query(Signpost).filter(Signpost.id == link.signpost_id).first()
+        if signpost:
+            signpost_links.append({
+                "signpost_id": signpost.id,
+                "signpost_code": signpost.code,
+                "signpost_name": signpost.name,
+                "category": signpost.category,
+                "confidence": float(link.confidence) if link.confidence else None,
+                "rationale": link.rationale,
+                "value": float(link.value) if link.value else None,
+                "observed_at": link.observed_at.isoformat() if link.observed_at else None,
+            })
+    
+    # Get entities
+    entities = (
+        db.query(EventEntity)
+        .filter(EventEntity.event_id == event.id)
+        .all()
+    )
+    entity_list = [{"type": e.type, "value": e.value} for e in entities]
+    
+    return {
+        "id": event.id,
+        "title": event.title,
+        "summary": event.summary,
+        "source_url": event.source_url,
+        "publisher": event.publisher,
+        "published_at": event.published_at.isoformat() if event.published_at else None,
+        "ingested_at": event.ingested_at.isoformat(),
+        "evidence_tier": event.evidence_tier,
+        "provisional": event.provisional,
+        "needs_review": event.needs_review,
+        "parsed": event.parsed,
+        "signpost_links": signpost_links,
+        "entities": entity_list,
+    }
+
+
+@app.get("/v1/events/feed.json")
+@limiter.limit(f"{settings.rate_limit_per_minute}/minute")
+@cache(expire=settings.feed_cache_ttl_seconds)
+async def events_feed(
+    request: Request,
+    audience: str = Query("public", regex="^(public|research)$"),
+    db: Session = Depends(get_db),
+):
+    """
+    JSON feed of news events (public or research audience).
+    
+    Query params:
+    - audience: 'public' (A/B tier only) or 'research' (A/B/C/D all tiers)
+    
+    Public mode: Safe for general consumption, A/B tier only
+    Research mode: Includes C/D tier with clear tier labels
+    """
+    if audience == "public":
+        # Public: Only A/B tier (verified sources)
+        query = db.query(Event).filter(Event.evidence_tier.in_(["A", "B"]))
+    else:
+        # Research: All tiers (A/B/C/D)
+        query = db.query(Event)
+    
+    # Order by published date
+    events = query.order_by(desc(Event.published_at)).limit(100).all()
+    
+    feed_items = []
+    for event in events:
+        # Get linked signposts
+        links = (
+            db.query(EventSignpostLink)
+            .filter(EventSignpostLink.event_id == event.id)
+            .all()
+        )
+        
+        signposts = []
+        for link in links:
+            signpost = db.query(Signpost).filter(Signpost.id == link.signpost_id).first()
+            if signpost:
+                signposts.append({
+                    "code": signpost.code,
+                    "confidence": float(link.confidence) if link.confidence else None,
+                })
+        
+        feed_items.append({
+            "title": event.title,
+            "summary": event.summary,
+            "url": event.source_url,
+            "publisher": event.publisher,
+            "date": event.published_at.isoformat() if event.published_at else None,
+            "tier": event.evidence_tier,
+            "provisional": event.provisional,
+            "signposts": signposts,
+        })
+    
+    return {
+        "version": "1.0",
+        "license": "CC BY 4.0",
+        "audience": audience,
+        "generated_at": datetime.utcnow().isoformat(),
+        "policy": (
+            "A/B tier: verified sources (A moves gauges directly, B provisional)."
+            if audience == "public"
+            else "All tiers included. C/D tier: displayed but NEVER moves gauges."
+        ),
+        "items": feed_items,
+    }
+
+
+# Admin review endpoints for events
+
+
+@app.post("/v1/admin/events/{event_id}/approve")
+async def approve_event_mapping(
+    event_id: int,
+    verified: bool = Depends(verify_api_key),
+    db: Session = Depends(get_db),
+):
+    """
+    Approve event signpost mappings (admin only).
+    Sets needs_review=False. Requires X-API-Key header.
+    """
+    event = db.query(Event).filter(Event.id == event_id).first()
+    
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    event.needs_review = False
+    db.commit()
+    
+    return {
+        "status": "success",
+        "event_id": event_id,
+        "needs_review": False,
+        "message": "Event mappings approved",
+    }
+
+
+@app.post("/v1/admin/events/{event_id}/reject")
+async def reject_event_mapping(
+    event_id: int,
+    reason: str = Query(..., min_length=1),
+    verified: bool = Depends(verify_api_key),
+    db: Session = Depends(get_db),
+):
+    """
+    Reject event signpost mappings (admin only).
+    Removes all signpost links and marks for review. Requires X-API-Key header.
+    """
+    event = db.query(Event).filter(Event.id == event_id).first()
+    
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    # Delete all signpost links
+    db.query(EventSignpostLink).filter(EventSignpostLink.event_id == event_id).delete()
+    
+    # Mark as needs review with reason
+    event.needs_review = True
+    event.parsed = {
+        **event.parsed or {},
+        "rejected_at": datetime.utcnow().isoformat(),
+        "rejection_reason": reason,
+    }
+    
+    db.commit()
+    
+    return {
+        "status": "success",
+        "event_id": event_id,
+        "needs_review": True,
+        "message": f"Event mappings rejected: {reason}",
+    }
 
 
 @app.post("/v1/recompute")
