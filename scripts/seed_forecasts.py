@@ -116,6 +116,10 @@ def load_forecasts(dry_run=False):
                 # Convert numeric confidence to categorical
                 confidence_level = confidence_to_level(pred.get("confidence", 0.5))
                 
+                # Resolve signpost_id for faster joins in UI/API if available
+                signpost = db.query(Signpost).filter(Signpost.code == pred["signpost_code"]).first()
+                signpost_id = signpost.id if signpost else None
+
                 if existing:
                     # Update existing prediction
                     if not dry_run:
@@ -123,6 +127,7 @@ def load_forecasts(dry_run=False):
                         existing.prediction_text = pred.get("label", pred["signpost_code"])
                         existing.confidence_level = confidence_level
                         existing.notes = pred.get("rationale", "")
+                        existing.signpost_id = signpost_id
                     stats["updated"] += 1
                     action = "UPDATE" if not dry_run else "WOULD UPDATE"
                 else:
@@ -130,6 +135,7 @@ def load_forecasts(dry_run=False):
                     if not dry_run:
                         new_pred = RoadmapPrediction(
                             roadmap_id=roadmap_id,
+                            signpost_id=signpost_id,
                             signpost_code=pred["signpost_code"],
                             predicted_date=target_date,
                             prediction_text=pred.get("label", pred["signpost_code"]),

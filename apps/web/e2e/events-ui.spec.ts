@@ -44,6 +44,16 @@ test.describe('Events List Page', () => {
     expect(pageContent).toBeTruthy();
   });
 
+  test('filters events by source type', async ({ page }) => {
+    await page.goto(`${BASE_URL}/news`);
+    
+    // Click source_type filter 'paper'
+    await page.locator('a:has-text("paper")').first().click();
+    await page.waitForTimeout(1000);
+    const pageContent = await page.textContent('body');
+    expect(pageContent).toBeTruthy();
+  });
+
   test('displays legend with tier descriptions', async ({ page }) => {
     await page.goto(`${BASE_URL}/events`);
     

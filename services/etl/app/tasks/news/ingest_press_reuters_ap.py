@@ -13,7 +13,7 @@ from typing import Dict, List
 from celery import shared_task
 
 from app.database import SessionLocal
-from app.models import Event
+from app.models import Event, IngestRun
 from app.config import settings
 
 
@@ -88,6 +88,15 @@ def ingest_press_reuters_ap_task():
     db = SessionLocal()
     stats = {"inserted": 0, "updated": 0, "skipped": 0, "errors": 0}
     
+    # Create ingest run record
+    run = IngestRun(
+        connector_name="ingest_press_reuters_ap",
+        started_at=datetime.now(timezone.utc),
+        status="running",
+    )
+    db.add(run)
+    db.commit()
+    
     try:
         use_live = settings.scrape_real
         
@@ -121,6 +130,14 @@ def ingest_press_reuters_ap_task():
                 continue
         
         db.commit()
+        
+        # Update ingest run
+        run.finished_at = datetime.now(timezone.utc)
+        run.status = "success"
+        run.new_events_count = stats["inserted"]
+        run.new_links_count = 0
+        db.commit()
+        
         print(f"\n✅ Press ingestion complete (C-tier: displayed but NEVER moves gauges)")
         print(f"   Inserted: {stats['inserted']}, Updated: {stats['updated']}")
         
@@ -128,6 +145,11 @@ def ingest_press_reuters_ap_task():
     
     except Exception as e:
         db.rollback()
+        # Update ingest run on failure
+        run.finished_at = datetime.now(timezone.utc)
+        run.status = "fail"
+        run.error = str(e)
+        db.commit()
         print(f"❌ Fatal error: {e}")
         raise
     finally:

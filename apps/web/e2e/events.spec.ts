@@ -21,7 +21,9 @@ test.describe('Events API', () => {
     expect(data).toHaveProperty('skip');
     expect(data).toHaveProperty('limit');
     expect(data).toHaveProperty('results');
+    expect(data).toHaveProperty('items');
     expect(Array.isArray(data.results)).toBe(true);
+    expect(Array.isArray(data.items)).toBe(true);
   });
 
   test('GET /v1/events filters by tier', async ({ request }) => {

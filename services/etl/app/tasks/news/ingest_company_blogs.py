@@ -13,7 +13,7 @@ import hashlib
 from celery import shared_task
 
 from app.database import SessionLocal
-from app.models import Event
+from app.models import Event, IngestRun
 from app.config import settings
 
 
@@ -117,6 +117,15 @@ def ingest_company_blogs_task():
     db = SessionLocal()
     stats = {"inserted": 0, "updated": 0, "skipped": 0, "errors": 0}
     
+    # Create ingest run record
+    run = IngestRun(
+        connector_name="ingest_company_blogs",
+        started_at=datetime.now(timezone.utc),
+        status="running",
+    )
+    db.add(run)
+    db.commit()
+    
     try:
         # Determine if we should use live or fixture data
         use_live = settings.scrape_real
@@ -158,6 +167,13 @@ def ingest_company_blogs_task():
         
         db.commit()
         
+        # Update ingest run
+        run.finished_at = datetime.now(timezone.utc)
+        run.status = "success"
+        run.new_events_count = stats["inserted"]
+        run.new_links_count = 0  # mapper updates later
+        db.commit()
+        
         print(f"\n✅ Company blogs ingestion complete!")
         print(f"   Inserted: {stats['inserted']}, Updated: {stats['updated']}, Skipped: {stats['skipped']}, Errors: {stats['errors']}")
         
@@ -165,6 +181,11 @@ def ingest_company_blogs_task():
     
     except Exception as e:
         db.rollback()
+        # Update ingest run on failure
+        run.finished_at = datetime.now(timezone.utc)
+        run.status = "fail"
+        run.error = str(e)
+        db.commit()
         print(f"❌ Fatal error in company blogs ingestion: {e}")
         raise
     

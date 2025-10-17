@@ -49,6 +49,7 @@ export const apiClient = {
     tier?: string
     signpost_id?: number
     needs_review?: boolean
+    source_type?: string
     start_date?: string
     end_date?: string
     skip?: number
@@ -58,6 +59,7 @@ export const apiClient = {
     if (params?.tier) searchParams.append('tier', params.tier)
     if (params?.signpost_id) searchParams.append('signpost_id', String(params.signpost_id))
     if (params?.needs_review !== undefined) searchParams.append('needs_review', String(params.needs_review))
+    if (params?.source_type) searchParams.append('source_type', params.source_type)
     if (params?.start_date) searchParams.append('start_date', params.start_date)
     if (params?.end_date) searchParams.append('end_date', params.end_date)
     if (params?.skip) searchParams.append('skip', String(params.skip))

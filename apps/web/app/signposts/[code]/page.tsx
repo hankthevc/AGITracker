@@ -98,6 +98,16 @@ async function getSignpostPace(code: string) {
   }
 }
 
+async function getSignpostEvents(code: string) {
+  try {
+    const res = await fetch(`${API_URL}/v1/signposts/by-code/${code}/events`, { cache: 'no-store' })
+    if (!res.ok) return null
+    return await res.json()
+  } catch {
+    return null
+  }
+}
+
 function SignpostHero({ signpost }: { signpost: SignpostData }) {
   return (
     <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b">
@@ -380,10 +390,11 @@ export default async function SignpostDetailPage({
     )
   }
 
-  const [content, predictionsData, paceData] = await Promise.all([
+  const [content, predictionsData, paceData, eventsData] = await Promise.all([
     getSignpostContent(params.code),
     getSignpostPredictions(params.code),
     getSignpostPace(params.code),
+    getSignpostEvents(params.code),
   ])
 
   return (
@@ -403,6 +414,48 @@ export default async function SignpostDetailPage({
         </>
       )}
       
+      {/* New Events section */}
+      {eventsData?.events && (
+        <section className="py-12 border-t">
+          <div className="container mx-auto px-4">
+            <h2 className="text-3xl font-bold mb-6">New Events</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {(['A','B','C','D'] as const).map((tier) => {
+                const tierEvents = eventsData.events[tier] || []
+                if (tierEvents.length === 0) return null
+                const tierStyle = tier === 'A' ? 'bg-green-50 border-green-200' : tier === 'B' ? 'bg-blue-50 border-blue-200' : tier === 'C' ? 'bg-yellow-50 border-yellow-200' : 'bg-gray-50 border-gray-200'
+                const tierLabel = tier === 'A' ? 'Tier A' : tier === 'B' ? 'Tier B' : tier === 'C' ? 'Tier C' : 'Tier D'
+                return (
+                  <Card key={tier} className={`${tierStyle}`}>
+                    <CardHeader>
+                      <CardTitle className="text-lg">{tierLabel}</CardTitle>
+                      <CardDescription>
+                        {tier === 'C' || tier === 'D' ? 'If true — does not move gauges' : tier === 'B' ? 'Provisional until A corroboration' : 'Moves gauges'}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {tierEvents.slice(0, 10).map((ev: any) => (
+                        <div key={ev.id} className="text-sm">
+                          <div className="flex items-center justify-between gap-2">
+                            <Link href={`/events/${ev.id}`} className="font-medium hover:text-primary line-clamp-1">
+                              {ev.title}
+                            </Link>
+                            {ev.date && <span className="text-xs text-muted-foreground">{new Date(ev.date).toLocaleDateString()}</span>}
+                          </div>
+                          {ev.value !== undefined && (
+                            <div className="text-xs text-muted-foreground">Value: {ev.value}</div>
+                          )}
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </div>
+          </div>
+        </section>
+      )}
+
       <RelatedSignposts category={signpost.category} currentCode={params.code} />
     </div>
   )

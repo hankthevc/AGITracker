@@ -52,11 +52,13 @@ const TIER_CONFIG = {
 function NewsContent() {
   const searchParams = useSearchParams()
   const tierFilter = searchParams.get('tier')
+  const sourceTypeFilter = searchParams.get('source_type')
   
   const { data, error, isLoading } = useSWR(
-    `/v1/events?tier=${tierFilter || ''}&limit=50`,
+    `/v1/events?tier=${tierFilter || ''}&source_type=${sourceTypeFilter || ''}&limit=50`,
     () => apiClient.getEvents({
       tier: tierFilter || undefined,
+      source_type: sourceTypeFilter || undefined,
       limit: 50,
     })
   )
@@ -106,7 +108,7 @@ function NewsContent() {
         </CardContent>
       </Card>
 
-      {/* Tier Filter */}
+      {/* Filters */}
       <div className="flex flex-wrap gap-2">
         <Link
           href="/news"
@@ -129,6 +131,21 @@ function NewsContent() {
             }`}
           >
             {config.label} - {config.badge}
+          </Link>
+        ))}
+        {/* Source type filter */}
+        <span className="mx-2 text-muted-foreground">|</span>
+        {['news','paper','blog','leaderboard','gov'].map((t) => (
+          <Link
+            key={t}
+            href={`/news?${tierFilter ? `tier=${tierFilter}&` : ''}source_type=${t}`}
+            className={`px-3 py-1.5 text-sm rounded border transition-colors ${
+              sourceTypeFilter === t
+                ? 'bg-slate-800 text-white border-slate-800'
+                : 'bg-white hover:bg-slate-50 border-slate-300'
+            }`}
+          >
+            {t}
           </Link>
         ))}
       </div>

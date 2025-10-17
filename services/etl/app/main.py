@@ -393,6 +393,53 @@ async def get_signpost_by_code(code: str, db: Session = Depends(get_db)):
     }
 
 
+@app.get("/v1/signposts/by-code/{code}/events")
+async def get_signpost_events_by_code(
+    code: str,
+    limit: int = 10,
+    db: Session = Depends(get_db),
+):
+    """Get recent events linked to a signpost (grouped by tier)."""
+    signpost = db.query(Signpost).filter(Signpost.code == code).first()
+    if not signpost:
+        raise HTTPException(status_code=404, detail="Signpost not found")
+
+    # Get latest links for this signpost
+    links = (
+        db.query(EventSignpostLink)
+        .filter(EventSignpostLink.signpost_id == signpost.id)
+        .order_by(desc(EventSignpostLink.observed_at))
+        .limit(100)
+        .all()
+    )
+
+    # Fetch corresponding events
+    events_by_tier = {"A": [], "B": [], "C": [], "D": []}
+    for link in links:
+        event = db.query(Event).filter(Event.id == link.event_id).first()
+        if not event:
+            continue
+        item = {
+            "id": event.id,
+            "title": event.title,
+            "summary": event.summary,
+            "url": event.source_url,
+            "publisher": event.publisher,
+            "date": event.published_at.isoformat() if event.published_at else None,
+            "tier": event.evidence_tier,
+            "provisional": event.provisional,
+            "confidence": float(link.confidence) if link.confidence else None,
+            "value": float(link.value) if link.value else None,
+            "observed_at": link.observed_at.isoformat() if link.observed_at else None,
+        }
+        # Cap per-tier to limit (maintain order)
+        tier_list = events_by_tier.get(event.evidence_tier, [])
+        if len(tier_list) < limit:
+            tier_list.append(item)
+            events_by_tier[event.evidence_tier] = tier_list
+
+    return {"signpost_code": code, "events": events_by_tier}
+
 @app.get("/v1/signposts/by-code/{code}/content")
 async def get_signpost_content(code: str, db: Session = Depends(get_db)):
     """Get rich educational content for a signpost."""
