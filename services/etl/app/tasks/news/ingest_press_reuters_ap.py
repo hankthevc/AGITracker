@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Dict, List
 
 from celery import shared_task
+import feedparser
 
 from app.database import SessionLocal
 from app.models import Event, IngestRun
@@ -52,10 +53,32 @@ def generate_synthetic_press(total: int) -> List[Dict]:
     return items
 
 
-def fetch_live_press() -> List[Dict]:
-    """Fetch live press articles (placeholder)."""
-    # TODO: Implement Reuters/AP API/RSS fetching
-    return []
+def fetch_live_press(max_results: int = 100) -> List[Dict]:
+    """Fetch live press articles (Reuters Technology RSS)."""
+    feeds = [
+        "https://feeds.reuters.com/reuters/technologyNews",
+    ]
+    items: List[Dict] = []
+    for url in feeds:
+        try:
+            feed = feedparser.parse(url)
+            for entry in feed.entries[:max_results]:
+                title = entry.get("title", "").strip()
+                summary = entry.get("summary", "").strip()
+                link = entry.get("link")
+                published = entry.get("published") or entry.get("updated")
+                items.append(
+                    {
+                        "title": title,
+                        "summary": summary,
+                        "url": link,
+                        "publisher": "Reuters",
+                        "published_at": published,
+                    }
+                )
+        except Exception:
+            continue
+    return items
 
 
 def normalize_event_data(raw_data: Dict) -> Dict:
@@ -122,8 +145,11 @@ def ingest_press_reuters_ap_task():
         use_live = settings.scrape_real
         
         if use_live:
-            print("🔴 Live mode: Fetching press (not implemented, using fixtures)")
-            raw_data = load_fixture_data()
+            print("🔵 Live mode: Fetching press (Reuters Technology RSS)")
+            raw_data = fetch_live_press()
+            if not raw_data:
+                print("  ⚠️  Live press feed returned 0 items; falling back to fixtures")
+                raw_data = load_fixture_data()
         else:
             print("🟢 Fixture mode: Loading press fixtures")
             raw_data = load_fixture_data()

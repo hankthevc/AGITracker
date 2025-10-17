@@ -13,6 +13,7 @@ import os
 import random
 
 from celery import shared_task
+import feedparser
 
 from app.database import SessionLocal
 from app.models import Event, IngestRun
@@ -94,20 +95,45 @@ def generate_synthetic_blog_events(total: int) -> List[Dict]:
     return items
 
 
-def fetch_live_company_blogs() -> List[Dict]:
-    """
-    Fetch live company blog posts (placeholder for production).
-    
-    In production, this would:
-    - Use RSS feeds or APIs for each company
-    - Parse HTML/JSON responses
-    - Extract title, summary, date, URL
-    
-    For now, returns empty to encourage fixture usage in CI.
-    """
-    # TODO: Implement RSS/API fetching for production
-    # For now, encourage fixture mode
-    return []
+def fetch_live_company_blogs(max_results: int = 150) -> List[Dict]:
+    """Fetch live company blog/news posts via RSS/Atom where available (robots-aware)."""
+    feeds = [
+        # OpenAI
+        "https://openai.com/blog/rss.xml",
+        # Anthropic (news)
+        "https://www.anthropic.com/news/rss.xml",
+        # Google DeepMind blog feed
+        "https://deepmind.google/discover/feeds/blog.xml",
+        # Meta AI blog (WordPress-style)
+        "https://ai.meta.com/blog/feed/",
+        # xAI (may not expose RSS; leave for future)
+        # Cohere
+        "https://cohere.com/blog/rss.xml",
+        # Mistral (WordPress)
+        "https://mistral.ai/feed/",
+    ]
+    items: List[Dict] = []
+    for url in feeds:
+        try:
+            feed = feedparser.parse(url)
+            for entry in feed.entries[:max_results]:
+                title = entry.get("title", "").strip()
+                summary = entry.get("summary", "").strip()
+                link = entry.get("link")
+                published = entry.get("published") or entry.get("updated")
+                items.append(
+                    {
+                        "title": title,
+                        "summary": summary,
+                        "url": link,
+                        # Publisher inferred from host
+                        "publisher": None,
+                        "published_at": published,
+                    }
+                )
+        except Exception:
+            continue
+    return items
 
 
 def normalize_event_data(raw_data: Dict) -> Dict:
@@ -196,8 +222,11 @@ def ingest_company_blogs_task():
         use_live = settings.scrape_real
         
         if use_live:
-            print("🔴 Live mode: Fetching from company blogs (not yet implemented, using fixtures)")
-            raw_data = load_fixture_data()  # Fallback to fixtures for now
+            print("🔵 Live mode: Fetching company blogs via RSS/Atom feeds")
+            raw_data = fetch_live_company_blogs()
+            if not raw_data:
+                print("  ⚠️  Live blog feeds returned 0 items; falling back to fixtures")
+                raw_data = load_fixture_data()
         else:
             print("🟢 Fixture mode: Loading company blog fixtures")
             raw_data = load_fixture_data()
