@@ -127,9 +127,6 @@ def ingest_press_reuters_ap_task():
         else:
             print("🟢 Fixture mode: Loading press fixtures")
             raw_data = load_fixture_data()
-            synth_total = int(os.getenv("PRESS_SYNTHETIC_COUNT", os.getenv("NEWS_SYNTHETIC_COUNT", "0")))
-            if synth_total > 0:
-                raw_data.extend(generate_synthetic_press(synth_total))
         
         print(f"📰 Processing {len(raw_data)} press articles (C-tier, for 'if true' analysis only)...")
         

@@ -12,6 +12,7 @@ from typing import Dict, List
 import hashlib
 
 from celery import shared_task
+import feedparser
 
 from app.database import SessionLocal
 from app.models import Event, IngestRun
@@ -35,19 +36,34 @@ def load_fixture_data() -> List[Dict]:
         return json.load(f)
 
 
-def fetch_live_arxiv() -> List[Dict]:
-    """
-    Fetch live arXiv papers (placeholder for production).
-    
-    In production, this would:
-    - Query arXiv API for recent papers in target categories
-    - Parse XML/JSON responses
-    - Extract title, abstract, authors, date, categories
-    
-    For now, returns empty to encourage fixture usage in CI.
-    """
-    # TODO: Implement arXiv API fetching for production
-    return []
+def fetch_live_arxiv(max_results: int = 50) -> List[Dict]:
+    """Fetch recent arXiv entries for target categories via Atom feed (robots-friendly)."""
+    base = (
+        "http://export.arxiv.org/api/query?"
+        "search_query=cat:cs.AI+OR+cat:cs.CL+OR+cat:cs.LG+OR+cat:cs.CV"
+        "&sortBy=submittedDate&sortOrder=descending"
+        f"&max_results={max_results}"
+    )
+    feed = feedparser.parse(base)
+    items: List[Dict] = []
+    for entry in feed.entries:
+        title = entry.get("title", "").strip()
+        summary = entry.get("summary", "").strip()
+        link = entry.get("link")
+        published = entry.get("published") or entry.get("updated")
+        authors = [a.get("name") for a in entry.get("authors", [])] if entry.get("authors") else []
+        categories = [t.get("term") for t in entry.get("tags", [])] if entry.get("tags") else []
+        items.append(
+            {
+                "title": title,
+                "summary": summary,
+                "link": link,
+                "authors": authors,
+                "published": published,
+                "categories": categories,
+            }
+        )
+    return items
 
 
 def normalize_event_data(raw_data: Dict) -> Dict:
@@ -129,8 +145,8 @@ def ingest_arxiv_task():
         use_live = settings.scrape_real
         
         if use_live:
-            print("🔴 Live mode: Fetching from arXiv API (not yet implemented, using fixtures)")
-            raw_data = load_fixture_data()
+            print("🔵 Live mode: Fetching recent arXiv entries via Atom API")
+            raw_data = fetch_live_arxiv()
         else:
             print("🟢 Fixture mode: Loading arXiv fixtures")
             raw_data = load_fixture_data()

@@ -201,11 +201,6 @@ def ingest_company_blogs_task():
         else:
             print("🟢 Fixture mode: Loading company blog fixtures")
             raw_data = load_fixture_data()
-            # Optionally augment with synthetic items to reach demo thresholds
-            synth_total = int(os.getenv("BLOGS_SYNTHETIC_COUNT", os.getenv("NEWS_SYNTHETIC_COUNT", "0")))
-            if synth_total > 0:
-                print(f"  ➕ Generating {synth_total} synthetic blog events for backfill")
-                raw_data.extend(generate_synthetic_blog_events(synth_total))
         
         print(f"📰 Processing {len(raw_data)} company blog posts...")
         
