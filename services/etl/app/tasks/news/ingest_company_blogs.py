@@ -14,6 +14,7 @@ import random
 
 from celery import shared_task
 import feedparser
+from urllib.parse import urlparse
 
 from app.database import SessionLocal
 from app.models import Event, IngestRun
@@ -121,13 +122,28 @@ def fetch_live_company_blogs(max_results: int = 150) -> List[Dict]:
                 summary = entry.get("summary", "").strip()
                 link = entry.get("link")
                 published = entry.get("published") or entry.get("updated")
+                # Infer publisher from hostname
+                host = None
+                try:
+                    host = urlparse(link).hostname or ""
+                except Exception:
+                    host = ""
+                publisher = (
+                    "OpenAI" if "openai.com" in host else
+                    "Anthropic" if "anthropic.com" in host else
+                    "Google DeepMind" if ("deepmind.google" in host or "deepmind.com" in host) else
+                    "Meta AI" if ("ai.meta.com" in host or host.endswith("meta.com")) else
+                    "Cohere" if "cohere.com" in host else
+                    "Mistral" if "mistral.ai" in host else
+                    "xAI" if host.endswith("x.ai") else
+                    None
+                )
                 items.append(
                     {
                         "title": title,
                         "summary": summary,
                         "url": link,
-                        # Publisher inferred from host
-                        "publisher": None,
+                        "publisher": publisher,
                         "published_at": published,
                     }
                 )
