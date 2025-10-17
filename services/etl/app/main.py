@@ -776,8 +776,13 @@ async def recompute_index(
 async def list_events(
     request: Request,
     tier: Optional[str] = Query(None, regex="^[ABCD]$"),
+    outlet_cred: Optional[str] = Query(None, regex="^[ABCD]$"),
+    source_type: Optional[str] = Query(None, regex="^(news|paper|blog|leaderboard|gov)$"),
     signpost_id: Optional[int] = None,
+    signpost_code: Optional[str] = None,
     needs_review: Optional[bool] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
     skip: int = 0,
     limit: int = 50,
     db: Session = Depends(get_db),
@@ -793,12 +798,19 @@ async def list_events(
     - limit: Page size (max 100)
     """
     limit = min(limit, 100)
-    
+
     query = db.query(Event)
-    
-    if tier:
-        query = query.filter(Event.evidence_tier == tier)
-    
+
+    # Evidence tier (alias: outlet_cred)
+    effective_tier = tier or outlet_cred
+    if effective_tier:
+        query = query.filter(Event.evidence_tier == effective_tier)
+
+    # Source type filter
+    if source_type:
+        query = query.filter(Event.source_type == source_type)
+
+    # Signpost filters
     if signpost_id:
         event_ids = (
             db.query(EventSignpostLink.event_id)
@@ -806,11 +818,39 @@ async def list_events(
             .all()
         )
         event_ids = [e[0] for e in event_ids]
-        query = query.filter(Event.id.in_(event_ids))
-    
+        if event_ids:
+            query = query.filter(Event.id.in_(event_ids))
+        else:
+            # No matches possible
+            return {"total": 0, "skip": skip, "limit": limit, "results": [], "items": []}
+
+    if signpost_code:
+        # Join through links to filter by signpost code
+        query = (
+            query.join(EventSignpostLink, EventSignpostLink.event_id == Event.id)
+            .join(Signpost, Signpost.id == EventSignpostLink.signpost_id)
+            .filter(Signpost.code == signpost_code)
+        )
+
+    # Needs review filter
     if needs_review is not None:
         query = query.filter(Event.needs_review == needs_review)
-    
+
+    # Date range filters (on published_at)
+    if start_date:
+        try:
+            start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+            query = query.filter(Event.published_at >= start_dt)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid start_date. Use YYYY-MM-DD")
+
+    if end_date:
+        try:
+            end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+            query = query.filter(Event.published_at <= end_dt)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid end_date. Use YYYY-MM-DD")
+
     total = query.count()
     events = query.order_by(desc(Event.published_at)).offset(skip).limit(limit).all()
     
@@ -829,6 +869,8 @@ async def list_events(
                 signpost_links.append({
                     "signpost_code": signpost.code,
                     "signpost_name": signpost.name,
+                    # alias for web UI
+                    "signpost_title": signpost.name,
                     "confidence": float(link.confidence) if link.confidence else None,
                     "value": float(link.value) if link.value else None,
                 })
@@ -840,13 +882,18 @@ async def list_events(
             "source_url": event.source_url,
             "publisher": event.publisher,
             "published_at": event.published_at.isoformat() if event.published_at else None,
+            # aliases for web UI compatibility
+            "date": event.published_at.isoformat() if event.published_at else None,
             "evidence_tier": event.evidence_tier,
+            "tier": event.evidence_tier,
+            "source_type": event.source_type,
             "provisional": event.provisional,
             "needs_review": event.needs_review,
             "signpost_links": signpost_links,
         })
     
-    return {"total": total, "skip": skip, "limit": limit, "results": results}
+    # Include both results and items keys for compatibility with existing web code
+    return {"total": total, "skip": skip, "limit": limit, "results": results, "items": results}
 
 
 @app.get("/v1/events/{event_id}")
@@ -915,6 +962,7 @@ async def get_event(event_id: int, db: Session = Depends(get_db)):
 async def events_feed(
     request: Request,
     audience: str = Query("public", regex="^(public|research)$"),
+    include_research: Optional[bool] = Query(None, description="Alias for research audience"),
     db: Session = Depends(get_db),
 ):
     """
@@ -926,6 +974,10 @@ async def events_feed(
     Public mode: Safe for general consumption, A/B tier only
     Research mode: Includes C/D tier with clear tier labels
     """
+    # Support legacy/include_research alias used by web anchors
+    if include_research is True:
+        audience = "research"
+
     if audience == "public":
         # Public: Only A/B tier (verified sources)
         query = db.query(Event).filter(Event.evidence_tier.in_(["A", "B"]))
