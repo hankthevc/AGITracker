@@ -19,7 +19,7 @@ interface Prediction {
   status?: 'ahead' | 'behind' | 'on_track'
 }
 
-async function getAllPredictions() {
+async function getAllPredictions(overlayEnabled: boolean) {
   try {
     // Fetch all signposts and their predictions
     const signpostsRes = await fetch(`${API_URL}/v1/signposts`, { cache: 'no-store' })
@@ -28,6 +28,23 @@ async function getAllPredictions() {
     
     // Fetch predictions for each signpost
     const allPredictions: Prediction[] = []
+    // Optionally fetch forecast comparisons (for overlay statuses)
+    let statusIndex: Record<string, 'ahead' | 'behind' | 'on_track'> = {}
+    if (overlayEnabled) {
+      try {
+        const compareRes = await fetch(`${API_URL}/v1/roadmaps/compare`, { cache: 'no-store' })
+        if (compareRes.ok) {
+          const compareData = await compareRes.json()
+          // Build index by key: signpost_code|roadmap_slug
+          for (const sp of compareData.signposts || []) {
+            for (const rc of sp.roadmap_comparisons || []) {
+              const key = `${sp.signpost_code}|${rc.roadmap_slug}`
+              statusIndex[key] = rc.status
+            }
+          }
+        }
+      } catch {}
+    }
     for (const signpost of signposts.slice(0, 10)) { // Limit to avoid too many requests
       try {
         const predRes = await fetch(`${API_URL}/v1/signposts/by-code/${signpost.code}/predictions`, { cache: 'no-store' })
@@ -35,10 +52,13 @@ async function getAllPredictions() {
           const data = await predRes.json()
           if (data.predictions) {
             data.predictions.forEach((pred: any) => {
+              const key = `${signpost.code}|${pred.roadmap_slug}`
+              const status = overlayEnabled ? statusIndex[key] : undefined
               allPredictions.push({
                 ...pred,
                 signpost_name: signpost.name,
                 signpost_code: signpost.code,
+                status,
               })
             })
           }
@@ -293,8 +313,13 @@ function SummaryTable({ predictions }: { predictions: Prediction[] }) {
   )
 }
 
-export default async function RoadmapComparePage() {
-  const predictions = await getAllPredictions()
+export default async function RoadmapComparePage({
+  searchParams,
+}: {
+  searchParams: { overlay?: string }
+}) {
+  const overlayEnabled = searchParams?.overlay === 'events' || searchParams?.overlay === 'true'
+  const predictions = await getAllPredictions(overlayEnabled)
   
   return (
     <div className="max-w-7xl mx-auto space-y-12">
@@ -303,6 +328,16 @@ export default async function RoadmapComparePage() {
         <p className="text-xl text-muted-foreground">
           Compare predictions from leading AGI timeline forecasts
         </p>
+        <div className="mt-4">
+          <Link
+            href={overlayEnabled ? '/roadmaps/compare' : '/roadmaps/compare?overlay=events'}
+            className={`inline-flex items-center gap-2 text-sm px-3 py-1.5 rounded border ${overlayEnabled ? 'bg-primary text-white border-primary' : 'bg-white hover:bg-slate-50 border-slate-300'}`}
+            data-testid="events-overlay-toggle"
+            title="Toggle event-status overlay on predictions"
+          >
+            {overlayEnabled ? 'Events Overlay: ON' : 'Events Overlay: OFF'}
+          </Link>
+        </div>
       </div>
       
       <SummaryTable predictions={predictions} />
