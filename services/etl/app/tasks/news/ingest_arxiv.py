@@ -16,6 +16,7 @@ from celery import shared_task
 from app.database import SessionLocal
 from app.models import Event, IngestRun
 from app.config import settings
+import os
 
 
 ARXIV_CATEGORIES = {"cs.AI", "cs.CL", "cs.LG", "cs.CV"}
@@ -133,6 +134,7 @@ def ingest_arxiv_task():
         else:
             print("🟢 Fixture mode: Loading arXiv fixtures")
             raw_data = load_fixture_data()
+            # No synthetic for arXiv to keep A-tier tight
         
         print(f"📄 Processing {len(raw_data)} arXiv papers...")
         

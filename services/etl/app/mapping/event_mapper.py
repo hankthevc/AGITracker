@@ -44,15 +44,15 @@ KEYWORD_SIGNPOST_MAP = {
     "hle": ["hle_text_50", "hle_text_70"],
     
     # Compute
-    "10^26": ["compute_1e26"],
+    "10^26": ["compute_1e26", "inputs_flops_26"],
     "1e26": ["compute_1e26"],
-    "10^27": ["compute_1e27"],
+    "10^27": ["compute_1e27", "inputs_flops_27"],
     "1e27": ["compute_1e27"],
     "flop": ["compute_1e26", "compute_1e27"],
     
     # Data center power
-    "1 gw": ["dc_power_1gw"],
-    "10 gw": ["dc_power_10gw"],
+    "1 gw": ["dc_power_1gw", "inputs_dc_1gw"],
+    "10 gw": ["dc_power_10gw", "inputs_dc_10gw"],
     "gigawatt": ["dc_power_1gw", "dc_power_10gw"],
     "datacenter": ["dc_power_1gw"],
 }

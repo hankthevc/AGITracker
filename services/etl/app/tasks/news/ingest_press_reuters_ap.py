@@ -15,6 +15,8 @@ from celery import shared_task
 from app.database import SessionLocal
 from app.models import Event, IngestRun
 from app.config import settings
+import os
+from datetime import timedelta
 
 
 ALLOWED_PRESS = {"Reuters", "Associated Press", "AP"}
@@ -29,6 +31,25 @@ def load_fixture_data() -> List[Dict]:
     
     with open(fixture_path) as f:
         return json.load(f)
+
+
+def generate_synthetic_press(total: int) -> List[Dict]:
+    if total <= 0:
+        return []
+    items: List[Dict] = []
+    now = datetime.now(timezone.utc)
+    for i in range(total):
+        pct = 60 + (i % 30)
+        title = f"Reuters: New model reaches {pct}% on WebArena"
+        summary = f"Reuters reports {pct}% on WebArena benchmark."
+        items.append({
+            "title": title,
+            "summary": summary,
+            "url": f"https://reuters.com/tech/{pct}",
+            "publisher": "Reuters",
+            "published_at": (now - timedelta(days=i+5)).isoformat().replace('+00:00', 'Z')
+        })
+    return items
 
 
 def fetch_live_press() -> List[Dict]:
@@ -106,6 +127,9 @@ def ingest_press_reuters_ap_task():
         else:
             print("🟢 Fixture mode: Loading press fixtures")
             raw_data = load_fixture_data()
+            synth_total = int(os.getenv("PRESS_SYNTHETIC_COUNT", os.getenv("NEWS_SYNTHETIC_COUNT", "0")))
+            if synth_total > 0:
+                raw_data.extend(generate_synthetic_press(synth_total))
         
         print(f"📰 Processing {len(raw_data)} press articles (C-tier, for 'if true' analysis only)...")
         
