@@ -445,6 +445,71 @@ async def get_signpost_predictions(code: str, db: Session = Depends(get_db)):
     return {"predictions": results}
 
 
+@app.get("/v1/signposts/by-code/{code}/events")
+@limiter.limit(f"{settings.rate_limit_per_minute}/minute")
+async def get_signpost_events(
+    request: Request,
+    code: str,
+    limit: int = Query(10, ge=1, le=100),
+    db: Session = Depends(get_db)
+):
+    """
+    Get recent events mapped to this signpost, grouped by evidence tier.
+    
+    Returns last N events (default 10) with tier grouping.
+    Policy: A/B tier events move gauges; C/D tier are "If true" only.
+    """
+    signpost = db.query(Signpost).filter(Signpost.code == code).first()
+    
+    if not signpost:
+        raise HTTPException(status_code=404, detail="Signpost not found")
+    
+    # Get events linked to this signpost, ordered by published_at DESC
+    event_links = (
+        db.query(EventSignpostLink)
+        .filter(EventSignpostLink.signpost_id == signpost.id)
+        .join(Event)
+        .order_by(desc(Event.published_at))
+        .limit(limit)
+        .all()
+    )
+    
+    # Group by tier
+    events_by_tier = {"A": [], "B": [], "C": [], "D": []}
+    
+    for link in event_links:
+        event = db.query(Event).filter(Event.id == link.event_id).first()
+        if not event:
+            continue
+        
+        event_data = {
+            "id": event.id,
+            "title": event.title,
+            "summary": event.summary,
+            "source_url": event.source_url,
+            "source_type": event.source_type,
+            "publisher": event.publisher,
+            "published_at": event.published_at.isoformat() if event.published_at else None,
+            "evidence_tier": event.evidence_tier,
+            "confidence": float(link.confidence) if link.confidence else None,
+            "value": float(link.value) if link.value else None,
+            "rationale": link.rationale,
+            "moves_gauge": event.evidence_tier in ("A", "B"),  # Policy: only A/B move gauges
+        }
+        
+        tier = event.evidence_tier
+        if tier in events_by_tier:
+            events_by_tier[tier].append(event_data)
+    
+    return {
+        "signpost_code": code,
+        "signpost_name": signpost.name,
+        "total_events": len(event_links),
+        "events_by_tier": events_by_tier,
+        "policy_note": "A/B tier events can move gauges; C/D tier are 'If true' analysis only"
+    }
+
+
 @app.get("/v1/signposts/by-code/{code}/pace")
 async def get_pace_analysis(code: str, db: Session = Depends(get_db)):
     """Get pace analysis comparing current progress to roadmap predictions."""
