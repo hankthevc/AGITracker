@@ -914,6 +914,7 @@ async def list_events(
             signpost = db.query(Signpost).filter(Signpost.id == link.signpost_id).first()
             if signpost:
                 signpost_links.append({
+                    "signpost_id": signpost.id,
                     "signpost_code": signpost.code,
                     "signpost_name": signpost.name,
                     # alias for web UI
