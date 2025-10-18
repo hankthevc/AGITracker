@@ -19,7 +19,7 @@ from redis import asyncio as aioredis
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
-from sqlalchemy import and_, desc, func
+from sqlalchemy import and_, desc, func, or_
 from sqlalchemy.orm import Session
 
 # Add scoring package to path
@@ -889,12 +889,17 @@ async def list_events(
     request: Request,
     tier: Optional[str] = Query(None, regex="^[ABCD]$"),
     outlet_cred: Optional[str] = Query(None, regex="^[ABCD]$"),
+    source_tier: Optional[str] = Query(None, regex="^[ABCD]$"),
     source_type: Optional[str] = Query(None, regex="^(news|paper|blog|leaderboard|gov)$"),
     signpost_id: Optional[int] = None,
     signpost_code: Optional[str] = None,
+    alias: Optional[str] = None,
     needs_review: Optional[bool] = None,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
+    since: Optional[str] = None,
+    until: Optional[str] = None,
+    min_confidence: Optional[float] = None,
     skip: int = 0,
     limit: int = 50,
     db: Session = Depends(get_db),
@@ -913,8 +918,8 @@ async def list_events(
 
     query = db.query(Event)
 
-    # Evidence tier (alias: outlet_cred)
-    effective_tier = tier or outlet_cred
+    # Evidence tier (aliases: outlet_cred, source_tier)
+    effective_tier = tier or outlet_cred or source_tier
     if effective_tier:
         query = query.filter(Event.evidence_tier == effective_tier)
 
@@ -936,36 +941,47 @@ async def list_events(
             # No matches possible
             return {"total": 0, "skip": skip, "limit": limit, "results": [], "items": []}
 
-    if signpost_code:
-        # Join through links to filter by signpost code
+    # Join to links/signposts if we need to filter on signpost_code, alias, or min_confidence
+    if signpost_code or alias or (min_confidence is not None):
         query = (
             query.join(EventSignpostLink, EventSignpostLink.event_id == Event.id)
             .join(Signpost, Signpost.id == EventSignpostLink.signpost_id)
-            .filter(Signpost.code == signpost_code)
         )
+        if signpost_code:
+            query = query.filter(Signpost.code == signpost_code)
+        if alias:
+            like = f"%{alias.lower()}%"
+            query = query.filter(or_(func.lower(Signpost.code).like(like), func.lower(Signpost.name).like(like)))
+        if min_confidence is not None:
+            try:
+                mc = float(min_confidence)
+            except Exception:
+                mc = 0.0
+            query = query.filter(EventSignpostLink.confidence >= mc)
 
     # Needs review filter
     if needs_review is not None:
         query = query.filter(Event.needs_review == needs_review)
 
-    # Date range filters (on published_at)
-    if start_date:
+    # Date range filters (on published_at). Support start_date/end_date and since/until synonyms.
+    if start_date or since:
         try:
-            start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+            start_dt = datetime.strptime((start_date or since), "%Y-%m-%d")
             query = query.filter(Event.published_at >= start_dt)
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid start_date. Use YYYY-MM-DD")
 
-    if end_date:
+    if end_date or until:
         try:
-            end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+            end_dt = datetime.strptime((end_date or until), "%Y-%m-%d")
             query = query.filter(Event.published_at <= end_dt)
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid end_date. Use YYYY-MM-DD")
 
-    total = query.count()
     events = query.order_by(desc(Event.published_at)).offset(skip).limit(limit).all()
     
+    # Server-side de-dup: prefer source_url if present; otherwise title+date key
+    seen_keys = set()
     results = []
     for event in events:
         # Get linked signposts
@@ -987,7 +1003,18 @@ async def list_events(
                     "confidence": float(link.confidence) if link.confidence else None,
                     "value": float(link.value) if link.value else None,
                 })
-        
+        # Build dedup key
+        if event.source_url:
+            key = ("url", event.source_url)
+        else:
+            title_norm = (event.title or "").lower()
+            title_norm = "".join(c for c in title_norm if c.isalnum() or c.isspace()).strip()
+            date_key = event.published_at.date().isoformat() if event.published_at else ""
+            key = ("td", f"{title_norm}|{date_key}")
+        if key in seen_keys:
+            continue
+        seen_keys.add(key)
+
         results.append({
             "id": event.id,
             "title": event.title,
@@ -1004,9 +1031,8 @@ async def list_events(
             "needs_review": event.needs_review,
             "signpost_links": signpost_links,
         })
-    
     # Include both results and items keys for compatibility with existing web code
-    return {"total": total, "skip": skip, "limit": limit, "results": results, "items": results}
+    return {"total": len(results), "skip": skip, "limit": limit, "results": results, "items": results}
 
 
 @app.get("/v1/events/{event_id}")
