@@ -4,15 +4,26 @@ Interactive dashboard showing real AI news mapped to AGI signposts.
 """
 import streamlit as st
 import sys
+import os
 from pathlib import Path
 import pandas as pd
 from datetime import datetime
 
+# Check for DATABASE_URL
+if "DATABASE_URL" not in os.environ and "DATABASE_URL" not in st.secrets:
+    st.error("❌ DATABASE_URL not configured. Set in environment or Streamlit secrets.")
+    st.stop()
+
 # Add services/etl to path
 sys.path.insert(0, str(Path(__file__).parent / "services" / "etl"))
 
-from app.database import SessionLocal
-from app.models import Event, EventSignpostLink, Signpost, RoadmapPrediction, Roadmap
+try:
+    from app.database import SessionLocal
+    from app.models import Event, EventSignpostLink, Signpost
+except ImportError as e:
+    st.error(f"❌ Failed to import database models: {e}")
+    st.info("Make sure all dependencies are installed: `pip install -r requirements.txt`")
+    st.stop(), RoadmapPrediction, Roadmap
 
 st.set_page_config(
     page_title="AGI Signpost Tracker",
