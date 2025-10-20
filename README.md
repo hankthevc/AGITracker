@@ -409,18 +409,49 @@ Negative values (red) indicate capabilities outpacing security readiness.
 GET /v1/index?date=YYYY-MM-DD&preset=equal
 GET /v1/signposts?category=capabilities&first_class=true
 GET /v1/signposts/{id}
+GET /v1/signposts/by-code/{code}/events       # Events grouped by tier
+GET /v1/signposts/by-code/{code}/predictions  # With ahead/on/behind status
 GET /v1/evidence?signpost_id=1&tier=A&skip=0&limit=50
-GET /v1/feed.json                  # CC BY 4.0 public feed
+GET /v1/events?since=YYYY-MM-DD&tier=A&source_type=paper&min_confidence=0.7
+GET /v1/events/{id}                           # Event detail with forecast comparison
+GET /v1/events/links?approved_only=true       # Event-signpost links
+GET /v1/events/feed.json?audience=public      # CC BY 4.0 (A/B only)
+GET /v1/events/feed.json?audience=research    # CC BY 4.0 (all tiers, C/D "if true")
+GET /v1/digests/latest                        # Weekly digest JSON (CC BY 4.0)
+GET /v1/feed.json                             # Legacy claims feed
 GET /v1/changelog?skip=0&limit=50
+GET /v1/roadmaps/compare                      # Forecast comparison
 GET /health
 ```
 
 ### Admin (Protected by API Key)
 
 ```
-POST /v1/retract                   # Retract a claim
-POST /v1/recompute                 # Trigger index recomputation
+POST /v1/admin/events/{id}/approve            # Approve event-signpost links
+POST /v1/admin/events/{id}/reject?reason=...  # Reject links + add to changelog
+POST /v1/admin/retract                        # Retract a claim
+POST /v1/admin/recompute                      # Trigger index recomputation
 ```
+
+### Events & Autolink Policy
+
+**Evidence Tiers:**
+- **A (Peer-reviewed/Leaderboard):** Moves gauges directly when linked to signposts
+- **B (Official Lab Blogs):** Provisional; moves gauges after A-tier corroboration within 14 days
+- **C (Reputable Press):** Displayed as "If true" analysis only; NEVER moves gauges
+- **D (Social Media):** Opt-in only; displayed as rumors; NEVER moves gauges
+
+**Autolink Workflow:**
+1. Ingestors fetch events from RSS/Atom feeds (arXiv, lab blogs, Reuters, etc.)
+2. Mapper matches events to signposts using alias registry (infra/seeds/aliases_signposts.yaml)
+3. Links with confidence ≥ 0.6 auto-approved; < 0.6 flagged for review
+4. C/D tier always flagged for review regardless of confidence
+5. Admin can approve/reject via `/admin/review` UI or API endpoints
+
+**Weekly Digest:**
+- Run `python scripts/generate_digest.py` to create YYYY-WW.json
+- Accessible via `GET /v1/digests/latest`
+- Includes A/B events + top C/D "if true" items from past 7 days
 
 ## Testing
 
