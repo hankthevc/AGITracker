@@ -198,21 +198,14 @@ def create_or_update_event(db, event_data: Dict) -> Event:
     Uses URL hash for idempotency. Validates URL format before creating.
     Detects and marks synthetic/fixture events.
     """
-    from app.utils.url_validator import validate_and_fix_url, is_synthetic_url
+    from app.utils.url_validator import validate_and_fix_url
     
-    # Validate URL format (allow synthetic for fixtures/CI)
-    validated_url, is_synthetic = validate_and_fix_url(
-        event_data["source_url"], 
-        verify_exists=False,
-        allow_synthetic=True  # Allow in fixtures mode
-    )
-    
+    # Validate URL format (don't verify exists for fixtures to avoid network calls in CI)
+    validated_url = validate_and_fix_url(event_data["source_url"], verify_exists=False)
     if not validated_url:
         raise ValueError(f"Invalid URL format: {event_data['source_url']}")
     
-    # Mark as synthetic if detected
     event_data["source_url"] = validated_url
-    event_data["is_synthetic"] = is_synthetic
     
     url_hash = hashlib.sha256(validated_url.encode()).hexdigest()
     
