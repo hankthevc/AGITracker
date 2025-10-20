@@ -1,38 +1,37 @@
 [
   {
-    "title": "GPT-4.5 achieves 89% on SWE-bench Verified",
-    "summary": "Our latest model GPT-4.5 has achieved state-of-the-art performance on the SWE-bench Verified benchmark, solving 89% of real-world software engineering tasks.",
-    "url": "https://openai.com/blog/gpt-4.5-swe-bench",
+    "title": "Introducing o1",
+    "summary": "A new series of reasoning models for solving hard problems. OpenAI o1 ranks in the 89th percentile on competitive programming questions (Codeforces), places among the top 500 students in the US in a qualifier for the USA Math Olympiad (AIME), and exceeds human PhD-level accuracy on a benchmark of physics, biology, and chemistry problems (GPQA).",
+    "url": "https://openai.com/index/learning-to-reason-with-llms/",
     "publisher": "OpenAI",
-    "published_at": "2025-10-10T14:30:00Z"
+    "published_at": "2024-09-12T00:00:00Z"
   },
   {
-    "title": "Claude 3.5 Sonnet: New reasoning capabilities",
-    "summary": "Claude 3.5 Sonnet demonstrates improved performance on GPQA Diamond, achieving 71% accuracy on graduate-level scientific reasoning questions.",
-    "url": "https://anthropic.com/news/claude-3.5-sonnet",
+    "title": "Claude 3.5 Sonnet",
+    "summary": "Our most intelligent model yet. Claude 3.5 Sonnet raises the industry bar for intelligence, outperforming competitor models and Claude 3 Opus on a wide range of evaluations.",
+    "url": "https://www.anthropic.com/news/claude-3-5-sonnet",
     "publisher": "Anthropic",
-    "published_at": "2025-10-08T10:00:00Z"
+    "published_at": "2024-06-20T00:00:00Z"
   },
   {
-    "title": "Gemini 2.0: Multimodal breakthrough",
-    "summary": "Google DeepMind announces Gemini 2.0 with enhanced agentic capabilities, showing 65% success rate on WebArena benchmark.",
-    "url": "https://deepmind.google/discover/blog/gemini-2",
+    "title": "Gemini 2.0 Flash: Our next era of models built for the agentic era",
+    "summary": "Gemini 2.0 Flash is our most capable model yet for agentic experiences. It features native tool use, multimodal understanding, and long context.",
+    "url": "https://blog.google/technology/google-deepmind/google-gemini-ai-update-december-2024/",
     "publisher": "Google DeepMind",
-    "published_at": "2025-10-05T16:00:00Z"
+    "published_at": "2024-12-11T00:00:00Z"
   },
   {
-    "title": "Meta announces 10^26 FLOP training run",
-    "summary": "Meta AI completes first 10^26 FLOP training run using new distributed training infrastructure across 50,000 H100 GPUs.",
-    "url": "https://ai.meta.com/blog/large-scale-training",
+    "title": "Llama 3.3 70B",
+    "summary": "Meta releases Llama 3.3 70B, which rivals the performance of Llama 3.1 405B with the same cost and latency as Llama 3.1 70B.",
+    "url": "https://ai.meta.com/blog/llama-3-3/",
     "publisher": "Meta AI",
-    "published_at": "2025-09-28T09:00:00Z"
+    "published_at": "2024-12-06T00:00:00Z"
   },
   {
-    "title": "Mistral releases Mistral Large 2",
-    "summary": "Mistral Large 2 achieves competitive performance on coding benchmarks with 78% on HumanEval and strong multilingual capabilities.",
-    "url": "https://mistral.ai/news/mistral-large-2",
-    "publisher": "Mistral",
-    "published_at": "2025-09-25T12:00:00Z"
+    "title": "Claude 3.5 Haiku",
+    "summary": "Our fastest model yet. Claude 3.5 Haiku matches Claude 3 Opus capabilities at the same speed and cost as our previous generation Haiku.",
+    "url": "https://www.anthropic.com/news/claude-3-5-haiku",
+    "publisher": "Anthropic",
+    "published_at": "2024-11-04T00:00:00Z"
   }
 ]
-

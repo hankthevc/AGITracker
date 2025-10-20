@@ -116,15 +116,18 @@ def map_all_unmapped_events() -> Dict:
     """
     Map all events that don't have signpost links yet.
     
+    Uses rule-based aliases first, then LLM fallback if enabled and budget allows.
+    
     Returns:
         Statistics dict with processed/linked/needs_review/unmapped counts
     """
     from app.database import SessionLocal
     from app.models import Event, EventSignpostLink, Signpost
     from datetime import datetime, timezone
+    from app.config import settings
     
     db = SessionLocal()
-    stats = {"processed": 0, "linked": 0, "needs_review": 0, "unmapped": 0}
+    stats = {"processed": 0, "linked": 0, "needs_review": 0, "unmapped": 0, "llm_used": 0}
     
     try:
         # Find events without links
@@ -135,9 +138,30 @@ def map_all_unmapped_events() -> Dict:
         print(f"📍 Mapping {len(events)} unmapped events to signposts...")
         aliases = load_aliases()
         
+        # Get all signpost codes for LLM
+        all_signpost_codes = [sp.code for sp in db.query(Signpost.code).all()]
+        
         for event in events:
+            # Try rule-based first
             results = map_event_to_signposts(event, aliases)
             stats["processed"] += 1
+            
+            # LLM fallback if no matches and LLM enabled
+            if not results and settings.enable_llm_mapping and settings.openai_api_key:
+                try:
+                    from app.utils.llm_news_parser import parse_event_with_llm
+                    llm_results = parse_event_with_llm(
+                        event.title,
+                        event.summary or "",
+                        all_signpost_codes,
+                        event.evidence_tier
+                    )
+                    if llm_results:
+                        results = llm_results
+                        stats["llm_used"] += 1
+                        print(f"  🤖 LLM fallback used for: {event.title[:50]}...")
+                except Exception as e:
+                    print(f"  ⚠️  LLM fallback failed: {e}")
             
             if not results:
                 stats["unmapped"] += 1

@@ -51,6 +51,9 @@ class Settings(BaseSettings):
     http_max_retries: int = 3
     http_backoff_base_seconds: int = 1
     
+    # LLM Mapping
+    enable_llm_mapping: bool = False  # Enable LLM-powered event mapping (requires OPENAI_API_KEY)
+    
     class Config:
         env_file = ".env"
         case_sensitive = False
