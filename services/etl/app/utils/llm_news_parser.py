@@ -43,7 +43,12 @@ def parse_event_with_llm(
         return []
     
     try:
-        client = OpenAI(api_key=settings.openai_api_key)
+        # Initialize OpenAI client without deprecated proxies parameter
+        import httpx
+        client = OpenAI(
+            api_key=settings.openai_api_key,
+            http_client=httpx.Client(timeout=30.0)
+        )
         
         prompt = f"""You are an AI progress analyst. Given this news event, identify which AGI signposts it relates to.
 
