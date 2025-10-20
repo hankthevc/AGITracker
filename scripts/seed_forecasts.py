@@ -89,7 +89,16 @@ def load_forecasts(dry_run=False):
                 roadmap_id = existing_roadmap.id if existing_roadmap else 0
             
             with open(json_file) as f:
-                predictions = json.load(f)
+                data = json.load(f)
+            
+            # Handle both list format and {predictions: [...]} format
+            if isinstance(data, list):
+                predictions = data
+            elif isinstance(data, dict) and "predictions" in data:
+                predictions = data["predictions"]
+            else:
+                print(f"  ⚠️  Unexpected format in {json_file}, skipping")
+                continue
             
             for pred in predictions:
                 stats["total"] += 1

@@ -99,7 +99,7 @@ def ingest_social_task():
     db.commit()
     
     try:
-    print("🟢 Fixture mode: Loading social fixtures (D-tier)")
+        print("🟢 Fixture mode: Loading social fixtures (D-tier)")
         raw_data = load_fixture_data()
         
         print(f"💬 Processing {len(raw_data)} social posts (D-tier, NEVER moves gauges)...")
