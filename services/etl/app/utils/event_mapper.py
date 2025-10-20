@@ -12,7 +12,7 @@ import yaml
 from pathlib import Path
 from typing import Dict, List, Tuple
 
-ALIASES_PATH = Path(__file__).parent.parent.parent.parent / "infra" / "seeds" / "aliases_signposts.yaml"
+ALIASES_PATH = Path(__file__).parent.parent.parent.parent.parent / "infra" / "seeds" / "aliases_signposts.yaml"
 
 
 def load_aliases() -> Dict:
@@ -33,10 +33,13 @@ def match_aliases(text: str, aliases: Dict) -> List[Tuple[str, float, str]]:
     matches = []
     seen_codes = set()
     
+    # Aliases structure: {category: [{pattern, codes, boost}, ...]}
     for category, rules in aliases.items():
         if not isinstance(rules, list):
             continue
         for rule in rules:
+            if not isinstance(rule, dict):
+                continue
             pattern = rule.get("pattern", "")
             codes = rule.get("codes", [])
             boost = rule.get("boost", 0.0)
@@ -47,16 +50,17 @@ def match_aliases(text: str, aliases: Dict) -> List[Tuple[str, float, str]]:
                     for code in codes:
                         if code not in seen_codes:
                             base_conf = 0.5 + boost
-                            rationale = f"Alias match: {pattern}"
+                            rationale = f"Alias match: '{pattern}'"
                             matches.append((code, base_conf, rationale))
                             seen_codes.add(code)
+                            if len(matches) >= 2:  # Early exit at cap
+                                return matches
             except re.error:
                 # Invalid regex; skip
                 continue
     
     # Cap to 2 signposts per event
-    matches = matches[:2]
-    return matches
+    return matches[:2]
 
 
 def map_event_to_signposts(event, aliases: Dict = None) -> List[Tuple[str, float, str]]:
