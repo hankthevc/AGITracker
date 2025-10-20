@@ -106,3 +106,82 @@ def needs_review(confidence: float, tier: str) -> bool:
         return True
     # A/B need review if confidence < 0.6
     return confidence < 0.6
+
+
+def map_all_unmapped_events() -> Dict:
+    """
+    Map all events that don't have signpost links yet.
+    
+    Returns:
+        Statistics dict with processed/linked/needs_review/unmapped counts
+    """
+    from app.database import SessionLocal
+    from app.models import Event, EventSignpostLink, Signpost
+    from datetime import datetime, timezone
+    
+    db = SessionLocal()
+    stats = {"processed": 0, "linked": 0, "needs_review": 0, "unmapped": 0}
+    
+    try:
+        # Find events without links
+        events = db.query(Event).outerjoin(EventSignpostLink).filter(
+            EventSignpostLink.event_id.is_(None)
+        ).all()
+        
+        print(f"📍 Mapping {len(events)} unmapped events to signposts...")
+        aliases = load_aliases()
+        
+        for event in events:
+            results = map_event_to_signposts(event, aliases)
+            stats["processed"] += 1
+            
+            if not results:
+                stats["unmapped"] += 1
+                event.needs_review = True
+                db.commit()
+                continue
+            
+            # Create links
+            links_created = 0
+            max_conf = 0.0
+            for code, conf, tier in results:
+                signpost = db.query(Signpost).filter(Signpost.code == code).first()
+                if not signpost:
+                    continue
+                
+                # Policy: C/D tier adds rationale note
+                rationale = f"Auto-mapped via alias registry (conf={conf:.2f})"
+                if tier in ("C", "D"):
+                    rationale += " [C/D tier: displayed but NEVER moves gauges]"
+                
+                link = EventSignpostLink(
+                    event_id=event.id,
+                    signpost_id=signpost.id,
+                    confidence=conf,
+                    rationale=rationale,
+                    observed_at=event.published_at or event.ingested_at,
+                )
+                db.add(link)
+                links_created += 1
+                max_conf = max(max_conf, conf)
+            
+            if links_created > 0:
+                stats["linked"] += 1
+                # Set needs_review based on tier and confidence
+                event.needs_review = needs_review(max_conf, event.evidence_tier)
+                if event.needs_review:
+                    stats["needs_review"] += 1
+                event.parsed = {
+                    **(event.parsed or {}),
+                    "mapped_at": datetime.now(timezone.utc).isoformat(),
+                    "max_confidence": max_conf,
+                }
+                db.commit()
+                print(f"  ✓ Mapped: {event.title[:50]}... → {links_created} signposts (conf: {max_conf:.2f})")
+        
+        print(f"\n✅ Mapping complete!")
+        print(f"   Processed: {stats['processed']}, Linked: {stats['linked']}, Needs review: {stats['needs_review']}, Unmapped: {stats['unmapped']}")
+        return stats
+    
+    finally:
+        db.close()
