@@ -53,6 +53,7 @@ function NewsContent() {
   const searchParams = useSearchParams()
   const tierFilter = searchParams.get('tier')
   const sourceTypeFilter = searchParams.get('source_type')
+  const linkedFilter = searchParams.get('linked')
   
   const { data, error, isLoading } = useSWR(
     `/v1/events?tier=${tierFilter || ''}&source_type=${sourceTypeFilter || ''}&limit=50`,
@@ -62,8 +63,14 @@ function NewsContent() {
       limit: 50,
     })
   )
-
-  const events: Event[] = data?.items || []
+  
+  // Client-side filter for linked/unlinked
+  const allEvents: Event[] = data?.items || []
+  const events: Event[] = allEvents.filter((e: Event) => {
+    if (linkedFilter === 'yes') return e.signpost_links && e.signpost_links.length > 0
+    if (linkedFilter === 'no') return !e.signpost_links || e.signpost_links.length === 0
+    return true
+  })
 
   return (
     <div className="space-y-6">
@@ -133,22 +140,37 @@ function NewsContent() {
             {config.label} - {config.badge}
           </Link>
         ))}
-        {/* Source type filter */}
-        <span className="mx-2 text-muted-foreground">|</span>
-        {['news','paper','blog','leaderboard','gov'].map((t) => (
-          <Link
-            key={t}
-            href={`/news?${tierFilter ? `tier=${tierFilter}&` : ''}source_type=${t}`}
-            className={`px-3 py-1.5 text-sm rounded border transition-colors ${
-              sourceTypeFilter === t
-                ? 'bg-slate-800 text-white border-slate-800'
-                : 'bg-white hover:bg-slate-50 border-slate-300'
-            }`}
-          >
-            {t}
-          </Link>
-        ))}
-      </div>
+         {/* Source type filter */}
+         <span className="mx-2 text-muted-foreground">|</span>
+         {['news','paper','blog','leaderboard','gov'].map((t) => (
+           <Link
+             key={t}
+             href={`/news?${tierFilter ? `tier=${tierFilter}&` : ''}source_type=${t}`}
+             className={`px-3 py-1.5 text-sm rounded border transition-colors ${
+               sourceTypeFilter === t
+                 ? 'bg-slate-800 text-white border-slate-800'
+                 : 'bg-white hover:bg-slate-50 border-slate-300'
+             }`}
+           >
+             {t}
+           </Link>
+         ))}
+         {/* Linked/unlinked filter */}
+         <span className="mx-2 text-muted-foreground">|</span>
+         {[{v:'yes',l:'Linked'},{v:'no',l:'Unlinked'}].map((opt) => (
+           <Link
+             key={opt.v}
+             href={`/news?${tierFilter ? `tier=${tierFilter}&` : ''}linked=${opt.v}`}
+             className={`px-3 py-1.5 text-sm rounded border transition-colors ${
+               linkedFilter === opt.v
+                 ? 'bg-indigo-600 text-white border-indigo-600'
+                 : 'bg-white hover:bg-slate-50 border-slate-300'
+             }`}
+           >
+             {opt.l}
+           </Link>
+         ))}
+        </div>
 
       {/* Events List */}
       {isLoading && (
