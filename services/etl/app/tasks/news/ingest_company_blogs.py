@@ -35,18 +35,21 @@ ALLOWED_PUBLISHERS = {
 
 def load_fixture_data() -> List[Dict]:
     """Load company blog fixture data for CI/testing."""
-    # Try comprehensive 2024 dataset first
-    fixture_path_2024 = Path(__file__).parent.parent.parent.parent.parent.parent / "infra" / "fixtures" / "news" / "ai_news_2024.json"
-    fixture_path_legacy = Path(__file__).parent.parent.parent.parent / "fixtures" / "news" / "company_blogs.json"
+    # Priority: merged fixture > comprehensive > legacy
+    paths_to_try = [
+        Path(__file__).parent.parent.parent.parent / "fixtures" / "news" / "company_blogs.json",  # Merged (services/etl/fixtures)
+        Path(__file__).parent.parent.parent.parent.parent.parent / "infra" / "fixtures" / "news" / "ai_news_oct2024_oct2025.json",
+        Path(__file__).parent.parent.parent.parent.parent.parent / "infra" / "fixtures" / "news" / "ai_news_2024.json",
+    ]
     
-    if fixture_path_2024.exists():
-        with open(fixture_path_2024) as f:
-            return json.load(f)
-    elif fixture_path_legacy.exists():
-        with open(fixture_path_legacy) as f:
-            return json.load(f)
-    else:
-        return []
+    for path in paths_to_try:
+        if path.exists():
+            with open(path) as f:
+                data = json.load(f)
+                print(f"  📂 Loaded {len(data)} events from {path.name}")
+                return data
+    
+    return []
 
 
 def generate_synthetic_blog_events(total: int) -> List[Dict]:
