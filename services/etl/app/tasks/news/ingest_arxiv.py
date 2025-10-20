@@ -25,8 +25,8 @@ ARXIV_CATEGORIES = {"cs.AI", "cs.CL", "cs.LG", "cs.CV"}
 
 def load_fixture_data() -> List[Dict]:
     """Load arXiv fixture data for CI/testing."""
-    # Updated fixture path (v0.3 hybrid)
-    fixture_path = Path(__file__).parent.parent.parent.parent.parent / "infra" / "fixtures" / "arxiv" / "cs_ai_sample.json"
+    # Fixture path: repo_root/infra/fixtures/arxiv/cs_ai_sample.json
+    fixture_path = Path(__file__).parent.parent.parent.parent.parent.parent / "infra" / "fixtures" / "arxiv" / "cs_ai_sample.json"
     
     if not fixture_path.exists():
         print(f"⚠️  Fixture not found: {fixture_path}")
