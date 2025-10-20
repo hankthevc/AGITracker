@@ -1,0 +1,154 @@
+# AGI Signpost Tracker - Prime Directive
+
+## Project Mission
+
+- Build an evidence-first dashboard tracking proximity to AGI via measurable signposts
+- Provide transparent, reproducible methodology for evaluating AI progress claims
+- Enable researchers and policymakers to make informed decisions with actionable insights
+
+## Core Principles
+
+**Evidence-first**: Only peer-reviewed papers (A-tier) and official lab announcements (B-tier) move gauges. C/D tier shown for context but never affect scores.
+
+**Reproducible**: All scoring logic is versioned, tested, and documented. Harmonic mean aggregation ensures no single category dominates.
+
+**Neutral**: No assumptions about timelines or outcomes. Track observable metrics without advocacy.
+
+**Transparent**: Open methodology, public API (CC BY 4.0), changelog for all updates.
+
+**Mobile-first**: Responsive design, fast page loads (<2s), offline-capable where possible.
+
+## Current Architecture
+
+- **Frontend**: Next.js 14 (App Router) + TypeScript + Tailwind CSS + shadcn/ui + Recharts
+- **Backend**: FastAPI + SQLAlchemy + Alembic + Celery + Redis
+- **Database**: PostgreSQL 15+ with pgvector extension
+- **Deployment**: Docker Compose (dev), Vercel (web), Railway/Render (API)
+
+## Code Standards
+
+**TypeScript**:
+- Strict mode enabled (`tsconfig.json`)
+- Prefer functional components with hooks
+- Use `async/await` over `.then()`
+- shadcn/ui components for consistency
+
+**Python**:
+- Type hints required (PEP 484)
+- Ruff for formatting and linting
+- Docstrings for all public functions (Google style)
+- Alembic-only schema changes (never raw SQL DDL)
+
+**Tests**:
+- Pytest for backend (70%+ coverage goal)
+- Playwright for E2E (critical paths)
+- Jest/React Testing Library for components (deferred Phase 5)
+
+## AI Analysis Guidelines
+
+**LLM Budget Management**:
+- Daily budget: $20 warning, $50 hard stop
+- Track spend in Redis: `llm_budget:daily:{YYYY-MM-DD}`
+- Use gpt-4o-mini for event analysis (cost-effective)
+- Log all prompts with version tags in code comments
+
+**Prompt Versioning**:
+- Format: `gpt-4o-mini-2024-07-18/v1`
+- Increment version on prompt changes
+- Store in `events_analysis.llm_version` field
+
+**Caching**:
+- Cache expensive LLM calls (24h TTL)
+- Use Redis for intermediate results
+- Deduplicate before calling API
+
+**Multi-perspective**:
+- Phase 6: Compare outputs from multiple models
+- Store reasoning chains for transparency
+
+## Development Phases
+
+**Phase 0 (Foundations)**: DB constraints, indexes, ingestion dedup, ops flags/health ✅
+
+**Phase 1 (Event Cards & Timeline)**: EventCard.tsx, /events feed, /timeline; events_analysis table + Celery task 🚧 **CURRENT**
+
+**Phase 2 (Structured Mapping)**: LLM-powered signpost mapping, calibration, review queue
+
+**Phase 3 (Expert Predictions)**: Forecast tracking, deltas vs actual, accuracy scoring
+
+**Phase 4 (Pulse Landing)**: Signpost deep-dives, AI Analyst panel, narrative generation
+
+**Phase 5 (Credibility)**: Retractions, prompt audit, confidence intervals
+
+**Phase 6 (Scenario Explorer)**: Multi-perspective analysis, RAG chatbot, what-if scenarios
+
+## When Making Changes
+
+### ✅ DO
+
+- Let A/B tier evidence move gauges (A = direct, B = provisional)
+- Use harmonic mean for overall index (caps at weakest category)
+- Add migrations before model changes (`alembic revision`)
+- Write tests for new Celery tasks and API endpoints
+- Update changelog for user-visible changes
+- Check CORS origins when adding endpoints
+- Use `IngestRun` tracking for ETL tasks
+- Validate inputs (Pydantic for API, Zod for web)
+
+### ❌ DON'T
+
+- Let C/D tier evidence affect gauge scores (display only)
+- Change scoring math without consensus (harmonic mean is sacred)
+- Skip migrations (causes production drift)
+- Use raw SQL for schema changes (Alembic only)
+- Expose admin endpoints without API key
+- Return >100 items without pagination
+- Cache user-specific data in Redis
+- Commit without running linters (`ruff format`, `npm run lint`)
+
+## File Structure Conventions
+
+```
+/apps/web/                   # Next.js frontend
+  /app/                      # App Router pages
+  /components/               # React components
+    /ui/                     # shadcn/ui primitives
+    /events/                 # Event-specific components
+  /lib/                      # Utilities, API clients
+  /hooks/                    # Custom React hooks
+  /e2e/                      # Playwright tests
+
+/services/etl/               # FastAPI backend + Celery
+  /app/
+    /models.py               # SQLAlchemy models
+    /main.py                 # FastAPI app + routes
+    /tasks/                  # Celery tasks
+      /news/                 # Ingestion tasks
+      /analyze/              # LLM analysis tasks
+    /utils/                  # Shared utilities
+  /tests/                    # Pytest tests
+
+/infra/
+  /migrations/versions/      # Alembic migrations
+  /fixtures/                 # Test data
+  /docker/                   # Dockerfiles
+
+/packages/scoring/           # Shared scoring logic
+  /python/                   # Core calculations
+  /typescript/               # Frontend calculations
+```
+
+## Current Focus
+
+**Phase 1 – Event Cards & Timeline**
+
+Next milestone: Ship `/events` feed with AI-generated summaries and `/timeline` visualization.
+
+Key deliverables:
+- `events_analysis` table + Celery task (12h schedule)
+- EventCard component with expandable "Why this matters"
+- Filtering (tier, date, category) + search + export (JSON/CSV)
+- Recharts timeline with virtualization for 100+ events
+
+See `ROADMAP.md` for full Phase 1 details.
+

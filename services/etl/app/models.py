@@ -364,6 +364,7 @@ class Event(Base):
     ingested_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
     evidence_tier = Column(Enum("A", "B", "C", "D", name="evidence_tier"), nullable=False, index=True)
     content_text = Column(Text, nullable=True)  # Full article content
+    content_hash = Column(Text, nullable=True)  # SHA-256 hash for deduplication
     author = Column(String(255), nullable=True)
     byline = Column(String(500), nullable=True)
     lang = Column(String(10), nullable=False, server_default="en")
@@ -375,6 +376,7 @@ class Event(Base):
     # Relationships
     signpost_links = relationship("EventSignpostLink", back_populates="event", cascade="all, delete-orphan")
     entities = relationship("EventEntity", back_populates="event", cascade="all, delete-orphan")
+    analysis = relationship("EventAnalysis", back_populates="event", cascade="all, delete-orphan")
     
     __table_args__ = (
         CheckConstraint(
@@ -401,6 +403,7 @@ class EventSignpostLink(Base):
     rationale = Column(Text, nullable=True)
     observed_at = Column(TIMESTAMP(timezone=True), nullable=True)  # Date claim refers to
     value = Column(Numeric, nullable=True)  # Extracted numeric value if applicable
+    created_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
     # approved_at = Column(TIMESTAMP(timezone=True), nullable=True)  # Migration 009 not applied yet
     # approved_by = Column(String(100), nullable=True)  # Migration 009 not applied yet
     
@@ -410,6 +413,7 @@ class EventSignpostLink(Base):
     
     __table_args__ = (
         Index("idx_event_signpost_signpost_observed", "signpost_id", "observed_at"),
+        Index("idx_event_signpost_signpost_created", "signpost_id", "created_at"),
     )
 
 
@@ -444,4 +448,32 @@ class IngestRun(Base):
     new_events_count = Column(Integer, nullable=False, server_default="0")
     new_links_count = Column(Integer, nullable=False, server_default="0")
     error = Column(Text, nullable=True)
+
+
+class EventAnalysis(Base):
+    """
+    LLM-generated analysis for events (Phase 1).
+    
+    Stores AI-generated summaries, impact timelines, and significance scores
+    for A/B tier events to help users understand "why this matters".
+    """
+    
+    __tablename__ = "events_analysis"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    event_id = Column(Integer, ForeignKey("events.id", ondelete="CASCADE"), nullable=False)
+    summary = Column(Text, nullable=True)  # 2-3 sentence summary
+    relevance_explanation = Column(Text, nullable=True)  # Why this event matters for AGI
+    impact_json = Column(JSONB, nullable=True)  # {short: "...", medium: "...", long: "..."}
+    confidence_reasoning = Column(Text, nullable=True)  # LLM's confidence explanation
+    significance_score = Column(Numeric, nullable=True)  # 0.0-1.0 significance score
+    llm_version = Column(String(100), nullable=True)  # e.g., "gpt-4o-mini-2024-07-18/v1"
+    generated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
+    
+    # Relationships
+    event = relationship("Event", back_populates="analysis")
+    
+    __table_args__ = (
+        Index("idx_events_analysis_event_generated", "event_id", "generated_at"),
+    )
 
