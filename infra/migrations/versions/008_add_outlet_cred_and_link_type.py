@@ -29,12 +29,12 @@ def upgrade() -> None:
         sa.Column("outlet_cred", outlet_cred_enum, nullable=True),
     )
 
-    # Backfill from existing evidence_tier if present (cast via text)
+    # Backfill from existing evidence_tier if present
     op.execute(
         """
         UPDATE events
         SET outlet_cred = CASE
-            WHEN evidence_tier IN ('A','B','C','D') THEN evidence_tier::text::outlet_cred
+            WHEN evidence_tier IN ('A','B','C','D') THEN evidence_tier::outlet_cred
             ELSE NULL
         END
         WHERE outlet_cred IS NULL
