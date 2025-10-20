@@ -8,6 +8,7 @@ from sqlalchemy import (
     CheckConstraint,
     Column,
     Date,
+    Enum,
     ForeignKey,
     Index,
     Integer,
@@ -439,7 +440,7 @@ class IngestRun(Base):
     connector_name = Column(String(100), nullable=False, index=True)
     started_at = Column(TIMESTAMP(timezone=True), nullable=False, index=True)
     finished_at = Column(TIMESTAMP(timezone=True), nullable=True)
-    status = Column(String(20), nullable=False, index=True)  # Enum created in migration but using String for compatibility
+    status = Column(Enum("success", "fail", "running", name="ingest_status"), nullable=False, index=True)
     new_events_count = Column(Integer, nullable=False, server_default="0")
     new_links_count = Column(Integer, nullable=False, server_default="0")
     error = Column(Text, nullable=True)
