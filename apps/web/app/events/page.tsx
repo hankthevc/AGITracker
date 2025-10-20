@@ -1,260 +1,245 @@
 'use client'
 
-import { Suspense, useState } from 'react'
-import { useSearchParams } from 'next/navigation'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { apiClient } from '@/lib/api'
-import { formatDate } from '@/lib/utils'
-import Link from 'next/link'
-import useSWR from 'swr'
+import { useState, useEffect } from 'react'
+import { EventCard } from '@/components/events/EventCard'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { getApiBaseUrl } from '@/lib/apiBase'
+import { Event, EventsResponse } from '@/lib/types'
 
-interface Event {
-  id: number
-  title: string
-  summary?: string
-  date: string
-  tier: string
-  source_url?: string
-  needs_review: boolean
-  signpost_links?: Array<{
-    signpost_code: string
-    signpost_title: string
-  }>
-}
-
-const TIER_BADGES = {
-  A: { label: 'Tier A', class: 'bg-green-100 text-green-800 border-green-300', desc: 'Peer-reviewed / Leaderboard' },
-  B: { label: 'Tier B', class: 'bg-blue-100 text-blue-800 border-blue-300', desc: 'Official lab blog' },
-  C: { label: 'Tier C', class: 'bg-yellow-100 text-yellow-800 border-yellow-300', desc: 'Reputable press' },
-  D: { label: 'Tier D', class: 'bg-gray-100 text-gray-800 border-gray-300', desc: 'Social media' },
-}
-
-function EventsContent() {
-  const searchParams = useSearchParams()
-  const tierFilter = searchParams.get('tier')
-  const signpostFilter = searchParams.get('signpost_id')
+export default function EventsPage() {
+  const [events, setEvents] = useState<Event[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [selectedTier, setSelectedTier] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
+  const [skip, setSkip] = useState(0)
+  const [total, setTotal] = useState(0)
+  const limit = 50
   
-  const [selectedTier, setSelectedTier] = useState<string | null>(tierFilter)
-  const [page, setPage] = useState(0)
-  const limit = 20
-
-  const { data, error, isLoading } = useSWR(
-    `/v1/events?tier=${selectedTier || ''}&skip=${page * limit}&limit=${limit}`,
-    () => apiClient.getEvents({
-      tier: selectedTier || undefined,
-      signpost_id: signpostFilter ? Number(signpostFilter) : undefined,
-      skip: page * limit,
-      limit,
-    })
-  )
-
-  const events: Event[] = data?.items || []
-  const total = data?.total || 0
-
+  useEffect(() => {
+    fetchEvents()
+  }, [selectedTier, startDate, endDate, skip])
+  
+  const fetchEvents = async () => {
+    setLoading(true)
+    setError(null)
+    
+    try {
+      const apiUrl = getApiBaseUrl()
+      const params = new URLSearchParams()
+      
+      if (selectedTier) params.append('tier', selectedTier)
+      if (startDate) params.append('start_date', startDate)
+      if (endDate) params.append('end_date', endDate)
+      params.append('skip', skip.toString())
+      params.append('limit', limit.toString())
+      
+      const url = `${apiUrl}/v1/events?${params.toString()}`
+      const response = await fetch(url)
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch events: ${response.statusText}`)
+      }
+      
+      const data: EventsResponse = await response.json()
+      setEvents(data.results || data.items || [])
+      setTotal(data.total || 0)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load events')
+    } finally {
+      setLoading(false)
+    }
+  }
+  
+  const handleSearch = () => {
+    setSkip(0)
+    fetchEvents()
+  }
+  
+  const handleExportJSON = () => {
+    const dataStr = JSON.stringify(events, null, 2)
+    const dataBlob = new Blob([dataStr], { type: 'application/json' })
+    const url = URL.createObjectURL(dataBlob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `events_${new Date().toISOString().split('T')[0]}.json`
+    link.click()
+  }
+  
+  const handleExportCSV = () => {
+    const headers = ['ID', 'Title', 'Publisher', 'Published', 'Tier', 'URL']
+    const rows = events.map(e => [
+      e.id,
+      `"${e.title.replace(/"/g, '""')}"`,
+      e.publisher || '',
+      e.published_at || e.date || '',
+      e.evidence_tier,
+      e.source_url,
+    ])
+    
+    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n')
+    const dataBlob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(dataBlob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `events_${new Date().toISOString().split('T')[0]}.csv`
+    link.click()
+  }
+  
+  const tierColors = {
+    A: 'bg-green-600 text-white hover:bg-green-700',
+    B: 'bg-blue-600 text-white hover:bg-blue-700',
+    C: 'bg-yellow-600 text-white hover:bg-yellow-700',
+    D: 'bg-red-600 text-white hover:bg-red-700',
+  }
+  
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight mb-2">Events Feed</h1>
-        <p className="text-muted-foreground">
-          Real-world developments mapped to AGI signposts, categorized by evidence tier.
+      <div className="text-center space-y-4">
+        <h1 className="text-4xl font-bold tracking-tight">Events Feed</h1>
+        <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+          Browse AI progress events across all evidence tiers
         </p>
-        <div className="mt-4 flex items-center gap-4">
-          <span className="text-sm font-medium">Feeds:</span>
-          <a
-            href="/v1/events/feed.json"
-            className="text-sm text-primary hover:underline"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            JSON Feed (Public) ↗
-          </a>
-          <a
-            href="/v1/events/feed.json?include_research=true"
-            className="text-sm text-primary hover:underline"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            JSON Feed (Research) ↗
-          </a>
-        </div>
       </div>
-
-      {/* Tier filter */}
+      
+      {/* Filters */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Filter by Evidence Tier</CardTitle>
+          <CardTitle>Filters</CardTitle>
+          <CardDescription>Filter events by tier, date range, or search</CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => setSelectedTier(null)}
-              className={`px-3 py-1.5 text-sm rounded border transition-colors ${
-                !selectedTier
-                  ? 'bg-primary text-white border-primary'
-                  : 'bg-white hover:bg-slate-50 border-slate-300'
-              }`}
-            >
-              All Events
-            </button>
-            {Object.entries(TIER_BADGES).map(([tier, info]) => (
-              <button
-                key={tier}
-                onClick={() => setSelectedTier(tier)}
-                className={`px-3 py-1.5 text-sm rounded border transition-colors ${
-                  selectedTier === tier
-                    ? info.class
-                    : 'bg-white hover:bg-slate-50 border-slate-300'
-                }`}
+        <CardContent className="space-y-4">
+          {/* Tier Filter */}
+          <div>
+            <div className="text-sm font-medium mb-2">Evidence Tier</div>
+            <div className="flex gap-2">
+              <Badge
+                variant={selectedTier === null ? 'default' : 'outline'}
+                className="cursor-pointer"
+                onClick={() => setSelectedTier(null)}
               >
-                {info.label} - {info.desc}
-              </button>
-            ))}
+                All
+              </Badge>
+              {(['A', 'B', 'C', 'D'] as const).map((tier) => (
+                <Badge
+                  key={tier}
+                  variant={selectedTier === tier ? 'default' : 'outline'}
+                  className={`cursor-pointer ${selectedTier === tier ? tierColors[tier] : ''}`}
+                  onClick={() => setSelectedTier(tier)}
+                  data-testid={`tier-filter-${tier}`}
+                >
+                  {tier}
+                </Badge>
+              ))}
+            </div>
+          </div>
+          
+          {/* Date Range */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="start-date" className="text-sm font-medium block mb-2">
+                Start Date
+              </label>
+              <input
+                id="start-date"
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full px-3 py-2 border rounded-md"
+              />
+            </div>
+            <div>
+              <label htmlFor="end-date" className="text-sm font-medium block mb-2">
+                End Date
+              </label>
+              <input
+                id="end-date"
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-full px-3 py-2 border rounded-md"
+              />
+            </div>
+          </div>
+          
+          {/* Export Buttons */}
+          <div className="flex gap-2 pt-4 border-t">
+            <button
+              onClick={handleExportJSON}
+              className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 text-sm"
+              disabled={events.length === 0}
+            >
+              Export JSON
+            </button>
+            <button
+              onClick={handleExportCSV}
+              className="px-4 py-2 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/80 text-sm"
+              disabled={events.length === 0}
+            >
+              Export CSV
+            </button>
           </div>
         </CardContent>
       </Card>
-
-      {/* Legend */}
-      <Card className="bg-blue-50 border-blue-200">
-        <CardContent className="pt-6">
-          <div className="text-sm space-y-2">
-            <p>
-              <strong>Evidence Tiers:</strong> Only Tier A (peer-reviewed, leaderboards) and Tier B (official lab blogs) events
-              move the main gauges. Tier C (press) and Tier D (social) are tracked but don't affect scores.
-            </p>
-            <p>
-              <strong>Gauge Movement:</strong> Events are automatically mapped to signposts using keyword matching and confidence scoring.
-              High-confidence matches (≥0.6) are approved automatically; lower-confidence matches require manual review.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Events list */}
-      {isLoading && (
+      
+      {/* Results */}
+      {loading && (
         <div className="text-center py-12">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-muted-foreground">Loading events...</p>
         </div>
       )}
-
+      
       {error && (
         <Card className="border-destructive">
           <CardContent className="pt-6">
-            <p className="text-destructive">Failed to load events. Please try again later.</p>
+            <p className="text-destructive">{error}</p>
           </CardContent>
         </Card>
       )}
-
-      {!isLoading && !error && events.length === 0 && (
+      
+      {!loading && !error && events.length === 0 && (
         <Card>
-          <CardContent className="pt-6">
-            <p className="text-muted-foreground text-center">
-              No events found{selectedTier ? ` for tier ${selectedTier}` : ''}.
-            </p>
+          <CardContent className="pt-6 text-center text-muted-foreground">
+            No events found matching your filters.
           </CardContent>
         </Card>
       )}
-
-      {!isLoading && !error && events.length > 0 && (
-        <div className="space-y-4">
-          {events.map((event) => {
-            const tierInfo = TIER_BADGES[event.tier as keyof typeof TIER_BADGES] || TIER_BADGES.D
-            return (
-              <Card key={event.id} className="hover:shadow-md transition-shadow">
-                <CardContent className="pt-6">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span
-                          className={`inline-block px-2 py-0.5 text-xs font-medium rounded border ${tierInfo.class}`}
-                        >
-                          {tierInfo.label}
-                        </span>
-                        <span className="text-sm text-muted-foreground">
-                          {formatDate(event.date)}
-                        </span>
-                        {event.needs_review && (
-                          <span className="inline-block px-2 py-0.5 text-xs font-medium rounded border bg-orange-100 text-orange-800 border-orange-300">
-                            Pending Review
-                          </span>
-                        )}
-                      </div>
-                      <Link
-                        href={`/events/${event.id}`}
-                        className="text-lg font-semibold hover:text-primary transition-colors block mb-2"
-                      >
-                        {event.title}
-                      </Link>
-                      {event.summary && (
-                        <p className="text-sm text-muted-foreground mb-2">
-                          {event.summary}
-                        </p>
-                      )}
-                      {event.signpost_links && event.signpost_links.length > 0 && (
-                        <div className="flex flex-wrap gap-2 mt-2">
-                          <span className="text-xs text-muted-foreground">Mapped to:</span>
-                          {event.signpost_links.map((link) => (
-                            <Link
-                              key={link.signpost_code}
-                              href={`/signposts/${link.signpost_code}`}
-                              className="inline-block px-2 py-1 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 rounded transition-colors"
-                            >
-                              {link.signpost_code}: {link.signpost_title}
-                            </Link>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    {event.source_url && (
-                      <a
-                        href={event.source_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm text-primary hover:underline flex-shrink-0"
-                      >
-                        Source ↗
-                      </a>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
-      )}
-
-      {/* Pagination */}
-      {total > limit && (
-        <div className="flex items-center justify-center gap-4 mt-6">
-          <button
-            onClick={() => setPage(Math.max(0, page - 1))}
-            disabled={page === 0}
-            className="px-4 py-2 text-sm border rounded hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Previous
-          </button>
-          <span className="text-sm text-muted-foreground">
-            Page {page + 1} of {Math.ceil(total / limit)}
-          </span>
-          <button
-            onClick={() => setPage(page + 1)}
-            disabled={(page + 1) * limit >= total}
-            className="px-4 py-2 text-sm border rounded hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Next
-          </button>
-        </div>
+      
+      {!loading && !error && events.length > 0 && (
+        <>
+          <div className="text-sm text-muted-foreground">
+            Showing {skip + 1}–{Math.min(skip + limit, total)} of {total} events
+          </div>
+          
+          <div className="grid grid-cols-1 gap-6">
+            {events.map((event) => (
+              <EventCard key={event.id} event={event} />
+            ))}
+          </div>
+          
+          {/* Pagination */}
+          <div className="flex justify-center gap-4 pt-6">
+            <button
+              onClick={() => setSkip(Math.max(0, skip - limit))}
+              disabled={skip === 0}
+              className="px-4 py-2 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/80 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Previous
+            </button>
+            <button
+              onClick={() => setSkip(skip + limit)}
+              disabled={skip + limit >= total}
+              className="px-4 py-2 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/80 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next
+            </button>
+          </div>
+        </>
       )}
     </div>
   )
 }
-
-export default function EventsPage() {
-  return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <EventsContent />
-    </Suspense>
-  )
-}
-

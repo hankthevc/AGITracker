@@ -100,11 +100,19 @@ def get_task_status(task_name: str) -> dict:
 def get_all_task_statuses() -> dict:
     """Get status for all known tasks."""
     tasks = [
+        # Benchmark fetchers
         "fetch_swebench",
         "fetch_osworld",
         "fetch_webarena",
         "fetch_gpqa",
         "fetch_hle",
+        # News/event ingestion (Phase 0/1)
+        "ingest_arxiv",
+        "ingest_press_reuters_ap",
+        "ingest_company_blogs",
+        "ingest_social",
+        "map_events_to_signposts",
+        # Core tasks
         "seed_inputs",
         "security_maturity",
         "snap_index",

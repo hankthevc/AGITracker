@@ -33,6 +33,7 @@ from app.models import (
     Claim,
     ClaimSignpost,
     Event,
+    EventAnalysis,
     EventEntity,
     EventSignpostLink,
     IndexSnapshot,
@@ -1117,6 +1118,41 @@ async def get_event(event_id: int, db: Session = Depends(get_db)):
     }
 
 
+@app.get("/v1/events/{event_id}/analysis")
+async def get_event_analysis(event_id: int, db: Session = Depends(get_db)):
+    """
+    Get LLM-generated analysis for an event (Phase 1).
+    
+    Returns latest analysis if available, 404 if not found.
+    """
+    # Verify event exists
+    event = db.query(Event).filter(Event.id == event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    # Get latest analysis for this event
+    analysis = (
+        db.query(EventAnalysis)
+        .filter(EventAnalysis.event_id == event_id)
+        .order_by(desc(EventAnalysis.generated_at))
+        .first()
+    )
+    
+    if not analysis:
+        raise HTTPException(status_code=404, detail="No analysis available for this event")
+    
+    return {
+        "event_id": event.id,
+        "summary": analysis.summary,
+        "relevance_explanation": analysis.relevance_explanation,
+        "impact_json": analysis.impact_json,
+        "confidence_reasoning": analysis.confidence_reasoning,
+        "significance_score": float(analysis.significance_score) if analysis.significance_score else None,
+        "llm_version": analysis.llm_version,
+        "generated_at": analysis.generated_at.isoformat(),
+    }
+
+
 @app.get("/v1/events/feed.json")
 @limiter.limit(f"{settings.rate_limit_per_minute}/minute")
 @cache(expire=settings.feed_cache_ttl_seconds)
@@ -1400,4 +1436,55 @@ async def recompute_deprecated():
         content=json.dumps({"error": "Endpoint moved to /v1/admin/recompute"}),
         media_type="application/json"
     )
+
+
+# Phase 2/3 Stub Endpoints (not yet implemented)
+
+@app.get("/v1/roadmaps/{roadmap_id}/tracking")
+async def get_roadmap_tracking(roadmap_id: int):
+    """
+    Get roadmap tracking data comparing predictions vs actual progress.
+    
+    TODO(Phase 3): Implement forecast comparison logic
+    """
+    return {"todo": True, "message": "Phase 3: Not yet implemented"}
+
+
+@app.get("/v1/review/queue")
+async def get_review_queue(
+    tier: Optional[str] = Query(None, regex="^[ABCD]$"),
+    limit: int = Query(50, le=100),
+    db: Session = Depends(get_db),
+):
+    """
+    Get queue of events/mappings pending human review.
+    
+    TODO(Phase 2): Implement review queue with prioritization
+    """
+    return {
+        "todo": True,
+        "message": "Phase 2: Not yet implemented",
+        "items": [],
+        "total": 0,
+    }
+
+
+@app.post("/v1/review/submit")
+async def submit_review(
+    event_id: int,
+    action: str = Query(..., regex="^(approve|reject|flag)$"),
+    reason: Optional[str] = None,
+    verified: bool = Depends(verify_api_key),
+    db: Session = Depends(get_db),
+):
+    """
+    Submit human review decision for an event or mapping.
+    
+    TODO(Phase 2): Implement review workflow with audit trail
+    """
+    return {
+        "todo": True,
+        "message": "Phase 2: Not yet implemented",
+        "status": "stub",
+    }
 

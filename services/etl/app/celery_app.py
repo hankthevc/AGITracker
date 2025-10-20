@@ -9,7 +9,12 @@ celery_app = Celery(
     "agi_tracker_etl",
     broker=settings.redis_url,
     backend=settings.redis_url,
-    include=["app.tasks.fetch_feeds", "app.tasks.extract_claims", "app.tasks.snap_index"],
+    include=[
+        "app.tasks.fetch_feeds",
+        "app.tasks.extract_claims",
+        "app.tasks.snap_index",
+        "app.tasks.analyze.generate_event_analysis",  # Phase 1: Event analysis
+    ],
 )
 
 # Configure Celery
@@ -109,6 +114,16 @@ celery_app.conf.beat_schedule = {
     "map-events-evening": {
         "task": "map_events_to_signposts",
         "schedule": crontab(hour=18, minute=30),  # 6:30 PM UTC daily (after evening ingestion)
+    },
+    # Event analysis task (Phase 1) - generates LLM summaries for A/B tier events
+    # Runs every 12 hours, after mapping tasks
+    "generate-event-analysis-morning": {
+        "task": "generate_event_analysis",
+        "schedule": crontab(hour=7, minute=0),  # 7:00 AM UTC daily
+    },
+    "generate-event-analysis-evening": {
+        "task": "generate_event_analysis",
+        "schedule": crontab(hour=19, minute=0),  # 7:00 PM UTC daily
     },
 }
 

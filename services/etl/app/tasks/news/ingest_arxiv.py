@@ -17,6 +17,7 @@ import feedparser
 from app.database import SessionLocal
 from app.models import Event, IngestRun
 from app.config import settings
+from app.utils.fetcher import compute_content_hash, canonicalize_url, normalize_title
 import os
 
 
@@ -84,6 +85,9 @@ def normalize_event_data(raw_data: Dict) -> Dict:
     source_url = raw_data.get("link", raw_data.get("url"))
     source_domain = "arxiv.org"
     
+    # Compute content hash for deduplication
+    content_hash = compute_content_hash(source_url, raw_data["title"])
+    
     return {
         "title": raw_data["title"],
         "summary": raw_data.get("summary", ""),
@@ -94,6 +98,7 @@ def normalize_event_data(raw_data: Dict) -> Dict:
         "published_at": published_at,
         "evidence_tier": "A",  # arXiv papers are A-tier (peer-reviewed/archived)
         "provisional": False,  # A-tier is NOT provisional - moves gauges directly
+        "content_hash": content_hash,  # Phase 0: deduplication
         "parsed": {
             "authors": raw_data.get("authors", []),
             "categories": raw_data.get("categories", [])
@@ -102,20 +107,39 @@ def normalize_event_data(raw_data: Dict) -> Dict:
     }
 
 
-def create_or_update_event(db, event_data: Dict) -> Event:
-    """Idempotently create or update an event using URL."""
-    existing = db.query(Event).filter(Event.source_url == event_data["source_url"]).first()
+def create_or_update_event(db, event_data: Dict) -> tuple[Event, bool]:
+    """
+    Idempotently create or update an event using URL or content_hash.
+    
+    Args:
+        db: Database session
+        event_data: Normalized event data dict
+        
+    Returns:
+        Tuple of (event, is_new) where is_new is True if event was just created
+    """
+    content_hash = event_data.get("content_hash")
+    source_url = event_data["source_url"]
+    
+    # Check for duplicates by content_hash or URL
+    existing = None
+    if content_hash:
+        existing = db.query(Event).filter(Event.content_hash == content_hash).first()
+    
+    if not existing:
+        existing = db.query(Event).filter(Event.source_url == source_url).first()
     
     if existing:
+        # Update existing event (e.g., if summary/title changed)
         for key, value in event_data.items():
             if value is not None:
                 setattr(existing, key, value)
-        return existing
+        return existing, False
     else:
         new_event = Event(**event_data)
         db.add(new_event)
         db.flush()
-        return new_event
+        return new_event, True
 
 
 @shared_task(name="ingest_arxiv")
@@ -159,15 +183,15 @@ def ingest_arxiv_task():
                 # Normalize to event schema
                 event_data = normalize_event_data(item)
                 
-                # Create or update event
-                event = create_or_update_event(db, event_data)
+                # Create or update event (with deduplication)
+                event, is_new = create_or_update_event(db, event_data)
                 
-                if event.id and event.ingested_at.date() == datetime.now(timezone.utc).date():
+                if is_new:
                     stats["inserted"] += 1
                     print(f"  ✓ Inserted: {event.title[:60]}...")
                 else:
-                    stats["updated"] += 1
-                    print(f"  ↻ Updated: {event.title[:60]}...")
+                    stats["skipped"] += 1
+                    print(f"  ⊘ Skipped (duplicate): {event.title[:60]}...")
                 
             except Exception as e:
                 stats["errors"] += 1

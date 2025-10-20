@@ -54,6 +54,9 @@ class Settings(BaseSettings):
     # LLM Mapping
     enable_llm_mapping: bool = False  # Enable LLM-powered event mapping (requires OPENAI_API_KEY)
     
+    # Operations
+    dry_run: bool = False  # If true, skip DB writes (for testing/debugging)
+    
     class Config:
         env_file = ".env"
         case_sensitive = False
