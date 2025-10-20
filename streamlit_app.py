@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import pandas as pd
 from datetime import datetime
+from sqlalchemy import text
 
 # Check for DATABASE_URL
 db_url = os.environ.get("DATABASE_URL") or st.secrets.get("DATABASE_URL")
@@ -81,22 +82,22 @@ def load_events():
     db = SessionLocal()
     try:
         # Use raw SQL to avoid SQLAlchemy model issues with missing columns
-        result = db.execute("""
+        result = db.execute(text("""
             SELECT id, title, summary, source_url, publisher, published_at, 
                    evidence_tier, source_type, provisional, needs_review
             FROM events 
             ORDER BY published_at DESC
-        """).fetchall()
+        """)).fetchall()
         
         events_data = []
         for row in result:
             # Get signpost links for this event
-            links_result = db.execute("""
+            links_result = db.execute(text("""
                 SELECT esl.confidence, esl.rationale, s.code, s.name
                 FROM event_signpost_links esl
                 JOIN signposts s ON esl.signpost_id = s.id
-                WHERE esl.event_id = %s
-            """, (row.id,)).fetchall()
+                WHERE esl.event_id = :event_id
+            """), {"event_id": row.id}).fetchall()
             
             signposts = []
             for link_row in links_result:
@@ -145,7 +146,11 @@ if page == "📰 News Feed":
         st.metric("Total Events", len(events))
     with col2:
         linked = sum(1 for e in events if len(e["signposts"]) > 0)
-        st.metric("Auto-Mapped", f"{linked}/{len(events)}", f"{linked/len(events)*100:.0f}%")
+        if len(events) > 0:
+            percentage = f"{linked/len(events)*100:.0f}%"
+        else:
+            percentage = "0%"
+        st.metric("Auto-Mapped", f"{linked}/{len(events)}", percentage)
     with col3:
         total_links = sum(len(e["signposts"]) for e in events)
         st.metric("Total Links", total_links)
