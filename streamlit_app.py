@@ -25,12 +25,12 @@ sys.path.insert(0, str(Path(__file__).parent / "services" / "etl"))
 
 try:
     from app.database import SessionLocal
-    from app.models import Event, EventSignpostLink, Signpost
+    from app.models import Event, EventSignpostLink, Signpost, SignpostContent
 except ImportError as e:
     st.error(f"❌ Failed to import database models: {e}")
     st.info("Make sure all dependencies are installed: `pip install -r requirements.txt`")
     st.info(f"Database URL: {db_url[:50]}...")
-    st.stop(), RoadmapPrediction, Roadmap
+    st.stop()
 
 st.set_page_config(
     page_title="AGI Signpost Tracker",
@@ -55,9 +55,14 @@ st.markdown("**Evidence-first dashboard tracking proximity to AGI via real AI ne
 
 # Sidebar
 with st.sidebar:
-    st.header("Filters")
-    tier_filter = st.selectbox("Evidence Tier", ["All", "A", "B", "C", "D"])
-    show_linked_only = st.checkbox("Show linked events only", value=False)
+    page = st.radio("Navigate", ["📰 News Feed", "🎯 Signposts"], index=0)
+    
+    st.markdown("---")
+    
+    if page == "📰 News Feed":
+        st.header("Filters")
+        tier_filter = st.selectbox("Evidence Tier", ["All", "A", "B", "C", "D"])
+        show_linked_only = st.checkbox("Show linked events only", value=False)
     
     st.markdown("---")
     st.markdown("### Evidence Tiers")
@@ -167,6 +172,66 @@ for event in filtered:
         # Source link
         if event["url"]:
             st.markdown(f"[📎 Source]({event['url']})")
+
+if page == "🎯 Signposts":
+    # Signposts page
+    st.header("🎯 AGI Signposts with Citations")
+    
+    @st.cache_data(ttl=300)
+    def load_signposts_with_content():
+        db = SessionLocal()
+        try:
+            signposts = db.query(Signpost).filter(Signpost.first_class == True).all()
+            result = []
+            for sp in signposts:
+                content = db.query(SignpostContent).filter(SignpostContent.signpost_id == sp.id).first()
+                result.append({
+                    "code": sp.code,
+                    "name": sp.name,
+                    "category": sp.category,
+                    "first_class": sp.first_class,
+                    "why_matters": content.why_matters if content else None,
+                    "current_state": content.current_state if content else None,
+                    "key_papers": content.key_papers if content else [],
+                    "technical": content.technical_explanation if content else None,
+                })
+            return result
+        finally:
+            db.close()
+    
+    signposts = load_signposts_with_content()
+    
+    # Group by category
+    categories = {"capabilities": [], "agents": [], "inputs": [], "security": []}
+    for sp in signposts:
+        if sp["category"] in categories:
+            categories[sp["category"]].append(sp)
+    
+    for cat_name, cat_signposts in categories.items():
+        if not cat_signposts:
+            continue
+        st.subheader(f"📊 {cat_name.title()}")
+        
+        for sp in cat_signposts:
+            with st.expander(f"**{sp['name']}** ({sp['code']})", expanded=False):
+                if sp["why_matters"]:
+                    st.markdown("**Why This Matters:**")
+                    st.write(sp["why_matters"])
+                
+                if sp["current_state"]:
+                    st.markdown("**Current State:**")
+                    st.text(sp["current_state"])
+                
+                if sp["key_papers"]:
+                    st.markdown("**Key Papers:**")
+                    for paper in sp["key_papers"]:
+                        st.markdown(f"- [{paper.get('title', 'Paper')}]({paper.get('url', '#')}) - {paper.get('citation', '')}")
+                        if paper.get("summary"):
+                            st.caption(paper["summary"])
+                
+                if sp["technical"]:
+                    st.markdown("**Technical Details:**")
+                    st.text(sp["technical"])
 
 # Footer
 st.markdown("---")
