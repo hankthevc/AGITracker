@@ -439,15 +439,8 @@ class IngestRun(Base):
     connector_name = Column(String(100), nullable=False, index=True)
     started_at = Column(TIMESTAMP(timezone=True), nullable=False, index=True)
     finished_at = Column(TIMESTAMP(timezone=True), nullable=True)
-    status = Column(String(20), nullable=False, index=True)  # success, fail, running
+    status = Column(String(20), nullable=False, index=True)  # Enum created in migration but using String for compatibility
     new_events_count = Column(Integer, nullable=False, server_default="0")
     new_links_count = Column(Integer, nullable=False, server_default="0")
     error = Column(Text, nullable=True)
-    
-    __table_args__ = (
-        CheckConstraint(
-            "status IN ('success', 'fail', 'running')",
-            name="check_ingest_status"
-        ),
-    )
 
