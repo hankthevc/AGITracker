@@ -52,12 +52,98 @@ st.markdown("""
 .if-true { background-color: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 1rem; margin: 1rem 0; color: #92400e; }
 .analysis-box { background-color: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 8px; padding: 1rem; margin: 1rem 0; }
 .stMetric { background-color: #f8fafc; padding: 1rem; border-radius: 8px; border-left: 4px solid #3b82f6; }
+.hero-section {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 2.5rem;
+    border-radius: 12px;
+    color: white;
+    margin-bottom: 2rem;
+    text-align: center;
+}
+.hero-title {
+    font-size: 2.5rem;
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+}
+.hero-subtitle {
+    font-size: 1.1rem;
+    opacity: 0.95;
+    margin-bottom: 1rem;
+}
+.pulse-indicator {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    background: #10b981;
+    border-radius: 50%;
+    margin-right: 6px;
+    animation: pulse 2s infinite;
+}
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}
+.safety-alert {
+    background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+    color: white;
+    padding: 1rem;
+    border-radius: 8px;
+    margin: 1rem 0;
+    font-weight: bold;
+}
 </style>
 """, unsafe_allow_html=True)
 
-# Title
-st.title("🎯 AGI Signpost Tracker")
-st.markdown("**Evidence-first dashboard tracking proximity to AGI via real AI news**")
+# Hero Section
+st.markdown("""
+<div class="hero-section">
+    <div class="hero-title">🎯 AGI Signpost Tracker</div>
+    <div class="hero-subtitle">
+        <span class="pulse-indicator"></span>
+        Evidence-first, real-time tracking of measurable progress toward AGI
+    </div>
+    <p style="margin-top: 1rem; font-size: 0.95rem; opacity: 0.9;">
+        Anchored on peer-reviewed papers, official benchmarks, and lab announcements
+    </p>
+</div>
+""", unsafe_allow_html=True)
+
+
+# This Week's Moves - Highlight recent A/B tier events
+st.markdown("## 🌟 This Week's Moves")
+try:
+    db = SessionLocal()
+    recent_ab_events = db.execute(text("""
+        SELECT id, title, summary, evidence_tier, published_at, publisher
+        FROM events 
+        WHERE evidence_tier IN ('A', 'B')
+        AND published_at >= CURRENT_DATE - INTERVAL '7 days'
+        ORDER BY published_at DESC
+        LIMIT 5
+    """)).fetchall()
+    
+    if recent_ab_events:
+        cols = st.columns(min(len(recent_ab_events), 3))
+        for idx, event in enumerate(recent_ab_events[:3]):
+            with cols[idx]:
+                tier_class = f"tier-{event.evidence_tier.lower()}"
+                st.markdown(f"""
+                <div style="background: white; padding: 1rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); height: 200px;">
+                    <span class="{tier_class}">{event.evidence_tier}</span>
+                    <h4 style="margin: 0.5rem 0; font-size: 1rem;">{event.title[:80]}...</h4>
+                    <p style="font-size: 0.85rem; color: #666;">{event.publisher}</p>
+                    <p style="font-size: 0.8rem; color: #999;">{event.published_at.strftime('%b %d, %Y') if event.published_at else 'N/A'}</p>
+                </div>
+                """, unsafe_allow_html=True)
+    else:
+        st.info("No A/B tier events in the last 7 days")
+        
+except Exception as e:
+    st.error(f"Error loading recent events: {e}")
+finally:
+    db.close()
+
+st.markdown("---")
 
 # Sidebar
 with st.sidebar:
