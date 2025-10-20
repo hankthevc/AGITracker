@@ -178,7 +178,39 @@ def generate_analysis_for_event(db, event: Event) -> Optional[EventAnalysis]:
     prompt = build_analysis_prompt(event, signposts)
     
     try:
-        # Call OpenAI API
+        # Call OpenAI API or use mock data for demo
+        if not settings.openai_api_key:
+            print(f"  ⚠️  OpenAI API key not configured, using mock analysis for event {event.id}")
+            # Create mock analysis for demonstration
+            mock_analysis = {
+                "summary": f"This {event.evidence_tier}-tier event represents a significant development in AI capabilities. The announcement suggests notable progress in the field, though the exact implications depend on the evidence quality and verification status.",
+                "relevance_explanation": f"As a {event.evidence_tier}-tier source, this event provides {'verified evidence' if event.evidence_tier == 'A' else 'provisional evidence' if event.evidence_tier == 'B' else 'speculative information'} about AI progress. The development could indicate advancement toward AGI-relevant capabilities, though further verification may be needed.",
+                "impact_json": {
+                    "short": "Immediate impact on research community and public perception of AI capabilities",
+                    "medium": "Potential influence on industry standards and research directions",
+                    "long": "Possible contribution to long-term AGI development timeline"
+                },
+                "confidence_reasoning": f"Confidence is {'high' if event.evidence_tier == 'A' else 'moderate' if event.evidence_tier == 'B' else 'low'} due to {event.evidence_tier}-tier source credibility. {'Direct verification available' if event.evidence_tier == 'A' else 'Official lab announcement' if event.evidence_tier == 'B' else 'Unverified claims'}.",
+                "significance_score": 0.7 if event.evidence_tier == 'A' else 0.6 if event.evidence_tier == 'B' else 0.4
+            }
+            
+            # Create EventAnalysis object with mock data
+            analysis = EventAnalysis(
+                event_id=event.id,
+                summary=mock_analysis.get("summary"),
+                relevance_explanation=mock_analysis.get("relevance_explanation"),
+                impact_json=mock_analysis.get("impact_json"),
+                confidence_reasoning=mock_analysis.get("confidence_reasoning"),
+                significance_score=mock_analysis.get("significance_score"),
+                llm_version="mock-demo-v1",
+            )
+            
+            db.add(analysis)
+            db.flush()
+            
+            print(f"  ✓ Generated mock analysis for event {event.id}")
+            return analysis
+        
         client = openai.OpenAI(api_key=settings.openai_api_key)
         response = client.chat.completions.create(
             model=LLM_MODEL,
