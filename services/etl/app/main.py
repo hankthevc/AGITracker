@@ -1334,7 +1334,7 @@ async def reject_event_mapping(
     # Mark as needs review with reason
     event.needs_review = True
     event.parsed = {
-        **event.parsed or {},
+        **(event.parsed or {}),
         "rejected_at": datetime.utcnow().isoformat(),
         "rejection_reason": reason,
         "links_removed": links_count,
