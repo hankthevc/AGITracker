@@ -2025,3 +2025,286 @@ async def get_source_credibility_history(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching credibility history: {str(e)}")
 
+
+# ============================================================================
+# LLM Prompt Management Endpoints (Phase 5)
+# ============================================================================
+
+@app.get("/v1/admin/prompts", tags=["admin"])
+async def list_prompts(
+    task_type: Optional[str] = Query(None, description="Filter by task type"),
+    include_deprecated: bool = Query(False, description="Include deprecated prompts"),
+    verified: bool = Depends(verify_api_key),
+    db: Session = Depends(get_db),
+):
+    """
+    List all LLM prompt templates with versioning info.
+    
+    Returns all prompts used for AI analysis with their metadata.
+    Useful for auditing prompt changes and A/B testing.
+    
+    Query params:
+    - task_type: Filter by task (e.g., "event_analysis", "event_mapping")
+    - include_deprecated: Show deprecated prompts (default false)
+    """
+    from app.models import LLMPrompt
+    from sqlalchemy import desc
+    
+    try:
+        query = db.query(LLMPrompt)
+        
+        if task_type:
+            query = query.filter(LLMPrompt.task_type == task_type)
+        
+        if not include_deprecated:
+            query = query.filter(LLMPrompt.deprecated_at == None)
+        
+        prompts = query.order_by(
+            LLMPrompt.task_type,
+            desc(LLMPrompt.created_at)
+        ).all()
+        
+        result = []
+        for prompt in prompts:
+            result.append({
+                "id": prompt.id,
+                "version": prompt.version,
+                "task_type": prompt.task_type,
+                "model": prompt.model,
+                "temperature": float(prompt.temperature) if prompt.temperature else None,
+                "max_tokens": prompt.max_tokens,
+                "notes": prompt.notes,
+                "created_at": prompt.created_at.isoformat(),
+                "deprecated_at": prompt.deprecated_at.isoformat() if prompt.deprecated_at else None,
+                "is_active": prompt.deprecated_at is None
+            })
+        
+        return {
+            "prompts": result,
+            "total": len(result),
+            "task_type_filter": task_type
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error listing prompts: {str(e)}")
+
+
+@app.get("/v1/admin/prompts/{prompt_id}", tags=["admin"])
+async def get_prompt_detail(
+    prompt_id: int,
+    verified: bool = Depends(verify_api_key),
+    db: Session = Depends(get_db),
+):
+    """
+    Get full details of a specific prompt including template text.
+    """
+    from app.models import LLMPrompt
+    
+    try:
+        prompt = db.query(LLMPrompt).filter(LLMPrompt.id == prompt_id).first()
+        if not prompt:
+            raise HTTPException(status_code=404, detail=f"Prompt {prompt_id} not found")
+        
+        return {
+            "id": prompt.id,
+            "version": prompt.version,
+            "task_type": prompt.task_type,
+            "prompt_template": prompt.prompt_template,
+            "system_message": prompt.system_message,
+            "model": prompt.model,
+            "temperature": float(prompt.temperature) if prompt.temperature else None,
+            "max_tokens": prompt.max_tokens,
+            "notes": prompt.notes,
+            "created_at": prompt.created_at.isoformat(),
+            "deprecated_at": prompt.deprecated_at.isoformat() if prompt.deprecated_at else None,
+            "is_active": prompt.deprecated_at is None
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching prompt: {str(e)}")
+
+
+@app.post("/v1/admin/prompts", tags=["admin"])
+async def create_prompt(
+    version: str,
+    task_type: str,
+    prompt_template: str,
+    model: str,
+    system_message: Optional[str] = None,
+    temperature: Optional[float] = None,
+    max_tokens: Optional[int] = None,
+    notes: Optional[str] = None,
+    verified: bool = Depends(verify_api_key),
+    db: Session = Depends(get_db),
+):
+    """
+    Create a new prompt template version.
+    
+    Body:
+    - version: Unique version identifier (e.g., "event-analysis-v2")
+    - task_type: Task name (e.g., "event_analysis", "event_mapping")
+    - prompt_template: The actual prompt text
+    - model: LLM model to use (e.g., "gpt-4o-mini")
+    - system_message: Optional system message
+    - temperature: Optional temperature setting
+    - max_tokens: Optional max tokens
+    - notes: Optional notes about this version
+    """
+    from app.models import LLMPrompt
+    
+    try:
+        # Check if version already exists
+        existing = db.query(LLMPrompt).filter(LLMPrompt.version == version).first()
+        if existing:
+            raise HTTPException(status_code=400, detail=f"Prompt version '{version}' already exists")
+        
+        prompt = LLMPrompt(
+            version=version,
+            task_type=task_type,
+            prompt_template=prompt_template,
+            system_message=system_message,
+            model=model,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            notes=notes
+        )
+        
+        db.add(prompt)
+        db.commit()
+        db.refresh(prompt)
+        
+        return {
+            "status": "created",
+            "id": prompt.id,
+            "version": prompt.version,
+            "task_type": prompt.task_type,
+            "created_at": prompt.created_at.isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error creating prompt: {str(e)}")
+
+
+@app.post("/v1/admin/prompts/{prompt_id}/deprecate", tags=["admin"])
+async def deprecate_prompt(
+    prompt_id: int,
+    verified: bool = Depends(verify_api_key),
+    db: Session = Depends(get_db),
+):
+    """
+    Mark a prompt template as deprecated.
+    
+    Deprecated prompts are hidden from active use but retained for audit trail.
+    """
+    from app.models import LLMPrompt
+    from datetime import datetime, timezone
+    
+    try:
+        prompt = db.query(LLMPrompt).filter(LLMPrompt.id == prompt_id).first()
+        if not prompt:
+            raise HTTPException(status_code=404, detail=f"Prompt {prompt_id} not found")
+        
+        if prompt.deprecated_at:
+            return {
+                "status": "already_deprecated",
+                "id": prompt_id,
+                "version": prompt.version,
+                "deprecated_at": prompt.deprecated_at.isoformat()
+            }
+        
+        prompt.deprecated_at = datetime.now(timezone.utc)
+        db.commit()
+        
+        return {
+            "status": "deprecated",
+            "id": prompt_id,
+            "version": prompt.version,
+            "deprecated_at": prompt.deprecated_at.isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error deprecating prompt: {str(e)}")
+
+
+@app.get("/v1/admin/prompt-runs", tags=["admin"])
+async def list_prompt_runs(
+    task_name: Optional[str] = Query(None, description="Filter by task name"),
+    event_id: Optional[int] = Query(None, description="Filter by event ID"),
+    days: int = Query(7, description="Days of history"),
+    limit: int = Query(100, description="Max results"),
+    verified: bool = Depends(verify_api_key),
+    db: Session = Depends(get_db),
+):
+    """
+    List LLM API call history with costs and token usage.
+    
+    Returns audit trail of all LLM calls for cost tracking and debugging.
+    
+    Query params:
+    - task_name: Filter by task (e.g., "event_analysis")
+    - event_id: Filter by specific event
+    - days: Number of days of history (default 7)
+    - limit: Max results to return (default 100)
+    """
+    from app.models import LLMPromptRun
+    from datetime import datetime, timedelta, timezone
+    from sqlalchemy import desc
+    
+    try:
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+        
+        query = db.query(LLMPromptRun).filter(
+            LLMPromptRun.created_at >= cutoff
+        )
+        
+        if task_name:
+            query = query.filter(LLMPromptRun.task_name == task_name)
+        
+        if event_id is not None:
+            query = query.filter(LLMPromptRun.event_id == event_id)
+        
+        runs = query.order_by(desc(LLMPromptRun.created_at)).limit(limit).all()
+        
+        result = []
+        total_cost = 0.0
+        total_tokens = 0
+        
+        for run in runs:
+            result.append({
+                "id": run.id,
+                "task_name": run.task_name,
+                "event_id": run.event_id,
+                "model": run.model,
+                "prompt_tokens": run.prompt_tokens,
+                "completion_tokens": run.completion_tokens,
+                "total_tokens": run.total_tokens,
+                "cost_usd": float(run.cost_usd),
+                "success": run.success,
+                "error_message": run.error_message,
+                "created_at": run.created_at.isoformat()
+            })
+            
+            total_cost += float(run.cost_usd)
+            total_tokens += run.total_tokens
+        
+        return {
+            "runs": result,
+            "total_runs": len(result),
+            "total_cost_usd": round(total_cost, 2),
+            "total_tokens": total_tokens,
+            "days": days,
+            "task_name_filter": task_name,
+            "event_id_filter": event_id
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error listing prompt runs: {str(e)}")
+
