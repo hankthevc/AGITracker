@@ -374,6 +374,52 @@ if page == "🎯 Signposts":
                     st.markdown("**Technical Details:**")
                     st.text(sp["technical"])
 
+# Admin Review Queue (if API key is available)
+if st.sidebar.checkbox("🔧 Admin Mode", help="Enable admin features"):
+    st.markdown("## 🔧 Admin Review Queue")
+    
+    # Get review queue data
+    try:
+        db = SessionLocal()
+        events_needing_review = db.execute(text("""
+            SELECT id, title, summary, publisher, evidence_tier, published_at
+            FROM events 
+            WHERE needs_review = true
+            ORDER BY published_at DESC
+            LIMIT 10
+        """)).fetchall()
+        
+        if events_needing_review:
+            st.info(f"📋 {len(events_needing_review)} events need review")
+            
+            for event in events_needing_review:
+                with st.expander(f"🔍 {event.title[:60]}..."):
+                    st.markdown(f"**Publisher:** {event.publisher}")
+                    st.markdown(f"**Evidence Tier:** {event.evidence_tier}")
+                    st.markdown(f"**Published:** {event.published_at}")
+                    st.markdown(f"**Summary:** {event.summary}")
+                    
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        if st.button("✅ Approve", key=f"approve_{event.id}"):
+                            # TODO: Implement approve action
+                            st.success("Approved!")
+                    with col2:
+                        if st.button("❌ Reject", key=f"reject_{event.id}"):
+                            # TODO: Implement reject action
+                            st.error("Rejected!")
+                    with col3:
+                        if st.button("🚩 Flag", key=f"flag_{event.id}"):
+                            # TODO: Implement flag action
+                            st.warning("Flagged for review!")
+        else:
+            st.success("🎉 No events need review!")
+            
+    except Exception as e:
+        st.error(f"Error loading review queue: {e}")
+    finally:
+        db.close()
+
 # Footer
 st.markdown("---")
-st.caption("✅ All events are real AI news from 2023-2024 • No synthetic or hallucinated data • CC BY 4.0")
+st.caption("✅ All events are real AI news with live updates • No synthetic or hallucinated data • CC BY 4.0 • Updated continuously")

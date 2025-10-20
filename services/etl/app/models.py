@@ -373,6 +373,10 @@ class Event(Base):
     provisional = Column(Boolean, nullable=False, server_default="true")
     parsed = Column(JSONB, nullable=True)  # Extracted fields (metric, value, etc.)
     needs_review = Column(Boolean, nullable=False, server_default="false", index=True)
+    reviewed_at = Column(TIMESTAMP(timezone=True), nullable=True)
+    review_status = Column(Enum("pending", "approved", "rejected", "flagged", name="review_status"), nullable=True)
+    rejection_reason = Column(Text, nullable=True)
+    flag_reason = Column(Text, nullable=True)
     
     # Relationships
     signpost_links = relationship("EventSignpostLink", back_populates="event", cascade="all, delete-orphan")
@@ -406,8 +410,11 @@ class EventSignpostLink(Base):
     value = Column(Numeric, nullable=True)  # Extracted numeric value if applicable
     link_type = Column(Enum("supports", "contradicts", "related", name="link_type"), nullable=True, server_default="supports")
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
-    # approved_at = Column(TIMESTAMP(timezone=True), nullable=True)  # Migration 009 not applied yet
-    # approved_by = Column(String(100), nullable=True)  # Migration 009 not applied yet
+    needs_review = Column(Boolean, nullable=False, server_default="false")
+    reviewed_at = Column(TIMESTAMP(timezone=True), nullable=True)
+    review_status = Column(Enum("pending", "approved", "rejected", "flagged", name="review_status"), nullable=True)
+    rejection_reason = Column(Text, nullable=True)
+    impact_estimate = Column(Numeric(3, 2), nullable=True)  # 0.00 to 1.00
     
     # Relationships
     event = relationship("Event", back_populates="signpost_links")

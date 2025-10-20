@@ -1461,12 +1461,68 @@ async def get_review_queue(
     
     TODO(Phase 2): Implement review queue with prioritization
     """
-    return {
-        "todo": True,
-        "message": "Phase 2: Not yet implemented",
-        "items": [],
-        "total": 0,
-    }
+    from app.models import Event, EventSignpostLink, EventAnalysis, Signpost
+    
+    try:
+        # Get events that need review
+        events_query = db.query(Event).filter(Event.needs_review == True)
+        if tier:
+            events_query = events_query.filter(Event.evidence_tier == tier)
+        
+        events = events_query.order_by(Event.published_at.desc()).limit(limit).all()
+        
+        result = []
+        for event in events:
+            # Get signpost links
+            links = db.query(EventSignpostLink).filter(
+                EventSignpostLink.event_id == event.id
+            ).all()
+            
+            # Get analysis if available
+            analysis = db.query(EventAnalysis).filter(
+                EventAnalysis.event_id == event.id
+            ).order_by(EventAnalysis.generated_at.desc()).first()
+            
+            result.append({
+                "type": "event",
+                "id": event.id,
+                "title": event.title,
+                "summary": event.summary,
+                "publisher": event.publisher,
+                "evidence_tier": event.evidence_tier,
+                "published_at": event.published_at,
+                "needs_review": event.needs_review,
+                "signpost_links": [
+                    {
+                        "id": link.id,
+                        "signpost_id": link.signpost_id,
+                        "confidence": link.confidence,
+                        "rationale": link.rationale,
+                        "needs_review": link.needs_review,
+                        "link_type": link.link_type
+                    }
+                    for link in links
+                ],
+                "analysis": {
+                    "summary": analysis.summary if analysis else None,
+                    "significance_score": analysis.significance_score if analysis else None,
+                    "confidence": analysis.confidence_reasoning if analysis else None
+                } if analysis else None
+            })
+        
+        # Get counts for pagination
+        total_events = db.query(Event).filter(Event.needs_review == True).count()
+        total_mappings = db.query(EventSignpostLink).filter(EventSignpostLink.needs_review == True).count()
+        
+        return {
+            "items": result,
+            "total": total_events + total_mappings,
+            "total_events": total_events,
+            "total_mappings": total_mappings
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching review queue: {str(e)}")
 
 
 @app.post("/v1/review/submit")
@@ -1482,9 +1538,76 @@ async def submit_review(
     
     TODO(Phase 2): Implement review workflow with audit trail
     """
-    return {
-        "todo": True,
-        "message": "Phase 2: Not yet implemented",
-        "status": "stub",
-    }
+    from app.models import Event, EventSignpostLink
+    from datetime import datetime, timezone
+    
+    try:
+        event = db.query(Event).filter(Event.id == event_id).first()
+        if not event:
+            raise HTTPException(status_code=404, detail=f"Event {event_id} not found")
+        
+        if action == "approve":
+            # Mark event as reviewed and approved
+            event.needs_review = False
+            event.reviewed_at = datetime.now(timezone.utc)
+            event.review_status = "approved"
+            
+            # Also approve all signpost links for this event
+            links = db.query(EventSignpostLink).filter(EventSignpostLink.event_id == event_id).all()
+            for link in links:
+                link.needs_review = False
+                link.reviewed_at = datetime.now(timezone.utc)
+                link.review_status = "approved"
+            
+            db.commit()
+            
+            return {
+                "status": "approved",
+                "event_id": event_id,
+                "message": f"Event {event_id} and {len(links)} mappings approved",
+                "reviewed_at": event.reviewed_at
+            }
+            
+        elif action == "reject":
+            # Mark event as reviewed but rejected
+            event.needs_review = False
+            event.reviewed_at = datetime.now(timezone.utc)
+            event.review_status = "rejected"
+            event.rejection_reason = reason
+            
+            # Also reject all signpost links for this event
+            links = db.query(EventSignpostLink).filter(EventSignpostLink.event_id == event_id).all()
+            for link in links:
+                link.needs_review = False
+                link.reviewed_at = datetime.now(timezone.utc)
+                link.review_status = "rejected"
+                link.rejection_reason = reason
+            
+            db.commit()
+            
+            return {
+                "status": "rejected",
+                "event_id": event_id,
+                "message": f"Event {event_id} and {len(links)} mappings rejected",
+                "reason": reason,
+                "reviewed_at": event.reviewed_at
+            }
+            
+        elif action == "flag":
+            # Flag for additional review
+            event.needs_review = True
+            event.flag_reason = reason
+            
+            db.commit()
+            
+            return {
+                "status": "flagged",
+                "event_id": event_id,
+                "message": f"Event {event_id} flagged for additional review",
+                "reason": reason
+            }
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error processing review: {str(e)}")
 
