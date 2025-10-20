@@ -434,31 +434,86 @@ if page == "🎯 Signposts":
         if sp["category"] in categories:
             categories[sp["category"]].append(sp)
     
-    for cat_name, cat_signposts in categories.items():
-        if not cat_signposts:
-            continue
-        st.subheader(f"📊 {cat_name.title()}")
-        
-        for sp in cat_signposts:
-            with st.expander(f"**{sp['name']}** ({sp['code']})", expanded=False):
-                if sp["why_matters"]:
-                    st.markdown("**Why This Matters:**")
-                    st.write(sp["why_matters"])
+    # Get additional signpost details
+    db = SessionLocal()
+    try:
+        for cat_name, cat_signposts in categories.items():
+            if not cat_signposts:
+                continue
+            st.subheader(f"📊 {cat_name.title()}")
+            
+            for sp in cat_signposts:
+                # Get full signpost data
+                full_sp = db.query(Signpost).filter(Signpost.code == sp['code']).first()
                 
-                if sp["current_state"]:
-                    st.markdown("**Current State:**")
-                    st.text(sp["current_state"])
+                # Get linked events count
+                events_count = db.query(EventSignpostLink).filter(
+                    EventSignpostLink.signpost_id == full_sp.id
+                ).count() if full_sp else 0
                 
-                if sp["key_papers"]:
-                    st.markdown("**Key Papers:**")
-                    for paper in sp["key_papers"]:
-                        st.markdown(f"- [{paper.get('title', 'Paper')}]({paper.get('url', '#')}) - {paper.get('citation', '')}")
-                        if paper.get("summary"):
-                            st.caption(paper["summary"])
+                # Get predictions
+                from app.models import ExpertPrediction
+                predictions = []
+                if full_sp:
+                    preds = db.query(ExpertPrediction).filter(
+                        ExpertPrediction.signpost_id == full_sp.id
+                    ).all()
+                    predictions = [
+                        {
+                            "source": p.source,
+                            "predicted_date": p.predicted_date.strftime('%Y-%m-%d') if p.predicted_date else 'N/A',
+                            "predicted_value": float(p.predicted_value) if p.predicted_value else None,
+                        }
+                        for p in preds
+                    ]
                 
-                if sp["technical"]:
-                    st.markdown("**Technical Details:**")
-                    st.text(sp["technical"])
+                with st.expander(f"**{sp['name']}** ({sp['code']}) • {events_count} linked events", expanded=False):
+                    # Display metrics if available
+                    if full_sp and full_sp.baseline_value and full_sp.target_value:
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            st.metric("Baseline", f"{float(full_sp.baseline_value):.2f}")
+                        with col2:
+                            st.metric("Target", f"{float(full_sp.target_value):.2f}")
+                        with col3:
+                            st.metric("Direction", full_sp.direction)
+                    
+                    if sp["why_matters"]:
+                        st.markdown("**🎯 Why This Matters:**")
+                        st.info(sp["why_matters"])
+                    
+                    if sp["current_state"]:
+                        st.markdown("**📊 Current State:**")
+                        st.text(sp["current_state"])
+                    
+                    # Expert predictions
+                    if predictions:
+                        st.markdown("**🔮 Expert Predictions:**")
+                        for pred in predictions:
+                            value_str = f" (value: {pred['predicted_value']:.2f})" if pred['predicted_value'] else ""
+                            st.markdown(f"- **{pred['source']}**: {pred['predicted_date']}{value_str}")
+                    
+                    if sp["key_papers"]:
+                        st.markdown("**📚 Key Papers:**")
+                        for paper in sp["key_papers"]:
+                            if isinstance(paper, dict):
+                                st.markdown(f"- [{paper.get('title', 'Paper')}]({paper.get('url', '#')}) - {paper.get('citation', '')}")
+                                if paper.get("summary"):
+                                    st.caption(paper["summary"])
+                            else:
+                                st.markdown(f"- {paper}")
+                    
+                    if sp["technical"]:
+                        st.markdown("**🔬 Technical Details:**")
+                        st.text(sp["technical"])
+                    
+                    # Link to related events
+                    if events_count > 0:
+                        st.markdown(f"**📰 {events_count} Related Events**")
+                        st.caption("Switch to News Feed to see events linked to this signpost")
+    
+    finally:
+        db.close()
 
 # Admin Review Queue (if API key is available)
 if st.sidebar.checkbox("🔧 Admin Mode", help="Enable admin features"):
