@@ -363,6 +363,7 @@ class Event(Base):
     published_at = Column(TIMESTAMP(timezone=True), nullable=True, index=True)
     ingested_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
     evidence_tier = Column(Enum("A", "B", "C", "D", name="evidence_tier"), nullable=False, index=True)
+    outlet_cred = Column(Enum("A", "B", "C", "D", name="outlet_cred"), nullable=False, index=True)
     content_text = Column(Text, nullable=True)  # Full article content
     content_hash = Column(Text, nullable=True)  # SHA-256 hash for deduplication
     author = Column(String(255), nullable=True)
@@ -384,6 +385,10 @@ class Event(Base):
             name="check_evidence_tier"
         ),
         CheckConstraint(
+            "outlet_cred IN ('A', 'B', 'C', 'D')",
+            name="check_outlet_cred"
+        ),
+        CheckConstraint(
             "source_type IN ('news', 'paper', 'blog', 'leaderboard', 'gov')",
             name="check_source_type"
         ),
@@ -403,6 +408,7 @@ class EventSignpostLink(Base):
     rationale = Column(Text, nullable=True)
     observed_at = Column(TIMESTAMP(timezone=True), nullable=True)  # Date claim refers to
     value = Column(Numeric, nullable=True)  # Extracted numeric value if applicable
+    link_type = Column(Enum("supports", "contradicts", "related", name="link_type"), nullable=False, server_default="supports")
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
     # approved_at = Column(TIMESTAMP(timezone=True), nullable=True)  # Migration 009 not applied yet
     # approved_by = Column(String(100), nullable=True)  # Migration 009 not applied yet
