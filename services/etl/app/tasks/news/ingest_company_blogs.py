@@ -102,19 +102,23 @@ def fetch_live_company_blogs(max_results: int = 150) -> List[Dict]:
     """Fetch live company blog/news posts via RSS/Atom where available (robots-aware)."""
     import time
     feeds = [
-        # OpenAI
+        # Major AI Labs
         "https://openai.com/blog/rss.xml",
-        # Anthropic (news)
         "https://www.anthropic.com/news/rss.xml",
-        # Google DeepMind blog feed
         "https://deepmind.google/discover/feeds/blog.xml",
-        # Meta AI blog (WordPress-style)
         "https://ai.meta.com/blog/feed/",
-        # xAI (may not expose RSS; leave for future)
-        # Cohere
         "https://cohere.com/blog/rss.xml",
-        # Mistral (WordPress)
         "https://mistral.ai/feed/",
+        # Research Orgs
+        "https://www.microsoft.com/en-us/research/feed/",
+        "https://blog.research.google/feeds/posts/default",
+        # AI Safety/Alignment
+        "https://www.anthropic.com/research/rss.xml",
+        "https://openai.com/research/rss.xml",
+        # Open Source
+        "https://huggingface.co/blog/feed.xml",
+        # Compute/Infrastructure  
+        "https://www.nvidia.com/en-us/about-nvidia/ai-computing/rss/",
     ]
     items: List[Dict] = []
     for url in feeds:
