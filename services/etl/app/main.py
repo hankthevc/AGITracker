@@ -1362,7 +1362,7 @@ async def reject_event_mapping(
 
 @app.get("/v1/digests/latest")
 @limiter.limit(f"{settings.rate_limit_per_minute}/minute")
-async def get_latest_digest():
+async def get_latest_digest(request: Request):
     """
     Get latest weekly digest JSON (CC BY 4.0).
     
