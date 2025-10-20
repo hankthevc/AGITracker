@@ -164,6 +164,7 @@ def map_all_unmapped_events() -> Dict:
                     confidence=conf,
                     rationale=rationale,
                     observed_at=event.published_at or event.ingested_at,
+                    value=None,
                 )
                 db.add(link)
                 links_created += 1

@@ -401,8 +401,8 @@ class EventSignpostLink(Base):
     rationale = Column(Text, nullable=True)
     observed_at = Column(TIMESTAMP(timezone=True), nullable=True)  # Date claim refers to
     value = Column(Numeric, nullable=True)  # Extracted numeric value if applicable
-    approved_at = Column(TIMESTAMP(timezone=True), nullable=True)  # When link was approved
-    approved_by = Column(String(100), nullable=True)  # Admin username or "auto"
+    # approved_at = Column(TIMESTAMP(timezone=True), nullable=True)  # Migration 009 not applied yet
+    # approved_by = Column(String(100), nullable=True)  # Migration 009 not applied yet
     
     # Relationships
     event = relationship("Event", back_populates="signpost_links")
