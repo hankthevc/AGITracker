@@ -1,0 +1,63 @@
+# Alias → Signpost Code Mapping for event_mapper.py
+# Format: list of {pattern, codes, boost}
+
+capabilities_benchmarks:
+  - pattern: "swe-?bench"
+    codes: [swe_bench_85, swe_bench_90]
+    boost: 0.3
+  - pattern: "osworld|os-?world"
+    codes: [osworld_50, osworld_65, osworld_85]
+    boost: 0.3
+  - pattern: "webarena|web-?arena"
+    codes: [webarena_60, webarena_70, webarena_85]
+    boost: 0.3
+  - pattern: "gpqa|graduate-?level"
+    codes: [gpqa_75, gpqa_sota, gpqa_phd_parity]
+    boost: 0.3
+  - pattern: "hle|humanity.*last.*exam"
+    codes: [hle_text_50, hle_text_70]
+    boost: 0.3
+
+inputs_compute:
+  - pattern: "10\\^26|1e26"
+    codes: [compute_1e26, inputs_flops_26]
+    boost: 0.4
+  - pattern: "10\\^27|1e27"
+    codes: [compute_1e27, inputs_flops_27]
+    boost: 0.4
+  - pattern: "flop"
+    codes: [compute_1e26, compute_1e27]
+    boost: 0.1
+
+inputs_power:
+  - pattern: "1\\s*gw"
+    codes: [dc_power_1gw, inputs_dc_1gw]
+    boost: 0.4
+  - pattern: "10\\s*gw"
+    codes: [dc_power_10gw, inputs_dc_10gw]
+    boost: 0.4
+  - pattern: "datacenter|data.?center"
+    codes: [dc_power_1gw]
+    boost: 0.1
+
+agents:
+  - pattern: "agent.?reliability|multi-?step"
+    codes: [agent_reliability_80]
+    boost: 0.3
+  - pattern: "multi-?day.?project"
+    codes: [multi_day_project]
+    boost: 0.3
+  - pattern: "job.?displacement"
+    codes: [economic_displacement_10pct]
+    boost: 0.2
+
+security:
+  - pattern: "red.?team|jailbreak"
+    codes: [security_l1_weights, security_l2_monitoring]
+    boost: 0.2
+  - pattern: "mandatory.?eval"
+    codes: [mandatory_evals]
+    boost: 0.3
+  - pattern: "ai.?treaty"
+    codes: [ai_treaty_ratified]
+    boost: 0.3
