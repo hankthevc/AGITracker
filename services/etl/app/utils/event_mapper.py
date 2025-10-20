@@ -1,11 +1,12 @@
 """
-Event → Signpost mapper with alias-based matching + tier propagation.
+Event → Signpost mapper with alias-based matching + LLM augmentation + tier propagation.
 
 Policy:
 - A/B tier events can move gauges (subject to signpost's first_class)
 - C/D tier events NEVER move gauges (displayed as "if true" only)
-- Cap to max 2 signposts/event to avoid over-linking
+- Cap to max 5 signposts/event (increased from 2 to capture richer connections)
 - Confidence threshold for auto-approval: 0.6
+- LLM augmentation runs on ALL events to enhance rule-based matching
 """
 import re
 import yaml
@@ -23,11 +24,12 @@ def load_aliases() -> Dict:
         return yaml.safe_load(f) or {}
 
 
-def match_aliases(text: str, aliases: Dict) -> List[Tuple[str, float, str]]:
+def match_aliases(text: str, aliases: Dict, max_signposts: int = 5) -> List[Tuple[str, float, str]]:
     """
     Match text against alias patterns and return (code, confidence, rationale) tuples.
     
-    Returns up to 2 signposts per event to avoid over-linking.
+    Returns up to max_signposts per event (default 5, increased from 2 to capture
+    more connections between events and signposts).
     """
     text_lower = text.lower()
     matches = []
@@ -53,14 +55,13 @@ def match_aliases(text: str, aliases: Dict) -> List[Tuple[str, float, str]]:
                             rationale = f"Alias match: '{pattern}'"
                             matches.append((code, base_conf, rationale))
                             seen_codes.add(code)
-                            if len(matches) >= 2:  # Early exit at cap
-                                return matches
             except re.error:
                 # Invalid regex; skip
                 continue
     
-    # Cap to 2 signposts per event
-    return matches[:2]
+    # Sort by confidence (descending) and cap to max_signposts
+    matches.sort(key=lambda x: x[1], reverse=True)
+    return matches[:max_signposts]
 
 
 def map_event_to_signposts(event, aliases: Dict = None) -> List[Tuple[str, float, str]]:
@@ -146,8 +147,9 @@ def map_all_unmapped_events() -> Dict:
             results = map_event_to_signposts(event, aliases)
             stats["processed"] += 1
             
-            # LLM fallback if no matches and LLM enabled
-            if not results and settings.enable_llm_mapping and settings.openai_api_key:
+            # LLM augmentation: Run on ALL events to enhance rule-based results
+            # This provides richer context and can catch implicit connections
+            if settings.enable_llm_mapping and settings.openai_api_key:
                 try:
                     from app.utils.llm_news_parser import parse_event_with_llm
                     llm_results = parse_event_with_llm(
@@ -156,12 +158,24 @@ def map_all_unmapped_events() -> Dict:
                         all_signpost_codes,
                         event.evidence_tier
                     )
+                    
                     if llm_results:
-                        results = llm_results
+                        # Merge LLM results with rule-based results
+                        # Deduplicate by code, keeping highest confidence
+                        result_dict = {code: (conf, tier) for code, conf, tier in results}
+                        for code, conf, rationale in llm_results:
+                            if code not in result_dict or conf > result_dict[code][0]:
+                                result_dict[code] = (conf, event.evidence_tier)
+                        
+                        # Rebuild results list
+                        results = [(code, conf, tier) for code, (conf, tier) in result_dict.items()]
                         stats["llm_used"] += 1
-                        print(f"  🤖 LLM fallback used for: {event.title[:50]}...")
+                        
+                        if llm_results:
+                            print(f"  🤖 LLM augmentation added {len(llm_results)} signposts for: {event.title[:50]}...")
                 except Exception as e:
-                    print(f"  ⚠️  LLM fallback failed: {e}")
+                    print(f"  ⚠️  LLM augmentation failed: {e}")
+                    # Continue with rule-based results only
             
             if not results:
                 stats["unmapped"] += 1
