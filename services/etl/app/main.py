@@ -44,6 +44,7 @@ from app.models import (
     SignpostContent,
     Source,
 )
+from app.utils.query_helpers import query_active_events
 
 # Import scoring functions
 try:
@@ -938,7 +939,7 @@ async def list_events(
     """
     limit = min(limit, 100)
 
-    query = db.query(Event)
+    query = query_active_events(db.query(Event))
     
     # Filter out synthetic events by default (can be overridden with include_synthetic param)
     # Evidence tier (aliases: outlet_cred, source_tier)
@@ -1177,10 +1178,10 @@ async def events_feed(
 
     if audience == "public":
         # Public: Only A/B tier (verified sources)
-        query = db.query(Event).filter(Event.evidence_tier.in_(["A", "B"]))
+        query = query_active_events(db.query(Event)).filter(Event.evidence_tier.in_(["A", "B"]))
     else:
         # Research: All tiers (A/B/C/D)
-        query = db.query(Event)
+        query = query_active_events(db.query(Event))
     
     # Order by published date
     events = query.order_by(desc(Event.published_at)).limit(100).all()
@@ -1464,8 +1465,8 @@ async def get_review_queue(
     from app.models import Event, EventSignpostLink, EventAnalysis, Signpost
     
     try:
-        # Get events that need review
-        events_query = db.query(Event).filter(Event.needs_review == True)
+        # Get events that need review (only active events)
+        events_query = query_active_events(db.query(Event)).filter(Event.needs_review == True)
         if tier:
             events_query = events_query.filter(Event.evidence_tier == tier)
         
@@ -1510,8 +1511,8 @@ async def get_review_queue(
                 } if analysis else None
             })
         
-        # Get counts for pagination
-        total_events = db.query(Event).filter(Event.needs_review == True).count()
+        # Get counts for pagination (only active events)
+        total_events = query_active_events(db.query(Event)).filter(Event.needs_review == True).count()
         total_mappings = db.query(EventSignpostLink).filter(EventSignpostLink.needs_review == True).count()
         
         return {
@@ -1746,8 +1747,8 @@ async def calculate_surprise_scores(
     from sqlalchemy import func, desc
     
     try:
-        # Get recent events with signpost links
-        recent_events = db.query(Event).join(EventSignpostLink).filter(
+        # Get recent active events with signpost links
+        recent_events = query_active_events(db.query(Event)).join(EventSignpostLink).filter(
             Event.published_at >= func.now() - func.interval('30 days')
         ).order_by(desc(Event.published_at)).limit(20).all()
         
