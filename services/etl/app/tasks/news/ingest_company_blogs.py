@@ -15,6 +15,7 @@ import random
 from celery import shared_task
 import feedparser
 from urllib.parse import urlparse
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 from app.database import SessionLocal
 from app.models import Event, IngestRun
@@ -96,8 +97,10 @@ def generate_synthetic_blog_events(total: int) -> List[Dict]:
     return items
 
 
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
 def fetch_live_company_blogs(max_results: int = 150) -> List[Dict]:
     """Fetch live company blog/news posts via RSS/Atom where available (robots-aware)."""
+    import time
     feeds = [
         # OpenAI
         "https://openai.com/blog/rss.xml",
@@ -116,7 +119,9 @@ def fetch_live_company_blogs(max_results: int = 150) -> List[Dict]:
     items: List[Dict] = []
     for url in feeds:
         try:
-            feed = feedparser.parse(url)
+            # Add jitter to avoid thundering herd
+            time.sleep(random.uniform(0.1, 0.5))
+            feed = feedparser.parse(url, agent="AGI-Signpost-Tracker/1.0 (+https://github.com/hankthevc/AGITracker)")
             for entry in feed.entries[:max_results]:
                 title = entry.get("title", "").strip()
                 summary = entry.get("summary", "").strip()
@@ -147,7 +152,8 @@ def fetch_live_company_blogs(max_results: int = 150) -> List[Dict]:
                         "published_at": published,
                     }
                 )
-        except Exception:
+        except Exception as e:
+            print(f"  ⚠️  Failed to fetch {url}: {e}")
             continue
     return items
 
