@@ -328,7 +328,7 @@ export default async function RoadmapComparePage({
         <p className="text-xl text-muted-foreground">
           Compare predictions from leading AGI timeline forecasts
         </p>
-        <div className="mt-4">
+        <div className="mt-4 flex items-center gap-4">
           <Link
             href={overlayEnabled ? '/roadmaps/compare' : '/roadmaps/compare?overlay=events'}
             className={`inline-flex items-center gap-2 text-sm px-3 py-1.5 rounded border ${overlayEnabled ? 'bg-primary text-white border-primary' : 'bg-white hover:bg-slate-50 border-slate-300'}`}
@@ -337,6 +337,26 @@ export default async function RoadmapComparePage({
           >
             {overlayEnabled ? 'Events Overlay: ON' : 'Events Overlay: OFF'}
           </Link>
+          {overlayEnabled && (
+            <div className="flex items-center gap-3 text-xs">
+              <span className="flex items-center gap-1">
+                <span className="inline-block w-3 h-3 rounded-full bg-green-500"></span>
+                Ahead
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="inline-block w-3 h-3 rounded-full bg-yellow-500"></span>
+                On Track
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="inline-block w-3 h-3 rounded-full bg-red-500"></span>
+                Behind
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="inline-block w-3 h-3 rounded-full bg-gray-300"></span>
+                Unobserved
+              </span>
+            </div>
+          )}
         </div>
       </div>
       
