@@ -371,7 +371,6 @@ class Event(Base):
     provisional = Column(Boolean, nullable=False, server_default="true")
     parsed = Column(JSONB, nullable=True)  # Extracted fields (metric, value, etc.)
     needs_review = Column(Boolean, nullable=False, server_default="false", index=True)
-    is_synthetic = Column(Boolean, nullable=False, server_default="false", index=True)  # Marks fixture/test data
     
     # Relationships
     signpost_links = relationship("EventSignpostLink", back_populates="event", cascade="all, delete-orphan")

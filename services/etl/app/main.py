@@ -940,10 +940,6 @@ async def list_events(
     query = db.query(Event)
     
     # Filter out synthetic events by default (can be overridden with include_synthetic param)
-    include_synthetic = request.query_params.get('include_synthetic', 'false').lower() == 'true'
-    if not include_synthetic:
-        query = query.filter(Event.is_synthetic == False)
-
     # Evidence tier (aliases: outlet_cred, source_tier)
     effective_tier = tier or outlet_cred or source_tier
     if effective_tier:
@@ -1144,16 +1140,11 @@ async def events_feed(
         audience = "research"
 
     if audience == "public":
-        # Public: Only A/B tier (verified sources), exclude synthetic
-        query = db.query(Event).filter(
-            and_(
-                Event.evidence_tier.in_(["A", "B"]),
-                Event.is_synthetic == False
-            )
-        )
+        # Public: Only A/B tier (verified sources)
+        query = db.query(Event).filter(Event.evidence_tier.in_(["A", "B"]))
     else:
-        # Research: All tiers (A/B/C/D), exclude synthetic unless explicitly requested
-        query = db.query(Event).filter(Event.is_synthetic == False)
+        # Research: All tiers (A/B/C/D)
+        query = db.query(Event)
     
     # Order by published date
     events = query.order_by(desc(Event.published_at)).limit(100).all()
