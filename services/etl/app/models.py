@@ -568,8 +568,44 @@ class LLMPrompt(Base):
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
     deprecated_at = Column(TIMESTAMP(timezone=True), nullable=True)  # When this version was deprecated
     
+    # Relationships
+    runs = relationship("LLMPromptRun", back_populates="prompt")
+    
     __table_args__ = (
         Index("idx_llm_prompts_task_type", "task_type"),
         Index("idx_llm_prompts_created", "created_at"),
+    )
+
+
+class LLMPromptRun(Base):
+    """
+    Records every LLM API call for cost tracking and audit (Phase 5).
+    
+    Captures input/output hashes, token usage, and costs for each call.
+    """
+    
+    __tablename__ = "llm_prompt_runs"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    prompt_id = Column(Integer, ForeignKey("llm_prompts.id"), nullable=True, index=True)
+    task_name = Column(String(100), nullable=False, index=True)  # e.g., "map_event_to_signposts"
+    event_id = Column(Integer, ForeignKey("events.id"), nullable=True, index=True)  # Link to event if applicable
+    input_hash = Column(String(64), nullable=False)  # SHA-256 of input for dedup
+    output_hash = Column(String(64), nullable=True)  # SHA-256 of output
+    prompt_tokens = Column(Integer, nullable=False, default=0)
+    completion_tokens = Column(Integer, nullable=False, default=0)
+    total_tokens = Column(Integer, nullable=False, default=0)
+    cost_usd = Column(Numeric(10, 6), nullable=False, default=0)  # Cost in USD
+    model = Column(String(50), nullable=False)  # Actual model used
+    success = Column(Boolean, nullable=False, default=True)
+    error_message = Column(Text, nullable=True)
+    created_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False, index=True)
+    
+    # Relationships
+    prompt = relationship("LLMPrompt", back_populates="runs")
+    
+    __table_args__ = (
+        Index("idx_llm_prompt_runs_task_created", "task_name", "created_at"),
+        Index("idx_llm_prompt_runs_event", "event_id"),
     )
 
