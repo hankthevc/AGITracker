@@ -112,61 +112,43 @@ def seed_roadmaps(db: Session):
 
 
 def seed_benchmarks(db: Session):
-    """Seed benchmark definitions (idempotent)."""
-    benchmarks_data = [
-        {
-            "code": "swe_bench_verified",
-            "name": "SWE-bench Verified",
-            "url": "https://www.swebench.com",
-            "family": "SWE_BENCH_VERIFIED"
-        },
-        {
-            "code": "osworld",
-            "name": "OSWorld",
-            "url": "https://os-world.github.io",
-            "family": "OSWORLD"
-        },
-        {
-            "code": "osworld_verified",
-            "name": "OSWorld-Verified",
-            "url": "https://os-world.github.io",
-            "family": "OSWORLD"
-        },
-        {
-            "code": "webarena",
-            "name": "WebArena",
-            "url": "https://webarena.dev",
-            "family": "WEBARENA"
-        },
-        {
-            "code": "visualwebarena",
-            "name": "VisualWebArena",
-            "url": "https://webarena.dev",
-            "family": "WEBARENA"
-        },
-        {
-            "code": "gpqa_diamond",
-            "name": "GPQA Diamond",
-            "url": "https://github.com/idavidrein/gpqa",
-            "family": "GPQA_DIAMOND"
-        },
-        {
-            "code": "humanitys_last_exam_text",
-            "name": "Humanity's Last Exam (Text-Only)",
-            "url": "https://scale.com/leaderboard/hle",
-            "family": "OTHER"  # Use OTHER since HLE_TEXT not in constraint
-        },
-    ]
+    """Seed benchmark definitions from catalog (idempotent)."""
+    import yaml
+    
+    catalog_path = Path(__file__).parent.parent / "infra" / "seeds" / "benchmarks_catalog.yaml"
+    
+    # Fallback to inline data if catalog doesn't exist
+    if not catalog_path.exists():
+        benchmarks_data = [
+            {"code": "swe_bench_verified", "name": "SWE-bench Verified", "url": "https://www.swebench.com", "family": "SWE_BENCH_VERIFIED"},
+            {"code": "osworld", "name": "OSWorld", "url": "https://os-world.github.io", "family": "OSWORLD"},
+            {"code": "webarena", "name": "WebArena", "url": "https://webarena.dev", "family": "WEBARENA"},
+            {"code": "gpqa_diamond", "name": "GPQA Diamond", "url": "https://github.com/idavidrein/gpqa", "family": "GPQA_DIAMOND"},
+            {"code": "humanitys_last_exam_text", "name": "Humanity's Last Exam (Text-Only)", "url": "https://scale.com/leaderboard/hle", "family": "OTHER"},
+        ]
+    else:
+        # Load from catalog
+        with open(catalog_path) as f:
+            catalog = yaml.safe_load(f) or {}
+        
+        benchmarks_data = []
+        for category in ["first_class", "monitor_only", "research"]:
+            for item in catalog.get(category, []):
+                benchmarks_data.append({
+                    "code": item["code"],
+                    "name": item["name"],
+                    "url": item["url"],
+                    "family": item["family"],
+                })
     
     for data in benchmarks_data:
-        # Check if exists
         existing = db.query(Benchmark).filter(Benchmark.code == data["code"]).first()
         if not existing:
             benchmark = Benchmark(**data)
             db.add(benchmark)
     
     db.commit()
-    print("✓ Seeded 7 benchmarks (idempotent)")
+    print(f"✓ Seeded {len(benchmarks_data)} benchmarks from catalog (idempotent)")
 
 
 def seed_signposts(db: Session):
