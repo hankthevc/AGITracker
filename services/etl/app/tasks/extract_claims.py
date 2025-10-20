@@ -15,7 +15,11 @@ from app.models import Claim, Source
 from app.tasks.llm_budget import add_spend, can_spend
 
 
-client = OpenAI(api_key=settings.openai_api_key) if settings.openai_api_key else None
+def get_openai_client():
+    """Get OpenAI client instance (lazy initialization)."""
+    if not settings.openai_api_key:
+        return None
+    return OpenAI(api_key=settings.openai_api_key)
 
 
 def extract_with_regex(title: str, summary: str) -> Optional[Dict]:
@@ -72,6 +76,10 @@ Output JSON only. If no clear metric, return null.
 """
     
     try:
+        client = get_openai_client()
+        if not client:
+            return None
+        
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
