@@ -466,7 +466,9 @@ async def get_signpost_content(code: str, db: Session = Depends(get_db)):
 
 @app.get("/v1/signposts/by-code/{code}/predictions")
 async def get_signpost_predictions(code: str, db: Session = Depends(get_db)):
-    """Get roadmap predictions for a signpost."""
+    """Get roadmap predictions for a signpost with status (ahead/on/behind)."""
+    from app.metrics.roadmap_status import compute_status
+    
     signpost = db.query(Signpost).filter(Signpost.code == code).first()
     
     if not signpost:
@@ -476,9 +478,26 @@ async def get_signpost_predictions(code: str, db: Session = Depends(get_db)):
         RoadmapPrediction.signpost_id == signpost.id
     ).all()
     
+    # Get latest observed date for this signpost (from events or claims)
+    latest_event_link = (
+        db.query(EventSignpostLink)
+        .filter(EventSignpostLink.signpost_id == signpost.id)
+        .order_by(desc(EventSignpostLink.observed_at))
+        .first()
+    )
+    observed_date = latest_event_link.observed_at.date() if latest_event_link and latest_event_link.observed_at else None
+    
     results = []
     for pred in predictions:
         roadmap = db.query(Roadmap).filter(Roadmap.id == pred.roadmap_id).first()
+        
+        # Compute status if we have both dates
+        status = None
+        if pred.predicted_date and observed_date:
+            status = compute_status(pred.predicted_date, observed_date, window_days=30)
+        elif pred.predicted_date:
+            status = "unobserved"
+        
         results.append({
             "roadmap_name": roadmap.name if roadmap else None,
             "roadmap_slug": roadmap.slug if roadmap else None,
@@ -487,6 +506,8 @@ async def get_signpost_predictions(code: str, db: Session = Depends(get_db)):
             "confidence_level": pred.confidence_level,
             "source_page": pred.source_page,
             "notes": pred.notes,
+            "status": status,
+            "observed_date": observed_date.isoformat() if observed_date else None,
         })
     
     return {"predictions": results}
