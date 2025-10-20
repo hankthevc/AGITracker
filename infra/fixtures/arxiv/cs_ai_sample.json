@@ -1,48 +1,29 @@
 [
   {
-    "id": "2410.12345",
-    "title": "GPT-5 Achieves 95% on SWE-bench Verified",
-    "authors": ["Jane Smith", "John Doe"],
-    "summary": "We present GPT-5, a large language model that achieves 95% accuracy on SWE-bench Verified, a significant improvement over previous models. The model demonstrates strong code generation and multi-step reasoning capabilities.",
-    "published": "2025-10-10T00:00:00Z",
-    "link": "https://arxiv.org/abs/2410.12345",
-    "categories": ["cs.AI", "cs.LG"]
+    "id": "2406.04744",
+    "title": "SWE-bench: Can Language Models Resolve Real-World GitHub Issues?",
+    "authors": ["Carlos E. Jimenez", "John Yang", "et al."],
+    "summary": "We introduce SWE-bench, a benchmark for evaluating large language models on real-world software engineering tasks. The benchmark consists of 2,294 tasks from 12 popular Python repositories.",
+    "published": "2024-06-07T00:00:00Z",
+    "link": "https://arxiv.org/abs/2406.04744",
+    "categories": ["cs.SE", "cs.AI"]
   },
   {
-    "id": "2410.12346",
-    "title": "OSWorld Benchmark: Scaling OS-Level Task Automation to 10,000 Tasks",
-    "authors": ["Alice Johnson", "Bob Wilson"],
-    "summary": "We introduce an expanded OSWorld benchmark with 10,000 diverse operating system tasks. Current frontier models achieve 65% success rate, up from 45% six months ago.",
-    "published": "2025-10-09T00:00:00Z",
-    "link": "https://arxiv.org/abs/2410.12346",
-    "categories": ["cs.AI", "cs.SE"]
+    "id": "2404.07143",
+    "title": "OSWorld: Benchmarking Multimodal Agents for Open-Ended Tasks in Real Computer Environments",
+    "authors": ["Tianbao Xie", "Danyang Zhang", "et al."],
+    "summary": "We present OSWorld, a scalable real computer environment for multimodal agents to demonstrate human-level computer skills across various operating systems.",
+    "published": "2024-04-10T00:00:00Z",
+    "link": "https://arxiv.org/abs/2404.07143",
+    "categories": ["cs.AI", "cs.HC"]
   },
   {
-    "id": "2410.12347",
-    "title": "Algorithmic Efficiency Gains: 10x Compute Reduction via Sparse Attention",
-    "authors": ["Carol Martinez", "David Lee"],
-    "summary": "We demonstrate a novel sparse attention mechanism that achieves equivalent performance with 10x less compute. This represents approximately 1 OOM improvement in algorithmic efficiency.",
-    "published": "2025-10-08T00:00:00Z",
-    "link": "https://arxiv.org/abs/2410.12347",
-    "categories": ["cs.LG", "cs.AI"]
-  },
-  {
-    "id": "2410.12348",
-    "title": "Red Teaming Large Language Models: New Jailbreak Techniques",
-    "authors": ["Eve Anderson", "Frank Chen"],
-    "summary": "We present comprehensive red teaming results for frontier models, identifying 15 new jailbreak techniques that bypass current safety alignment measures.",
-    "published": "2025-10-07T00:00:00Z",
-    "link": "https://arxiv.org/abs/2410.12348",
-    "categories": ["cs.AI", "cs.CR"]
-  },
-  {
-    "id": "2410.12349",
-    "title": "Multi-Day Agentic Tasks: Planning and Execution Over Extended Horizons",
-    "authors": ["Grace Taylor", "Henry Kim"],
-    "summary": "We demonstrate an agent capable of planning and executing multi-day software projects, achieving 72% success rate on complex coding tasks spanning 3-5 days.",
-    "published": "2025-10-06T00:00:00Z",
-    "link": "https://arxiv.org/abs/2410.12349",
-    "categories": ["cs.AI", "cs.MA"]
+    "id": "2307.13854",
+    "title": "WebArena: A Realistic Web Environment for Building Autonomous Agents",
+    "authors": ["Shuyan Zhou", "Frank F. Xu", "et al."],
+    "summary": "We introduce WebArena, an environment for testing autonomous agents on complex web-based tasks. We benchmark several LLM-based agents and find that GPT-4 achieves 14.41% end-to-end task success.",
+    "published": "2023-07-25T00:00:00Z",
+    "link": "https://arxiv.org/abs/2307.13854",
+    "categories": ["cs.AI", "cs.CL"]
   }
 ]
-
