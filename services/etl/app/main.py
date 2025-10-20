@@ -1360,6 +1360,37 @@ async def reject_event_mapping(
     }
 
 
+@app.get("/v1/digests/latest")
+@limiter.limit(f"{settings.rate_limit_per_minute}/minute")
+async def get_latest_digest():
+    """
+    Get latest weekly digest JSON (CC BY 4.0).
+    
+    Returns most recent digest from public/digests/*.json or generates on-the-fly.
+    """
+    from pathlib import Path
+    
+    digest_dir = Path(__file__).parent.parent.parent.parent / "public" / "digests"
+    
+    if digest_dir.exists():
+        # Find latest digest JSON
+        json_files = sorted(digest_dir.glob("*.json"), reverse=True)
+        if json_files:
+            with open(json_files[0]) as f:
+                return json.load(f)
+    
+    # No digest found, return empty placeholder
+    return {
+        "version": "1.0",
+        "week": "N/A",
+        "generated_at": datetime.utcnow().isoformat(),
+        "license": "CC BY 4.0",
+        "ab_events": [],
+        "cd_if_true": [],
+        "message": "No digest generated yet. Run scripts/generate_digest.py to create."
+    }
+
+
 @app.post("/v1/recompute")
 async def recompute_deprecated():
     """Deprecated: Moved to /v1/admin/recompute."""
