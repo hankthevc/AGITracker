@@ -90,10 +90,21 @@ def normalize_event_data(raw_data: Dict) -> Dict:
         except ValueError:
             published_at = None
     
+    # Extract domain from URL
+    source_url = raw_data["url"]
+    source_domain = None
+    if "://" in source_url:
+        try:
+            source_domain = source_url.split('://', 1)[1].split('/')[0]
+        except Exception:
+            source_domain = None
+    
     return {
         "title": raw_data["title"],
         "summary": raw_data.get("summary", ""),
-        "source_url": raw_data["url"],
+        "source_url": source_url,
+        "source_domain": source_domain,
+        "source_type": "news",  # Press is news type
         "publisher": raw_data.get("publisher", "Press"),
         "published_at": published_at,
         "evidence_tier": "C",  # Press is C-tier
