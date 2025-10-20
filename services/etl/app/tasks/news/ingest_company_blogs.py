@@ -195,12 +195,20 @@ def create_or_update_event(db, event_data: Dict) -> Event:
     """
     Idempotently create or update an event.
     
-    Uses URL hash for idempotency.
+    Uses URL hash for idempotency. Validates URL format before creating.
     """
-    url_hash = hashlib.sha256(event_data["source_url"].encode()).hexdigest()
+    from app.utils.url_validator import validate_and_fix_url
+    
+    # Validate URL format (don't verify exists for fixtures to avoid network calls in CI)
+    validated_url = validate_and_fix_url(event_data["source_url"], verify_exists=False)
+    if not validated_url:
+        raise ValueError(f"Invalid URL format: {event_data['source_url']}")
+    
+    event_data["source_url"] = validated_url
+    url_hash = hashlib.sha256(validated_url.encode()).hexdigest()
     
     # Check if event exists
-    existing = db.query(Event).filter(Event.source_url == event_data["source_url"]).first()
+    existing = db.query(Event).filter(Event.source_url == validated_url).first()
     
     if existing:
         # Update existing event

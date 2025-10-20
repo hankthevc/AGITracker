@@ -14,24 +14,17 @@
     "published_at": "2024-06-20T00:00:00Z"
   },
   {
-    "title": "Gemini 2.0 Flash: Our next era of models built for the agentic era",
-    "summary": "Gemini 2.0 Flash is our most capable model yet for agentic experiences. It features native tool use, multimodal understanding, and long context.",
+    "title": "Google Gemini 2.0",
+    "summary": "Our new family of models includes Gemini 2.0 Flash, our most capable model for agentic experiences. It features native tool use and multimodal understanding.",
     "url": "https://blog.google/technology/google-deepmind/google-gemini-ai-update-december-2024/",
     "publisher": "Google DeepMind",
     "published_at": "2024-12-11T00:00:00Z"
   },
   {
-    "title": "Llama 3.3 70B",
-    "summary": "Meta releases Llama 3.3 70B, which rivals the performance of Llama 3.1 405B with the same cost and latency as Llama 3.1 70B.",
-    "url": "https://ai.meta.com/blog/llama-3-3/",
+    "title": "Meta Llama 3",
+    "summary": "Meta releases Llama 3, our most capable openly available LLM to date with improvements in reasoning, coding, and multilingual capabilities.",
+    "url": "https://ai.meta.com/blog/meta-llama-3/",
     "publisher": "Meta AI",
-    "published_at": "2024-12-06T00:00:00Z"
-  },
-  {
-    "title": "Claude 3.5 Haiku",
-    "summary": "Our fastest model yet. Claude 3.5 Haiku matches Claude 3 Opus capabilities at the same speed and cost as our previous generation Haiku.",
-    "url": "https://www.anthropic.com/news/claude-3-5-haiku",
-    "publisher": "Anthropic",
-    "published_at": "2024-11-04T00:00:00Z"
+    "published_at": "2024-04-18T00:00:00Z"
   }
 ]
