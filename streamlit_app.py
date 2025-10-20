@@ -420,6 +420,69 @@ if st.sidebar.checkbox("🔧 Admin Mode", help="Enable admin features"):
     finally:
         db.close()
 
+# Expert Predictions Comparison
+st.markdown("## 📊 Expert Predictions vs Reality")
+
+try:
+    db = SessionLocal()
+    
+    # Get predictions comparison data
+    predictions_result = db.execute(text("""
+        SELECT ep.source, ep.predicted_date, ep.predicted_value, ep.confidence_lower, ep.confidence_upper,
+               ep.rationale, s.code as signpost_code, s.name as signpost_name
+        FROM expert_predictions ep
+        JOIN signposts s ON ep.signpost_id = s.id
+        ORDER BY ep.predicted_date ASC
+    """)).fetchall()
+    
+    if predictions_result:
+        # Create predictions dataframe
+        predictions_data = []
+        for row in predictions_result:
+            predictions_data.append({
+                "Source": row.source,
+                "Signpost": row.signpost_name,
+                "Predicted Date": row.predicted_date,
+                "Predicted Value": row.predicted_value,
+                "Confidence Range": f"{row.confidence_lower}-{row.confidence_upper}" if row.confidence_lower and row.confidence_upper else "N/A",
+                "Rationale": row.rationale[:100] + "..." if row.rationale and len(row.rationale) > 100 else row.rationale
+            })
+        
+        predictions_df = pd.DataFrame(predictions_data)
+        st.dataframe(predictions_df, use_container_width=True)
+        
+        # Show predictions by source
+        st.markdown("### 📈 Predictions by Source")
+        source_counts = predictions_df["Source"].value_counts()
+        fig = px.pie(values=source_counts.values, names=source_counts.index, 
+                    title="Expert Predictions by Source")
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Show timeline of predictions
+        st.markdown("### 📅 Prediction Timeline")
+        timeline_data = []
+        for row in predictions_result:
+            timeline_data.append({
+                "Date": row.predicted_date,
+                "Source": row.source,
+                "Signpost": row.signpost_code,
+                "Value": row.predicted_value
+            })
+        
+        timeline_df = pd.DataFrame(timeline_data)
+        if not timeline_df.empty:
+            fig = px.scatter(timeline_df, x="Date", y="Value", color="Source", 
+                           hover_data=["Signpost"], title="Prediction Timeline")
+            st.plotly_chart(fig, use_container_width=True)
+    
+    else:
+        st.info("No expert predictions available yet. Run the seeding script to populate predictions.")
+        
+except Exception as e:
+    st.error(f"Error loading predictions: {e}")
+finally:
+    db.close()
+
 # Footer
 st.markdown("---")
 st.caption("✅ All events are real AI news with live updates • No synthetic or hallucinated data • CC BY 4.0 • Updated continuously")

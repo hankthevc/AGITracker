@@ -1611,3 +1611,190 @@ async def submit_review(
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Error processing review: {str(e)}")
 
+
+@app.get("/v1/predictions", tags=["predictions"])
+async def get_predictions(
+    signpost_id: Optional[int] = Query(None),
+    source: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+    limit: int = Query(100, ge=1, le=500),
+):
+    """
+    Get expert predictions for signposts.
+    """
+    from app.models import ExpertPrediction, Signpost
+    
+    try:
+        query = db.query(ExpertPrediction)
+        
+        if signpost_id:
+            query = query.filter(ExpertPrediction.signpost_id == signpost_id)
+        
+        if source:
+            query = query.filter(ExpertPrediction.source.ilike(f"%{source}%"))
+        
+        predictions = query.order_by(ExpertPrediction.predicted_date.asc()).limit(limit).all()
+        
+        result = []
+        for pred in predictions:
+            signpost = db.query(Signpost).filter(Signpost.id == pred.signpost_id).first()
+            result.append({
+                "id": pred.id,
+                "source": pred.source,
+                "signpost_id": pred.signpost_id,
+                "signpost_code": signpost.code if signpost else None,
+                "signpost_name": signpost.name if signpost else None,
+                "predicted_date": pred.predicted_date,
+                "predicted_value": float(pred.predicted_value) if pred.predicted_value else None,
+                "confidence_lower": float(pred.confidence_lower) if pred.confidence_lower else None,
+                "confidence_upper": float(pred.confidence_upper) if pred.confidence_upper else None,
+                "rationale": pred.rationale,
+                "added_at": pred.added_at
+            })
+        
+        return {
+            "predictions": result,
+            "total": len(result)
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching predictions: {str(e)}")
+
+
+@app.get("/v1/predictions/compare", tags=["predictions"])
+async def compare_predictions_vs_actual(
+    signpost_id: Optional[int] = Query(None),
+    source: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+):
+    """
+    Compare expert predictions vs actual progress for signposts.
+    """
+    from app.models import ExpertPrediction, Signpost, EventSignpostLink
+    from sqlalchemy import func
+    
+    try:
+        # Get predictions
+        query = db.query(ExpertPrediction)
+        if signpost_id:
+            query = query.filter(ExpertPrediction.signpost_id == signpost_id)
+        if source:
+            query = query.filter(ExpertPrediction.source.ilike(f"%{source}%"))
+        
+        predictions = query.all()
+        
+        result = []
+        for pred in predictions:
+            signpost = db.query(Signpost).filter(Signpost.id == pred.signpost_id).first()
+            if not signpost:
+                continue
+            
+            # Get actual progress from events
+            actual_links = db.query(EventSignpostLink).filter(
+                EventSignpostLink.signpost_id == pred.signpost_id
+            ).all()
+            
+            if actual_links:
+                # Calculate current progress
+                latest_link = max(actual_links, key=lambda x: x.created_at)
+                current_progress = float(latest_link.impact_estimate) if latest_link.impact_estimate else 0.0
+                
+                # Calculate days ahead/behind if we have a predicted date
+                days_status = None
+                if pred.predicted_date:
+                    from datetime import date
+                    today = date.today()
+                    if pred.predicted_date >= today:
+                        days_status = f"{(pred.predicted_date - today).days} days ahead"
+                    else:
+                        days_status = f"{(today - pred.predicted_date).days} days behind"
+            else:
+                current_progress = 0.0
+                days_status = "No data"
+            
+            result.append({
+                "prediction_id": pred.id,
+                "source": pred.source,
+                "signpost_code": signpost.code,
+                "signpost_name": signpost.name,
+                "predicted_date": pred.predicted_date,
+                "predicted_value": float(pred.predicted_value) if pred.predicted_value else None,
+                "confidence_lower": float(pred.confidence_lower) if pred.confidence_lower else None,
+                "confidence_upper": float(pred.confidence_upper) if pred.confidence_upper else None,
+                "current_progress": current_progress,
+                "days_status": days_status,
+                "rationale": pred.rationale
+            })
+        
+        return {
+            "comparisons": result,
+            "total": len(result)
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error comparing predictions: {str(e)}")
+
+
+@app.get("/v1/predictions/surprise-score", tags=["predictions"])
+async def calculate_surprise_scores(
+    db: Session = Depends(get_db),
+):
+    """
+    Calculate surprise scores for recent events vs expert predictions.
+    """
+    from app.models import ExpertPrediction, Event, EventSignpostLink
+    from sqlalchemy import func, desc
+    
+    try:
+        # Get recent events with signpost links
+        recent_events = db.query(Event).join(EventSignpostLink).filter(
+            Event.published_at >= func.now() - func.interval('30 days')
+        ).order_by(desc(Event.published_at)).limit(20).all()
+        
+        surprise_scores = []
+        for event in recent_events:
+            event_links = db.query(EventSignpostLink).filter(
+                EventSignpostLink.event_id == event.id
+            ).all()
+            
+            for link in event_links:
+                # Get predictions for this signpost
+                predictions = db.query(ExpertPrediction).filter(
+                    ExpertPrediction.signpost_id == link.signpost_id
+                ).all()
+                
+                if predictions:
+                    # Calculate average surprise score
+                    total_surprise = 0.0
+                    prediction_count = 0
+                    
+                    for pred in predictions:
+                        if pred.predicted_date and event.published_at:
+                            # Calculate how surprising this timing was
+                            days_diff = abs((event.published_at.date() - pred.predicted_date).days)
+                            surprise_score = min(days_diff / 365.0, 1.0)  # Normalize to 0-1
+                            total_surprise += surprise_score
+                            prediction_count += 1
+                    
+                    if prediction_count > 0:
+                        avg_surprise = total_surprise / prediction_count
+                        surprise_scores.append({
+                            "event_id": event.id,
+                            "event_title": event.title,
+                            "signpost_id": link.signpost_id,
+                            "surprise_score": avg_surprise,
+                            "confidence": float(link.confidence),
+                            "published_at": event.published_at
+                        })
+        
+        # Sort by surprise score (most surprising first)
+        surprise_scores.sort(key=lambda x: x["surprise_score"], reverse=True)
+        
+        return {
+            "surprise_scores": surprise_scores[:10],  # Top 10 most surprising
+            "total_analyzed": len(surprise_scores)
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error calculating surprise scores: {str(e)}")
+

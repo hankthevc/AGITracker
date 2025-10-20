@@ -486,3 +486,59 @@ class EventAnalysis(Base):
         Index("idx_events_analysis_event_generated", "event_id", "generated_at"),
     )
 
+
+class ExpertPrediction(Base):
+    """
+    Expert predictions for signpost milestones (Phase 3).
+    
+    Stores forecasts from various sources (AI2027, Aschenbrenner, Metaculus, etc.)
+    with confidence intervals and prediction dates for comparison with actual progress.
+    """
+    
+    __tablename__ = "expert_predictions"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    source = Column(String(39), nullable=True)  # e.g., "AI2027", "Aschenbrenner", "Metaculus"
+    signpost_id = Column(Integer, ForeignKey("signposts.id"), nullable=True)
+    predicted_date = Column(Date, nullable=True)
+    predicted_value = Column(Numeric, nullable=True)  # Predicted metric value if applicable
+    confidence_lower = Column(Numeric, nullable=True)  # Lower bound of confidence interval
+    confidence_upper = Column(Numeric, nullable=True)  # Upper bound of confidence interval
+    rationale = Column(Text, nullable=True)  # Expert's reasoning for the prediction
+    added_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
+    
+    # Relationships
+    signpost = relationship("Signpost")
+    accuracy_tracking = relationship("PredictionAccuracy", back_populates="prediction")
+    
+    __table_args__ = (
+        Index("idx_expert_predictions_signpost", "signpost_id"),
+        Index("idx_expert_predictions_date", "predicted_date"),
+    )
+
+
+class PredictionAccuracy(Base):
+    """
+    Tracks accuracy of expert predictions over time (Phase 3).
+    
+    Evaluates how well predictions match actual outcomes and computes
+    calibration scores for different prediction sources.
+    """
+    
+    __tablename__ = "prediction_accuracy"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    prediction_id = Column(Integer, ForeignKey("expert_predictions.id"), nullable=True)
+    evaluated_at = Column(TIMESTAMP(timezone=True), nullable=True)
+    actual_value = Column(Numeric, nullable=True)  # Actual metric value achieved
+    error_magnitude = Column(Numeric, nullable=True)  # Normalized error (0-1)
+    directional_correct = Column(Boolean, nullable=True)  # Was the direction of change correct?
+    calibration_score = Column(Numeric, nullable=True)  # How well-calibrated the prediction was
+    
+    # Relationships
+    prediction = relationship("ExpertPrediction", back_populates="accuracy_tracking")
+    
+    __table_args__ = (
+        Index("idx_prediction_accuracy_prediction", "prediction_id"),
+    )
+
