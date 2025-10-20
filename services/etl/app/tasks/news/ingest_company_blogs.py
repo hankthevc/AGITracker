@@ -35,13 +35,18 @@ ALLOWED_PUBLISHERS = {
 
 def load_fixture_data() -> List[Dict]:
     """Load company blog fixture data for CI/testing."""
-    fixture_path = Path(__file__).parent.parent.parent.parent / "fixtures" / "news" / "company_blogs.json"
+    # Try comprehensive 2024 dataset first
+    fixture_path_2024 = Path(__file__).parent.parent.parent.parent.parent.parent / "infra" / "fixtures" / "news" / "ai_news_2024.json"
+    fixture_path_legacy = Path(__file__).parent.parent.parent.parent / "fixtures" / "news" / "company_blogs.json"
     
-    if not fixture_path.exists():
+    if fixture_path_2024.exists():
+        with open(fixture_path_2024) as f:
+            return json.load(f)
+    elif fixture_path_legacy.exists():
+        with open(fixture_path_legacy) as f:
+            return json.load(f)
+    else:
         return []
-    
-    with open(fixture_path) as f:
-        return json.load(f)
 
 
 def generate_synthetic_blog_events(total: int) -> List[Dict]:
