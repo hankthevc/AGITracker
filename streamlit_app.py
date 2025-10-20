@@ -9,6 +9,9 @@ from pathlib import Path
 import pandas as pd
 from datetime import datetime
 from sqlalchemy import text
+import plotly.express as px
+import plotly.graph_objects as go
+from collections import Counter
 
 # Check for DATABASE_URL
 db_url = os.environ.get("DATABASE_URL") or st.secrets.get("DATABASE_URL")
@@ -42,11 +45,13 @@ st.set_page_config(
 # Custom CSS
 st.markdown("""
 <style>
-.tier-a { background-color: #dcfce7; padding: 4px 8px; border-radius: 4px; font-weight: bold; color: #166534; }
-.tier-b { background-color: #dbeafe; padding: 4px 8px; border-radius: 4px; font-weight: bold; color: #1e40af; }
-.tier-c { background-color: #fef3c7; padding: 4px 8px; border-radius: 4px; font-weight: bold; color: #92400e; }
-.tier-d { background-color: #f3f4f6; padding: 4px 8px; border-radius: 4px; font-weight: bold; color: #374151; }
-.if-true { background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px; margin: 8px 0; }
+.tier-a { background-color: #10b981; color: white; padding: 0.3rem 0.6rem; border-radius: 6px; font-weight: bold; }
+.tier-b { background-color: #3b82f6; color: white; padding: 0.3rem 0.6rem; border-radius: 6px; font-weight: bold; }
+.tier-c { background-color: #f59e0b; color: white; padding: 0.3rem 0.6rem; border-radius: 6px; font-weight: bold; }
+.tier-d { background-color: #ef4444; color: white; padding: 0.3rem 0.6rem; border-radius: 6px; font-weight: bold; }
+.if-true { background-color: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 1rem; margin: 1rem 0; color: #92400e; }
+.analysis-box { background-color: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 8px; padding: 1rem; margin: 1rem 0; }
+.stMetric { background-color: #f8fafc; padding: 1rem; border-radius: 8px; border-left: 4px solid #3b82f6; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -139,8 +144,10 @@ if page == "📰 News Feed":
     if show_linked_only:
         filtered = [e for e in filtered if len(e["signposts"]) > 0]
 
-    # Stats
-    st.header("📊 Real-Time Stats")
+    # Enhanced Stats with Visualizations
+    st.header("📊 Real-Time Analytics")
+    
+    # Main metrics
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         st.metric("Total Events", len(events))
@@ -156,7 +163,75 @@ if page == "📰 News Feed":
         st.metric("Total Links", total_links)
     with col4:
         high_conf = sum(1 for e in events for sp in e["signposts"] if sp["confidence"] >= 0.7)
-        st.metric("Links ≥0.7 conf", f"{high_conf}/{total_links}")
+        st.metric("High Confidence", f"{high_conf}/{total_links}")
+    
+    # Visualizations
+    if events:
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Events by tier chart
+            tier_counts = Counter(e["tier"] for e in events)
+            if tier_counts:
+                fig_tier = px.pie(
+                    values=list(tier_counts.values()),
+                    names=list(tier_counts.keys()),
+                    title="Events by Evidence Tier",
+                    color_discrete_map={
+                        'A': '#10b981',  # Green
+                        'B': '#3b82f6',  # Blue  
+                        'C': '#f59e0b',  # Yellow
+                        'D': '#ef4444'   # Red
+                    }
+                )
+                fig_tier.update_traces(textposition='inside', textinfo='percent+label')
+                st.plotly_chart(fig_tier, use_container_width=True)
+        
+        with col2:
+            # Confidence distribution
+            confidences = [sp["confidence"] for e in events for sp in e["signposts"]]
+            if confidences:
+                fig_conf = px.histogram(
+                    x=confidences,
+                    title="Confidence Score Distribution",
+                    nbins=10,
+                    color_discrete_sequence=['#8b5cf6']
+                )
+                fig_conf.update_layout(xaxis_title="Confidence Score", yaxis_title="Count")
+                st.plotly_chart(fig_conf, use_container_width=True)
+            else:
+                st.info("No confidence scores available")
+        
+        # Timeline of events
+        st.subheader("📅 Recent Events Timeline")
+        if any(e.get("published_at") for e in events):
+            timeline_data = []
+            for event in events[:10]:  # Show last 10 events
+                if event.get("published_at"):
+                    timeline_data.append({
+                        "Date": event["published_at"].strftime("%Y-%m-%d"),
+                        "Event": event["title"][:50] + "..." if len(event["title"]) > 50 else event["title"],
+                        "Tier": event["tier"],
+                        "Signposts": len(event["signposts"])
+                    })
+            
+            if timeline_data:
+                df_timeline = pd.DataFrame(timeline_data)
+                st.dataframe(
+                    df_timeline,
+                    use_container_width=True,
+                    hide_index=True,
+                    column_config={
+                        "Tier": st.column_config.TextColumn(
+                            "Tier",
+                            help="Evidence tier (A=verified, B=official, C=press, D=social)"
+                        ),
+                        "Signposts": st.column_config.NumberColumn(
+                            "Signposts",
+                            help="Number of signpost mappings"
+                        )
+                    }
+                )
 
     # Events list
     st.header("📰 AI News & Research")
@@ -184,6 +259,45 @@ if page == "📰 News Feed":
             # Summary
             if event["summary"]:
                 st.write(event["summary"])
+            
+            # AI Analysis (if available)
+            try:
+                analysis_result = db.execute(text("""
+                    SELECT summary, relevance_explanation, impact_json, confidence_reasoning, significance_score
+                    FROM events_analysis 
+                    WHERE event_id = :event_id
+                    ORDER BY generated_at DESC LIMIT 1
+                """), {"event_id": event["id"]}).fetchone()
+                
+                if analysis_result:
+                    st.markdown("**🤖 AI Analysis:**")
+                    st.info(f"**Summary:** {analysis_result.summary}")
+                    
+                    if analysis_result.relevance_explanation:
+                        st.markdown(f"**Why this matters:** {analysis_result.relevance_explanation}")
+                    
+                    if analysis_result.impact_json:
+                        st.markdown("**Impact Timeline:**")
+                        impact = analysis_result.impact_json
+                        if isinstance(impact, dict):
+                            col1, col2, col3 = st.columns(3)
+                            with col1:
+                                st.markdown(f"**Short-term (0-6m):** {impact.get('short', 'N/A')}")
+                            with col2:
+                                st.markdown(f"**Medium-term (6-18m):** {impact.get('medium', 'N/A')}")
+                            with col3:
+                                st.markdown(f"**Long-term (18m+):** {impact.get('long', 'N/A')}")
+                    
+                    if analysis_result.confidence_reasoning:
+                        st.markdown(f"**Confidence:** {analysis_result.confidence_reasoning}")
+                    
+                    if analysis_result.significance_score:
+                        score = float(analysis_result.significance_score)
+                        st.markdown(f"**Significance Score:** {score:.2f}/1.0")
+                        st.progress(score)
+                        
+            except Exception as e:
+                pass  # Analysis not available
             
             # Signpost links
             if event["signposts"]:
