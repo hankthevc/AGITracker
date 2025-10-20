@@ -358,11 +358,11 @@ class Event(Base):
     summary = Column(Text, nullable=True)
     source_url = Column(Text, nullable=False, unique=True)  # URL is unique for idempotency
     source_domain = Column(String(255), nullable=True)
-    source_type = Column(String(50), nullable=False, index=True)  # news, paper, blog, leaderboard, gov
+    source_type = Column(Enum("news", "paper", "blog", "leaderboard", "gov", name="source_type"), nullable=False, index=True)
     publisher = Column(String(255), nullable=True, index=True)
     published_at = Column(TIMESTAMP(timezone=True), nullable=True, index=True)
     ingested_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
-    evidence_tier = Column(String(1), nullable=False, index=True)  # A, B, C, D (aka outlet_cred)
+    evidence_tier = Column(Enum("A", "B", "C", "D", name="evidence_tier"), nullable=False, index=True)
     content_text = Column(Text, nullable=True)  # Full article content
     author = Column(String(255), nullable=True)
     byline = Column(String(500), nullable=True)
