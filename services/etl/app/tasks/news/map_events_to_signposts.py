@@ -5,7 +5,7 @@ Scheduled to run after ingestion tasks complete.
 """
 from celery import shared_task
 
-from app.mapping.event_mapper import map_all_unmapped_events
+from app.utils.event_mapper import map_all_unmapped_events
 
 
 @shared_task(name="map_events_to_signposts")
