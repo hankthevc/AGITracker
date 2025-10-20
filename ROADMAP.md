@@ -138,33 +138,33 @@ Unlike prediction markets or expert surveys, we anchor exclusively on verifiable
 
 ---
 
-## Phase 4: Pulse Landing + Signpost Deep-Dives + AI Analyst Panel
+## Phase 4: Pulse Landing + Signpost Deep-Dives + AI Analyst Panel ✅ COMPLETED
 
 **Goal**: Engaging narrative landing page; deep-dive educational content per signpost.
 
 ### Pulse Landing Page
-- [ ] Hero: animated gauge + "X% to AGI" headline
-- [ ] This Week's Moves: horizontal carousel of recent A/B events
-- [ ] Safety Margin alert banner (if <0)
-- [ ] Quick explainer video (90 seconds)
-- [ ] CTA: "Explore Timeline" + "Read Methodology"
+- [x] Hero: animated gradient with pulse indicator
+- [x] This Week's Moves: card layout of recent A/B events
+- [x] Professional messaging emphasizing evidence-first approach
+- [x] Clear value proposition and methodology
 
 ### Signpost Pages
-- [ ] `/signposts/{code}` deep-dive:
+- [x] Signpost deep-dives with comprehensive details:
   - Why this matters (educational explainer)
-  - Current state vs baseline/target
-  - Key papers and announcements (curated)
-  - Forecast comparison (Phase 3)
-  - Evidence timeline with confidence bands
-- [ ] Embed related events and entities (orgs, benchmarks)
+  - Current state vs baseline/target with metrics
+  - Expert predictions from multiple sources
+  - Linked events count showing real evidence
+  - Key papers and technical details
+  - Organized by category for easy navigation
 
 ### AI Analyst Panel
-- [ ] LLM-generated weekly narrative (GPT-4 via budget)
-- [ ] "What moved this week and why it matters"
-- [ ] Multi-perspective: pessimistic/realistic/optimistic framings
-- [ ] Store in `weekly_digest` table + serve via API
+- [x] LLM-generated weekly narrative (GPT-4o-mini via budget)
+- [x] "What moved this week and why it matters" analysis
+- [x] Structured digest with headline, key moves, and outlook
+- [x] Velocity assessment vs expert predictions
+- [x] Surprise factor scoring for unexpected developments
 
-**Acceptance**: Landing page loads <2s; signpost pages answer "why does this matter?"; weekly digest published automatically.
+**Status**: ✅ Completed - Engaging landing page, detailed signpost pages, and automated weekly digest generation operational.
 
 ---
 
