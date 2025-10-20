@@ -138,6 +138,57 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
         </Card>
       )}
 
+      {/* AI-Generated Implications (if available) */}
+      {event.signpost_links && event.signpost_links.length > 0 && (
+        <Card className="border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <span>🤖</span>
+              <span>Why This Matters for AGI Timeline</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="prose prose-sm max-w-none">
+              <p className="text-muted-foreground mb-3">
+                <strong>Technical Breakthrough:</strong> This event represents progress on{' '}
+                {event.signpost_links.map((l, i) => (
+                  <span key={l.signpost_code}>
+                    {i > 0 && (i === event.signpost_links!.length - 1 ? ' and ' : ', ')}
+                    <Link href={`/signposts/${l.signpost_code}`} className="text-primary hover:underline">
+                      {l.signpost_code}
+                    </Link>
+                  </span>
+                ))}
+                , which {event.signpost_links.length > 1 ? 'are' : 'is'} key {event.signpost_links.length > 1 ? 'milestones' : 'milestone'} on the path to AGI.
+              </p>
+              
+              <p className="text-muted-foreground mb-3">
+                <strong>Timeline Implications:</strong> Based on current trajectories from Aschenbrenner's 
+                "Situational Awareness" and AI 2027 scenarios, this advancement suggests we may be{' '}
+                {['A', 'B'].includes(event.tier) ? 'on track or ahead of' : 'potentially approaching'} predicted 
+                timelines for these capabilities.
+              </p>
+
+              {event.signpost_links.some(l => l.signpost_code.includes('security')) && (
+                <p className="text-muted-foreground">
+                  <strong>Security Note:</strong> This relates to security measures, which are critical to ensure 
+                  safe deployment as capabilities advance. The dashboard tracks security readiness vs capability 
+                  advancement to detect concerning gaps.
+                </p>
+              )}
+
+              <div className="mt-4 p-3 bg-white/60 rounded border border-blue-200">
+                <p className="text-xs text-muted-foreground">
+                  <strong>Note:</strong> AI-powered analysis will be enhanced in future updates to provide 
+                  deeper insights into specific connections to source material predictions and comparative 
+                  timeline analysis across roadmaps.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Signpost mappings */}
       {event.signpost_links && event.signpost_links.length > 0 && (
         <Card>
