@@ -59,6 +59,10 @@ with st.sidebar:
     
     st.markdown("---")
     
+    # Initialize filter variables
+    tier_filter = "All"
+    show_linked_only = False
+    
     if page == "📰 News Feed":
         st.header("Filters")
         tier_filter = st.selectbox("Evidence Tier", ["All", "A", "B", "C", "D"])
@@ -107,71 +111,72 @@ def load_events():
     finally:
         db.close()
 
-events = load_events()
+if page == "📰 News Feed":
+    events = load_events()
 
-# Apply filters
-filtered = events
-if tier_filter != "All":
-    filtered = [e for e in filtered if e["tier"] == tier_filter]
-if show_linked_only:
-    filtered = [e for e in filtered if len(e["signposts"]) > 0]
+    # Apply filters
+    filtered = events
+    if tier_filter != "All":
+        filtered = [e for e in filtered if e["tier"] == tier_filter]
+    if show_linked_only:
+        filtered = [e for e in filtered if len(e["signposts"]) > 0]
 
-# Stats
-st.header("📊 Real-Time Stats")
-col1, col2, col3, col4 = st.columns(4)
-with col1:
-    st.metric("Total Events", len(events))
-with col2:
-    linked = sum(1 for e in events if len(e["signposts"]) > 0)
-    st.metric("Auto-Mapped", f"{linked}/{len(events)}", f"{linked/len(events)*100:.0f}%")
-with col3:
-    total_links = sum(len(e["signposts"]) for e in events)
-    st.metric("Total Links", total_links)
-with col4:
-    high_conf = sum(1 for e in events for sp in e["signposts"] if sp["confidence"] >= 0.7)
-    st.metric("Links ≥0.7 conf", f"{high_conf}/{total_links}")
+    # Stats
+    st.header("📊 Real-Time Stats")
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Total Events", len(events))
+    with col2:
+        linked = sum(1 for e in events if len(e["signposts"]) > 0)
+        st.metric("Auto-Mapped", f"{linked}/{len(events)}", f"{linked/len(events)*100:.0f}%")
+    with col3:
+        total_links = sum(len(e["signposts"]) for e in events)
+        st.metric("Total Links", total_links)
+    with col4:
+        high_conf = sum(1 for e in events for sp in e["signposts"] if sp["confidence"] >= 0.7)
+        st.metric("Links ≥0.7 conf", f"{high_conf}/{total_links}")
 
-# Events list
-st.header("📰 AI News & Research")
-st.caption(f"Showing {len(filtered)} of {len(events)} events")
+    # Events list
+    st.header("📰 AI News & Research")
+    st.caption(f"Showing {len(filtered)} of {len(events)} events")
 
-for event in filtered:
-    tier_class = f"tier-{event['tier'].lower()}"
-    tier_emoji = {"A": "🟢", "B": "🔵", "C": "🟡", "D": "⚪"}[event["tier"]]
-    
-    with st.expander(f"{tier_emoji} **{event['title']}**", expanded=False):
-        # Tier badge
-        st.markdown(f"<span class='{tier_class}'>Tier {event['tier']}</span> &nbsp; "
-                   f"<small>{event['publisher']} • {event['published_at'].strftime('%b %d, %Y') if event['published_at'] else 'No date'}</small>", 
-                   unsafe_allow_html=True)
+    for event in filtered:
+        tier_class = f"tier-{event['tier'].lower()}"
+        tier_emoji = {"A": "🟢", "B": "🔵", "C": "🟡", "D": "⚪"}[event["tier"]]
         
-        # If true banner for C/D
-        if event["tier"] in ["C", "D"]:
-            st.markdown(
-                f"<div class='if-true'>⚠️ <strong>\"If True\" Analysis:</strong> "
-                f"This {event['tier']}-tier {event['source_type']} does NOT move main gauges. "
-                f"Tracked for research purposes only.</div>",
-                unsafe_allow_html=True
-            )
-        
-        # Summary
-        if event["summary"]:
-            st.write(event["summary"])
-        
-        # Signpost links
-        if event["signposts"]:
-            st.markdown("**Mapped to signposts:**")
-            for sp in event["signposts"]:
-                conf_color = "🟢" if sp["confidence"] >= 0.9 else "🟡" if sp["confidence"] >= 0.7 else "🔴"
-                st.markdown(f"- {conf_color} **{sp['code']}**: {sp['name']} (confidence: {sp['confidence']:.2f})")
-                if sp["rationale"]:
-                    st.caption(f"  _{sp['rationale']}_")
-        else:
-            st.info("No signpost mappings found")
-        
-        # Source link
-        if event["url"]:
-            st.markdown(f"[📎 Source]({event['url']})")
+        with st.expander(f"{tier_emoji} **{event['title']}**", expanded=False):
+            # Tier badge
+            st.markdown(f"<span class='{tier_class}'>Tier {event['tier']}</span> &nbsp; "
+                       f"<small>{event['publisher']} • {event['published_at'].strftime('%b %d, %Y') if event['published_at'] else 'No date'}</small>", 
+                       unsafe_allow_html=True)
+            
+            # If true banner for C/D
+            if event["tier"] in ["C", "D"]:
+                st.markdown(
+                    f"<div class='if-true'>⚠️ <strong>\"If True\" Analysis:</strong> "
+                    f"This {event['tier']}-tier {event['source_type']} does NOT move main gauges. "
+                    f"Tracked for research purposes only.</div>",
+                    unsafe_allow_html=True
+                )
+            
+            # Summary
+            if event["summary"]:
+                st.write(event["summary"])
+            
+            # Signpost links
+            if event["signposts"]:
+                st.markdown("**Mapped to signposts:**")
+                for sp in event["signposts"]:
+                    conf_color = "🟢" if sp["confidence"] >= 0.9 else "🟡" if sp["confidence"] >= 0.7 else "🔴"
+                    st.markdown(f"- {conf_color} **{sp['code']}**: {sp['name']} (confidence: {sp['confidence']:.2f})")
+                    if sp["rationale"]:
+                        st.caption(f"  _{sp['rationale']}_")
+            else:
+                st.info("No signpost mappings found")
+            
+            # Source link
+            if event["url"]:
+                st.markdown(f"[📎 Source]({event['url']})")
 
 if page == "🎯 Signposts":
     # Signposts page
