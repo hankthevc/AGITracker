@@ -34,7 +34,7 @@ def upgrade() -> None:
         """
         UPDATE events
         SET outlet_cred = CASE
-            WHEN evidence_tier IN ('A','B','C','D') THEN evidence_tier::outlet_cred
+            WHEN evidence_tier IN ('A','B','C','D') THEN evidence_tier::text::outlet_cred
             ELSE NULL
         END
         WHERE outlet_cred IS NULL
