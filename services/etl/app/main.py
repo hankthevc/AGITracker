@@ -1815,7 +1815,11 @@ async def retract_event(
     and triggers recomputation of affected metrics.
     """
     from app.models import Event, EventSignpostLink
+    from app.utils.cache import invalidate_signpost_caches
     from datetime import datetime, timezone
+    import structlog
+    
+    logger = structlog.get_logger()
     
     try:
         event = db.query(Event).filter(Event.id == event_id).first()
@@ -1823,7 +1827,15 @@ async def retract_event(
             raise HTTPException(status_code=404, detail=f"Event {event_id} not found")
         
         if event.retracted:
-            raise HTTPException(status_code=400, detail=f"Event {event_id} is already retracted")
+            # Idempotent: return success if already retracted
+            return {
+                "status": "already_retracted",
+                "event_id": event_id,
+                "retracted_at": event.retracted_at,
+                "reason": event.retraction_reason,
+                "evidence_url": event.retraction_evidence_url,
+                "message": f"Event {event_id} was already retracted."
+            }
         
         # Mark event as retracted
         event.retracted = True
@@ -1840,6 +1852,20 @@ async def retract_event(
         
         db.commit()
         
+        # Invalidate caches for affected signposts
+        cache_count = await invalidate_signpost_caches(affected_signpost_ids)
+        
+        # Log retraction for audit trail
+        logger.info(
+            "event_retracted",
+            event_id=event_id,
+            publisher=event.publisher,
+            reason=reason,
+            evidence_url=evidence_url,
+            affected_signposts=len(affected_signpost_ids),
+            caches_invalidated=cache_count
+        )
+        
         # TODO: Trigger index recomputation for affected signposts
         # TODO: Create changelog entry
         
@@ -1850,13 +1876,15 @@ async def retract_event(
             "reason": reason,
             "evidence_url": evidence_url,
             "affected_signposts": affected_signpost_ids,
-            "message": f"Event {event_id} retracted successfully. {len(affected_signpost_ids)} signposts affected."
+            "caches_invalidated": cache_count,
+            "message": f"Event {event_id} retracted successfully. {len(affected_signpost_ids)} signposts affected, {cache_count} caches invalidated."
         }
         
     except HTTPException:
         raise
     except Exception as e:
         db.rollback()
+        logger.error("retraction_failed", event_id=event_id, error=str(e))
         raise HTTPException(status_code=500, detail=f"Error retracting event: {str(e)}")
 
 
