@@ -1194,6 +1194,63 @@ async def roadmaps_compare(request: Request, db: Session = Depends(get_db)):
 # Admin review endpoints for events
 
 
+@app.get("/v1/events/links")
+@limiter.limit(f"{settings.rate_limit_per_minute}/minute")
+async def list_event_links(
+    request: Request,
+    approved_only: bool = Query(True, description="Filter to approved links only"),
+    signpost_code: Optional[str] = None,
+    min_confidence: Optional[float] = None,
+    skip: int = 0,
+    limit: int = 50,
+    db: Session = Depends(get_db),
+):
+    """
+    List event-signpost links with filtering.
+    
+    Query params:
+    - approved_only: Filter to approved links (default: true)
+    - signpost_code: Filter by signpost
+    - min_confidence: Minimum confidence threshold
+    - skip/limit: Pagination
+    """
+    limit = min(limit, 100)
+    query = db.query(EventSignpostLink)
+    
+    if approved_only:
+        query = query.filter(EventSignpostLink.approved_at.isnot(None))
+    
+    if signpost_code:
+        signpost = db.query(Signpost).filter(Signpost.code == signpost_code).first()
+        if signpost:
+            query = query.filter(EventSignpostLink.signpost_id == signpost.id)
+    
+    if min_confidence is not None:
+        query = query.filter(EventSignpostLink.confidence >= min_confidence)
+    
+    total = query.count()
+    links = query.order_by(desc(EventSignpostLink.observed_at)).offset(skip).limit(limit).all()
+    
+    results = []
+    for link in links:
+        event = db.query(Event).filter(Event.id == link.event_id).first()
+        signpost = db.query(Signpost).filter(Signpost.id == link.signpost_id).first()
+        if event and signpost:
+            results.append({
+                "event_id": event.id,
+                "event_title": event.title,
+                "signpost_code": signpost.code,
+                "signpost_name": signpost.name,
+                "confidence": float(link.confidence) if link.confidence else None,
+                "value": float(link.value) if link.value else None,
+                "observed_at": link.observed_at.isoformat() if link.observed_at else None,
+                "approved_at": link.approved_at.isoformat() if link.approved_at else None,
+                "approved_by": link.approved_by,
+            })
+    
+    return {"total": total, "skip": skip, "limit": limit, "results": results}
+
+
 @app.post("/v1/admin/events/{event_id}/approve")
 async def approve_event_mapping(
     event_id: int,
@@ -1202,7 +1259,7 @@ async def approve_event_mapping(
 ):
     """
     Approve event signpost mappings (admin only).
-    Sets needs_review=False. Requires X-API-Key header.
+    Sets needs_review=False and marks links as approved. Requires X-API-Key header.
     """
     event = db.query(Event).filter(Event.id == event_id).first()
     
@@ -1210,13 +1267,24 @@ async def approve_event_mapping(
         raise HTTPException(status_code=404, detail="Event not found")
     
     event.needs_review = False
+    
+    # Mark all links as approved with timestamp
+    links = db.query(EventSignpostLink).filter(EventSignpostLink.event_id == event_id).all()
+    approved_count = 0
+    for link in links:
+        if link.approved_at is None:
+            link.approved_at = datetime.utcnow()
+            link.approved_by = "admin"
+            approved_count += 1
+    
     db.commit()
     
     return {
         "status": "success",
         "event_id": event_id,
         "needs_review": False,
-        "message": "Event mappings approved",
+        "links_approved": approved_count,
+        "message": f"Event approved with {approved_count} link(s)",
     }
 
 
@@ -1236,6 +1304,9 @@ async def reject_event_mapping(
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
     
+    # Count links before deletion for audit
+    links_count = db.query(EventSignpostLink).filter(EventSignpostLink.event_id == event_id).count()
+    
     # Delete all signpost links
     db.query(EventSignpostLink).filter(EventSignpostLink.event_id == event_id).delete()
     
@@ -1245,7 +1316,17 @@ async def reject_event_mapping(
         **event.parsed or {},
         "rejected_at": datetime.utcnow().isoformat(),
         "rejection_reason": reason,
+        "links_removed": links_count,
     }
+    
+    # Create changelog entry
+    changelog_entry = ChangelogEntry(
+        type="update",
+        title=f"Event #{event_id} mappings rejected",
+        body=f"Removed {links_count} link(s). Reason: {reason}",
+        reason=reason,
+    )
+    db.add(changelog_entry)
     
     db.commit()
     
@@ -1253,6 +1334,7 @@ async def reject_event_mapping(
         "status": "success",
         "event_id": event_id,
         "needs_review": True,
+        "links_removed": links_count,
         "message": f"Event mappings rejected: {reason}",
     }
 
