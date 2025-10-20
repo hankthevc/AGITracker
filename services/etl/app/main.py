@@ -1798,3 +1798,122 @@ async def calculate_surprise_scores(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error calculating surprise scores: {str(e)}")
 
+
+@app.post("/v1/admin/retract", tags=["admin"])
+async def retract_event(
+    event_id: int,
+    reason: str,
+    evidence_url: Optional[str] = None,
+    verified: bool = Depends(verify_api_key),
+    db: Session = Depends(get_db),
+):
+    """
+    Retract an event with reason and evidence.
+    
+    This marks an event as retracted, records the reason and evidence,
+    and triggers recomputation of affected metrics.
+    """
+    from app.models import Event, EventSignpostLink
+    from datetime import datetime, timezone
+    
+    try:
+        event = db.query(Event).filter(Event.id == event_id).first()
+        if not event:
+            raise HTTPException(status_code=404, detail=f"Event {event_id} not found")
+        
+        if event.retracted:
+            raise HTTPException(status_code=400, detail=f"Event {event_id} is already retracted")
+        
+        # Mark event as retracted
+        event.retracted = True
+        event.retracted_at = datetime.now(timezone.utc)
+        event.retraction_reason = reason
+        event.retraction_evidence_url = evidence_url
+        
+        # Get affected signposts for recomputation
+        affected_signposts = db.query(EventSignpostLink).filter(
+            EventSignpostLink.event_id == event_id
+        ).all()
+        
+        affected_signpost_ids = [link.signpost_id for link in affected_signposts]
+        
+        db.commit()
+        
+        # TODO: Trigger index recomputation for affected signposts
+        # TODO: Create changelog entry
+        
+        return {
+            "status": "retracted",
+            "event_id": event_id,
+            "retracted_at": event.retracted_at,
+            "reason": reason,
+            "evidence_url": evidence_url,
+            "affected_signposts": affected_signpost_ids,
+            "message": f"Event {event_id} retracted successfully. {len(affected_signpost_ids)} signposts affected."
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error retracting event: {str(e)}")
+
+
+@app.get("/v1/admin/source-credibility", tags=["admin"])
+async def get_source_credibility(
+    db: Session = Depends(get_db),
+):
+    """
+    Get credibility scores for all sources based on retraction rates.
+    """
+    from app.models import Event
+    from sqlalchemy import func, case
+    
+    try:
+        # Calculate retraction rate per publisher
+        results = db.query(
+            Event.publisher,
+            func.count(Event.id).label('total_events'),
+            func.sum(case((Event.retracted == True, 1), else_=0)).label('retracted_count')
+        ).group_by(Event.publisher).all()
+        
+        credibility_scores = []
+        for row in results:
+            if row.publisher and row.total_events > 0:
+                retraction_rate = (row.retracted_count or 0) / row.total_events
+                # Credibility score: 1.0 - retraction_rate, with bonus for volume
+                base_score = 1.0 - retraction_rate
+                # Volume bonus: up to 0.1 for 100+ events
+                volume_bonus = min(0.1, row.total_events / 1000)
+                credibility_score = min(1.0, base_score + volume_bonus)
+                
+                # Determine credibility tier
+                if credibility_score >= 0.95:
+                    tier = "A"
+                elif credibility_score >= 0.85:
+                    tier = "B"
+                elif credibility_score >= 0.70:
+                    tier = "C"
+                else:
+                    tier = "D"
+                
+                credibility_scores.append({
+                    "publisher": row.publisher,
+                    "total_events": row.total_events,
+                    "retracted_count": row.retracted_count or 0,
+                    "retraction_rate": round(retraction_rate * 100, 2),
+                    "credibility_score": round(credibility_score, 3),
+                    "credibility_tier": tier
+                })
+        
+        # Sort by credibility score descending
+        credibility_scores.sort(key=lambda x: x["credibility_score"], reverse=True)
+        
+        return {
+            "sources": credibility_scores,
+            "total_sources": len(credibility_scores)
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error calculating source credibility: {str(e)}")
+

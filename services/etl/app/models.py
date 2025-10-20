@@ -369,7 +369,10 @@ class Event(Base):
     author = Column(String(255), nullable=True)
     byline = Column(String(500), nullable=True)
     lang = Column(String(10), nullable=False, server_default="en")
-    retracted = Column(Boolean, nullable=False, server_default="false")
+    retracted = Column(Boolean, nullable=False, server_default="false", index=True)
+    retracted_at = Column(TIMESTAMP(timezone=True), nullable=True)
+    retraction_reason = Column(Text, nullable=True)
+    retraction_evidence_url = Column(Text, nullable=True)
     provisional = Column(Boolean, nullable=False, server_default="true")
     parsed = Column(JSONB, nullable=True)  # Extracted fields (metric, value, etc.)
     needs_review = Column(Boolean, nullable=False, server_default="false", index=True)
@@ -540,5 +543,33 @@ class PredictionAccuracy(Base):
     
     __table_args__ = (
         Index("idx_prediction_accuracy_prediction", "prediction_id"),
+    )
+
+
+class LLMPrompt(Base):
+    """
+    Stores versioned LLM prompts for audit trail (Phase 5).
+    
+    Tracks all prompts used for AI analysis to ensure transparency
+    and enable A/B testing of prompt variants.
+    """
+    
+    __tablename__ = "llm_prompts"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    version = Column(String(100), nullable=False, unique=True, index=True)  # e.g., "event-analysis-v1"
+    task_type = Column(String(50), nullable=False, index=True)  # e.g., "event_analysis", "weekly_digest"
+    prompt_template = Column(Text, nullable=False)  # The actual prompt text
+    system_message = Column(Text, nullable=True)  # System message if applicable
+    model = Column(String(50), nullable=False)  # e.g., "gpt-4o-mini"
+    temperature = Column(Numeric(3, 2), nullable=True)  # Temperature setting
+    max_tokens = Column(Integer, nullable=True)  # Max tokens setting
+    notes = Column(Text, nullable=True)  # Notes about this version
+    created_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
+    deprecated_at = Column(TIMESTAMP(timezone=True), nullable=True)  # When this version was deprecated
+    
+    __table_args__ = (
+        Index("idx_llm_prompts_task_type", "task_type"),
+        Index("idx_llm_prompts_created", "created_at"),
     )
 

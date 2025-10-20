@@ -175,7 +175,8 @@ def load_events():
         # Use raw SQL to avoid SQLAlchemy model issues with missing columns
         result = db.execute(text("""
             SELECT id, title, summary, source_url, publisher, published_at, 
-                   evidence_tier, source_type, provisional, needs_review
+                   evidence_tier, source_type, provisional, needs_review,
+                   retracted, retracted_at, retraction_reason
             FROM events 
             ORDER BY published_at DESC
         """)).fetchall()
@@ -210,7 +211,10 @@ def load_events():
                 "published_at": row.published_at,
                 "signposts": signposts,
                 "provisional": row.provisional,
-                "needs_review": row.needs_review
+                "needs_review": row.needs_review,
+                "retracted": row.retracted,
+                "retracted_at": row.retracted_at,
+                "retraction_reason": row.retraction_reason
             })
         
         return events_data
@@ -327,14 +331,30 @@ if page == "📰 News Feed":
         tier_class = f"tier-{event['tier'].lower()}"
         tier_emoji = {"A": "🟢", "B": "🔵", "C": "🟡", "D": "⚪"}[event["tier"]]
         
-        with st.expander(f"{tier_emoji} **{event['title']}**", expanded=False):
+        # Add retraction indicator to title if retracted
+        title_display = event['title']
+        if event.get('retracted'):
+            title_display = f"~~{event['title']}~~ ⚠️ RETRACTED"
+        
+        with st.expander(f"{tier_emoji} **{title_display}**", expanded=False):
+            # Retraction warning banner (highest priority)
+            if event.get('retracted'):
+                retraction_date = event.get('retracted_at').strftime('%b %d, %Y') if event.get('retracted_at') else 'Unknown'
+                st.markdown(
+                    f"<div style='background: #fee2e2; border: 2px solid #ef4444; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; color: #991b1b;'>"
+                    f"<strong>⚠️ RETRACTED</strong> on {retraction_date}<br>"
+                    f"<strong>Reason:</strong> {event.get('retraction_reason', 'No reason provided')}"
+                    f"</div>",
+                    unsafe_allow_html=True
+                )
+            
             # Tier badge
             st.markdown(f"<span class='{tier_class}'>Tier {event['tier']}</span> &nbsp; "
                        f"<small>{event['publisher']} • {event['published_at'].strftime('%b %d, %Y') if event['published_at'] else 'No date'}</small>", 
                        unsafe_allow_html=True)
             
             # If true banner for C/D
-            if event["tier"] in ["C", "D"]:
+            if event["tier"] in ["C", "D"] and not event.get('retracted'):
                 st.markdown(
                     f"<div class='if-true'>⚠️ <strong>\"If True\" Analysis:</strong> "
                     f"This {event['tier']}-tier {event['source_type']} does NOT move main gauges. "
@@ -560,6 +580,71 @@ if st.sidebar.checkbox("🔧 Admin Mode", help="Enable admin features"):
         st.error(f"Error loading review queue: {e}")
     finally:
         db.close()
+
+# Source Credibility Dashboard
+st.markdown("## 🏆 Source Credibility Scores")
+st.caption("Track publisher reliability based on retraction rates and volume")
+
+try:
+    db = SessionLocal()
+    
+    # Calculate source credibility
+    from sqlalchemy import func, case
+    results = db.execute(text("""
+        SELECT 
+            publisher,
+            COUNT(*) as total_events,
+            SUM(CASE WHEN retracted THEN 1 ELSE 0 END) as retracted_count
+        FROM events
+        WHERE publisher IS NOT NULL
+        GROUP BY publisher
+        HAVING COUNT(*) >= 3
+        ORDER BY COUNT(*) DESC
+        LIMIT 15
+    """)).fetchall()
+    
+    if results:
+        credibility_data = []
+        for row in results:
+            retraction_rate = (row.retracted_count / row.total_events) * 100 if row.total_events > 0 else 0
+            credibility_score = 100 - retraction_rate
+            
+            # Determine tier
+            if credibility_score >= 95:
+                tier = "A"
+            elif credibility_score >= 85:
+                tier = "B"
+            elif credibility_score >= 70:
+                tier = "C"
+            else:
+                tier = "D"
+            
+            credibility_data.append({
+                "Publisher": row.publisher,
+                "Total Events": row.total_events,
+                "Retractions": row.retracted_count,
+                "Retraction Rate": f"{retraction_rate:.1f}%",
+                "Credibility Score": f"{credibility_score:.1f}",
+                "Tier": tier
+            })
+        
+        cred_df = pd.DataFrame(credibility_data)
+        st.dataframe(cred_df, use_container_width=True)
+        
+        # Visualization
+        fig = px.bar(cred_df, x="Publisher", y="Credibility Score", 
+                    color="Tier", title="Publisher Credibility Scores",
+                    color_discrete_map={"A": "#10b981", "B": "#3b82f6", "C": "#f59e0b", "D": "#ef4444"})
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("No credibility data available yet")
+        
+except Exception as e:
+    st.error(f"Error loading credibility scores: {e}")
+finally:
+    db.close()
+
+st.markdown("---")
 
 # Expert Predictions Comparison
 st.markdown("## 📊 Expert Predictions vs Reality")
