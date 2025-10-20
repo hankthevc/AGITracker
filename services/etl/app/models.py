@@ -609,3 +609,32 @@ class LLMPromptRun(Base):
         Index("idx_llm_prompt_runs_event", "event_id"),
     )
 
+
+class SourceCredibilitySnapshot(Base):
+    """
+    Daily snapshots of source credibility scores (Phase 5).
+    
+    Tracks publisher reliability over time based on retraction rates.
+    """
+    
+    __tablename__ = "source_credibility_snapshots"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    publisher = Column(String(255), nullable=False, index=True)
+    snapshot_date = Column(Date, nullable=False, index=True)
+    total_articles = Column(Integer, nullable=False)
+    retracted_count = Column(Integer, nullable=False, default=0)
+    retraction_rate = Column(Numeric(5, 4), nullable=False)  # 0.0000 to 1.0000
+    credibility_score = Column(Numeric(5, 4), nullable=False)  # Wilson lower bound
+    credibility_tier = Column(String(1), nullable=False)  # A/B/C/D
+    methodology = Column(String(50), nullable=False, default="wilson_95ci_lower")
+    created_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
+    
+    __table_args__ = (
+        Index("idx_source_cred_publisher_date", "publisher", "snapshot_date"),
+        Index("idx_source_cred_date", "snapshot_date"),
+        Index("idx_source_cred_tier", "credibility_tier"),
+        # Unique constraint: one snapshot per publisher per day
+        {"extend_existing": True}  # For alembic autogenerate compatibility
+    )
+

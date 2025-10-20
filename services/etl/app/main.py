@@ -1890,59 +1890,138 @@ async def retract_event(
 
 @app.get("/v1/admin/source-credibility", tags=["admin"])
 async def get_source_credibility(
+    min_volume: int = Query(5, description="Minimum articles to include"),
+    exclude_d_tier: bool = Query(True, description="Exclude D-tier sources"),
     db: Session = Depends(get_db),
 ):
     """
-    Get credibility scores for all sources based on retraction rates.
+    Get credibility scores for all sources using Wilson score interval.
+    
+    Uses Wilson score lower bound for conservative credibility estimates
+    that account for sample size uncertainty. Small-volume publishers get
+    appropriately wide confidence intervals.
+    
+    Query params:
+    - min_volume: Minimum articles required (default 5)
+    - exclude_d_tier: Whether to exclude D-tier sources (default true)
     """
     from app.models import Event
+    from app.utils.statistics import wilson_lower_bound, credibility_tier
     from sqlalchemy import func, case
     
     try:
-        # Calculate retraction rate per publisher
-        results = db.query(
+        # Calculate retraction stats per publisher (only non-D-tier events)
+        query = db.query(
             Event.publisher,
             func.count(Event.id).label('total_events'),
             func.sum(case((Event.retracted == True, 1), else_=0)).label('retracted_count')
-        ).group_by(Event.publisher).all()
+        )
+        
+        # Exclude D-tier sources from input if requested
+        if exclude_d_tier:
+            query = query.filter(Event.evidence_tier.in_(["A", "B", "C"]))
+        
+        results = query.group_by(Event.publisher).all()
         
         credibility_scores = []
         for row in results:
-            if row.publisher and row.total_events > 0:
-                retraction_rate = (row.retracted_count or 0) / row.total_events
-                # Credibility score: 1.0 - retraction_rate, with bonus for volume
-                base_score = 1.0 - retraction_rate
-                # Volume bonus: up to 0.1 for 100+ events
-                volume_bonus = min(0.1, row.total_events / 1000)
-                credibility_score = min(1.0, base_score + volume_bonus)
-                
-                # Determine credibility tier
-                if credibility_score >= 0.95:
-                    tier = "A"
-                elif credibility_score >= 0.85:
-                    tier = "B"
-                elif credibility_score >= 0.70:
-                    tier = "C"
-                else:
-                    tier = "D"
-                
-                credibility_scores.append({
-                    "publisher": row.publisher,
-                    "total_events": row.total_events,
-                    "retracted_count": row.retracted_count or 0,
-                    "retraction_rate": round(retraction_rate * 100, 2),
-                    "credibility_score": round(credibility_score, 3),
-                    "credibility_tier": tier
-                })
+            if not row.publisher or row.total_events < min_volume:
+                continue
+            
+            retracted = row.retracted_count or 0
+            total = row.total_events
+            successes = total - retracted  # Non-retracted articles
+            
+            # Wilson score lower bound (conservative estimate)
+            wilson_score = wilson_lower_bound(successes, total, confidence=0.95)
+            
+            # Determine tier based on Wilson score and volume
+            tier = credibility_tier(wilson_score, total)
+            
+            # Raw retraction rate for comparison
+            retraction_rate = retracted / total if total > 0 else 0.0
+            
+            credibility_scores.append({
+                "publisher": row.publisher,
+                "total_articles": total,
+                "retracted_count": retracted,
+                "retraction_rate": round(retraction_rate * 100, 2),
+                "credibility_score": round(wilson_score, 3),
+                "credibility_tier": tier,
+                "methodology": "wilson_95ci_lower"
+            })
         
         # Sort by credibility score descending
         credibility_scores.sort(key=lambda x: x["credibility_score"], reverse=True)
         
         return {
             "sources": credibility_scores,
-            "total_sources": len(credibility_scores)
+            "total_sources": len(credibility_scores),
+            "min_volume": min_volume,
+            "methodology": "Wilson score 95% confidence interval (lower bound)",
+            "note": "Lower scores for low-volume publishers reflect statistical uncertainty"
         }
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error calculating source credibility: {str(e)}")
+
+
+@app.get("/v1/admin/source-credibility/history", tags=["admin"])
+async def get_source_credibility_history(
+    publisher: Optional[str] = Query(None, description="Filter by publisher"),
+    days: int = Query(30, description="Number of days of history"),
+    db: Session = Depends(get_db),
+):
+    """
+    Get historical source credibility snapshots.
+    
+    Returns time-series data of publisher credibility scores.
+    Useful for tracking reliability trends and identifying degradation.
+    
+    Query params:
+    - publisher: Filter to specific publisher (optional)
+    - days: Number of days to query (default 30)
+    """
+    from app.models import SourceCredibilitySnapshot
+    from datetime import date, timedelta
+    from sqlalchemy import desc
+    
+    try:
+        cutoff_date = date.today() - timedelta(days=days)
+        
+        query = db.query(SourceCredibilitySnapshot).filter(
+            SourceCredibilitySnapshot.snapshot_date >= cutoff_date
+        )
+        
+        if publisher:
+            query = query.filter(SourceCredibilitySnapshot.publisher == publisher)
+        
+        snapshots = query.order_by(
+            SourceCredibilitySnapshot.publisher,
+            desc(SourceCredibilitySnapshot.snapshot_date)
+        ).all()
+        
+        # Format response
+        history = []
+        for snap in snapshots:
+            history.append({
+                "publisher": snap.publisher,
+                "date": snap.snapshot_date.isoformat(),
+                "total_articles": snap.total_articles,
+                "retracted_count": snap.retracted_count,
+                "retraction_rate": float(snap.retraction_rate),
+                "credibility_score": float(snap.credibility_score),
+                "credibility_tier": snap.credibility_tier,
+                "methodology": snap.methodology
+            })
+        
+        return {
+            "history": history,
+            "total_snapshots": len(history),
+            "days": days,
+            "publisher_filter": publisher
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching credibility history: {str(e)}")
 
