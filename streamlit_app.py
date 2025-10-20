@@ -10,9 +10,15 @@ import pandas as pd
 from datetime import datetime
 
 # Check for DATABASE_URL
-if "DATABASE_URL" not in os.environ and "DATABASE_URL" not in st.secrets:
+db_url = os.environ.get("DATABASE_URL") or st.secrets.get("DATABASE_URL")
+if not db_url:
     st.error("❌ DATABASE_URL not configured. Set in environment or Streamlit secrets.")
     st.stop()
+
+# Ensure DATABASE_URL uses psycopg driver (not psycopg2)
+if db_url.startswith("postgresql://"):
+    db_url = db_url.replace("postgresql://", "postgresql+psycopg://", 1)
+os.environ["DATABASE_URL"] = db_url
 
 # Add services/etl to path
 sys.path.insert(0, str(Path(__file__).parent / "services" / "etl"))
@@ -23,6 +29,7 @@ try:
 except ImportError as e:
     st.error(f"❌ Failed to import database models: {e}")
     st.info("Make sure all dependencies are installed: `pip install -r requirements.txt`")
+    st.info(f"Database URL: {db_url[:50]}...")
     st.stop(), RoadmapPrediction, Roadmap
 
 st.set_page_config(
