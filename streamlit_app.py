@@ -80,34 +80,51 @@ with st.sidebar:
 def load_events():
     db = SessionLocal()
     try:
-        events = db.query(Event).order_by(Event.published_at.desc()).all()
-        result = []
-        for e in events:
-            links = db.query(EventSignpostLink).filter(EventSignpostLink.event_id == e.id).all()
+        # Use raw SQL to avoid SQLAlchemy model issues with missing columns
+        result = db.execute("""
+            SELECT id, title, summary, source_url, publisher, published_at, 
+                   evidence_tier, source_type, provisional, needs_review
+            FROM events 
+            ORDER BY published_at DESC
+        """).fetchall()
+        
+        events_data = []
+        for row in result:
+            # Get signpost links for this event
+            links_result = db.execute("""
+                SELECT esl.confidence, esl.rationale, s.code, s.name
+                FROM event_signpost_links esl
+                JOIN signposts s ON esl.signpost_id = s.id
+                WHERE esl.event_id = %s
+            """, (row.id,)).fetchall()
+            
             signposts = []
-            for link in links:
-                sp = db.query(Signpost).filter(Signpost.id == link.signpost_id).first()
-                if sp:
-                    signposts.append({
-                        "code": sp.code,
-                        "name": sp.name,
-                        "confidence": float(link.confidence) if link.confidence else 0,
-                        "rationale": link.rationale
-                    })
-            result.append({
-                "id": e.id,
-                "title": e.title,
-                "summary": e.summary,
-                "tier": e.evidence_tier,
-                "source_type": e.source_type,
-                "publisher": e.publisher,
-                "url": e.source_url,
-                "published_at": e.published_at,
+            for link_row in links_result:
+                signposts.append({
+                    "code": link_row.code,
+                    "name": link_row.name,
+                    "confidence": float(link_row.confidence) if link_row.confidence else 0,
+                    "rationale": link_row.rationale
+                })
+            
+            events_data.append({
+                "id": row.id,
+                "title": row.title,
+                "summary": row.summary,
+                "tier": row.evidence_tier,
+                "source_type": row.source_type,
+                "publisher": row.publisher,
+                "url": row.source_url,
+                "published_at": row.published_at,
                 "signposts": signposts,
-                "provisional": e.provisional,
-                "needs_review": e.needs_review
+                "provisional": row.provisional,
+                "needs_review": row.needs_review
             })
-        return result
+        
+        return events_data
+    except Exception as e:
+        st.error(f"Database error: {e}")
+        return []
     finally:
         db.close()
 
