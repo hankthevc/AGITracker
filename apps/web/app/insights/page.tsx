@@ -318,7 +318,7 @@ function InsightsContent() {
           </p>
           <p>
             <strong>Security Gap:</strong> Measures difference between capabilities and
-            security readiness. High gaps (>30%) indicate capabilities advancing faster than
+            security readiness. High gaps ({'>'}30%) indicate capabilities advancing faster than
             safety measures.
           </p>
           <p>
