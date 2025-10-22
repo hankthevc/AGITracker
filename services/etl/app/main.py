@@ -1831,7 +1831,7 @@ async def retract_event(
             return {
                 "status": "already_retracted",
                 "event_id": event_id,
-                "retracted_at": event.retracted_at,
+                "retracted_at": event.retracted_at.isoformat() if event.retracted_at else None,
                 "reason": event.retraction_reason,
                 "evidence_url": event.retraction_evidence_url,
                 "message": f"Event {event_id} was already retracted."
@@ -1850,6 +1850,15 @@ async def retract_event(
         
         affected_signpost_ids = [link.signpost_id for link in affected_signposts]
         
+        # Create changelog entry
+        changelog = ChangelogEntry(
+            type="retract",
+            title=f"Event #{event_id} retracted",
+            body=f"Event '{event.title}' retracted. Reason: {reason}",
+            reason=reason,
+        )
+        db.add(changelog)
+        
         db.commit()
         
         # Invalidate caches for affected signposts
@@ -1866,13 +1875,10 @@ async def retract_event(
             caches_invalidated=cache_count
         )
         
-        # TODO: Trigger index recomputation for affected signposts
-        # TODO: Create changelog entry
-        
         return {
             "status": "retracted",
             "event_id": event_id,
-            "retracted_at": event.retracted_at,
+            "retracted_at": event.retracted_at.isoformat() if event.retracted_at else None,
             "reason": reason,
             "evidence_url": evidence_url,
             "affected_signposts": affected_signpost_ids,
