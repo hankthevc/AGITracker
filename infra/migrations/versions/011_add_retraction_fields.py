@@ -16,17 +16,33 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # Add retraction tracking fields to events table
-    op.add_column('events', sa.Column('retracted_at', sa.TIMESTAMP(timezone=True), nullable=True))
-    op.add_column('events', sa.Column('retraction_reason', sa.Text(), nullable=True))
-    op.add_column('events', sa.Column('retraction_evidence_url', sa.Text(), nullable=True))
+    # Add retraction tracking fields to events table (idempotent)
+    # Use raw SQL with IF NOT EXISTS for idempotency
+    op.execute("""
+        ALTER TABLE events 
+        ADD COLUMN IF NOT EXISTS retracted_at TIMESTAMPTZ;
+    """)
+    op.execute("""
+        ALTER TABLE events 
+        ADD COLUMN IF NOT EXISTS retraction_reason TEXT;
+    """)
+    op.execute("""
+        ALTER TABLE events 
+        ADD COLUMN IF NOT EXISTS retraction_evidence_url TEXT;
+    """)
+    
+    # Create index if not exists (partial index for efficiency)
+    op.execute("""
+        CREATE INDEX IF NOT EXISTS ix_events_retracted_at 
+        ON events(retracted_at) 
+        WHERE retracted_at IS NOT NULL;
+    """)
     
     # Add index on retracted column if it doesn't exist
-    # Note: retracted column already exists, just adding index
-    try:
-        op.create_index('idx_events_retracted', 'events', ['retracted'])
-    except:
-        pass  # Index might already exist
+    op.execute("""
+        CREATE INDEX IF NOT EXISTS idx_events_retracted 
+        ON events(retracted);
+    """)
 
 
 def downgrade() -> None:
