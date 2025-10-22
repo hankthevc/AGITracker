@@ -1,7 +1,7 @@
 """Add is_synthetic flag to events table
 
 Revision ID: 010_add_is_synthetic
-Revises: 009_add_link_approved_at
+Revises: 009a_add_link_approved_at
 Create Date: 2025-10-20 12:00:00.000000
 
 """
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = '010_add_is_synthetic'
-down_revision = '009_add_link_approved_at'
+down_revision = '009a_add_link_approved_at'
 branch_labels = None
 depends_on = None
 
