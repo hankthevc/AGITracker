@@ -170,16 +170,28 @@ with st.sidebar:
 # Load data
 @st.cache_data(ttl=60)
 def load_events():
+    """Load events with safe retraction field access."""
     db = SessionLocal()
     try:
-        # Use raw SQL to avoid SQLAlchemy model issues with missing columns
-        result = db.execute(text("""
-            SELECT id, title, summary, source_url, publisher, published_at, 
-                   evidence_tier, source_type, provisional, needs_review,
-                   retracted, retracted_at, retraction_reason
-            FROM events 
-            ORDER BY published_at DESC
-        """)).fetchall()
+        # Try with retraction fields first
+        try:
+            result = db.execute(text("""
+                SELECT id, title, summary, source_url, publisher, published_at, 
+                       evidence_tier, source_type, provisional, needs_review,
+                       retracted, retracted_at, retraction_reason
+                FROM events 
+                WHERE retracted = false OR retracted IS NULL
+                ORDER BY published_at DESC
+            """)).fetchall()
+        except Exception:
+            # Fallback if retraction columns don't exist yet
+            result = db.execute(text("""
+                SELECT id, title, summary, source_url, publisher, published_at, 
+                       evidence_tier, source_type, provisional, needs_review,
+                       retracted
+                FROM events 
+                ORDER BY published_at DESC
+            """)).fetchall()
         
         events_data = []
         for row in result:
@@ -200,7 +212,8 @@ def load_events():
                     "rationale": link_row.rationale
                 })
             
-            events_data.append({
+            # Build event dict with safe attribute access
+            event_dict = {
                 "id": row.id,
                 "title": row.title,
                 "summary": row.summary,
@@ -213,9 +226,11 @@ def load_events():
                 "provisional": row.provisional,
                 "needs_review": row.needs_review,
                 "retracted": row.retracted,
-                "retracted_at": row.retracted_at,
-                "retraction_reason": row.retraction_reason
-            })
+                "retracted_at": getattr(row, 'retracted_at', None),
+                "retraction_reason": getattr(row, 'retraction_reason', None)
+            }
+            
+            events_data.append(event_dict)
         
         return events_data
     except Exception as e:
