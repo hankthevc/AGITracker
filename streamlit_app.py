@@ -252,31 +252,36 @@ if page == "📰 News Feed":
     # Enhanced Stats with Visualizations
     st.header("📊 Real-Time Analytics")
     
+    # Filter out retracted events from metrics
+    active_events = [e for e in events if not e.get("retracted", False)]
+    
     # Main metrics
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.metric("Total Events", len(events))
+        st.metric("Total Events", len(active_events))
+        if len(events) != len(active_events):
+            st.caption(f"({len(events) - len(active_events)} retracted)")
     with col2:
-        linked = sum(1 for e in events if len(e["signposts"]) > 0)
-        if len(events) > 0:
-            percentage = f"{linked/len(events)*100:.0f}%"
+        linked = sum(1 for e in active_events if len(e["signposts"]) > 0)
+        if len(active_events) > 0:
+            percentage = f"{linked/len(active_events)*100:.0f}%"
         else:
             percentage = "0%"
-        st.metric("Auto-Mapped", f"{linked}/{len(events)}", percentage)
+        st.metric("Auto-Mapped", f"{linked}/{len(active_events)}", percentage)
     with col3:
-        total_links = sum(len(e["signposts"]) for e in events)
+        total_links = sum(len(e["signposts"]) for e in active_events)
         st.metric("Total Links", total_links)
     with col4:
-        high_conf = sum(1 for e in events for sp in e["signposts"] if sp["confidence"] >= 0.7)
-        st.metric("High Confidence", f"{high_conf}/{total_links}")
+        high_conf = sum(1 for e in active_events for sp in e["signposts"] if sp["confidence"] >= 0.7)
+        st.metric("High Confidence", f"{high_conf}/{total_links}" if total_links > 0 else "0/0")
     
     # Visualizations
-    if events:
+    if active_events:
         col1, col2 = st.columns(2)
         
         with col1:
             # Events by tier chart
-            tier_counts = Counter(e["tier"] for e in events)
+            tier_counts = Counter(e["tier"] for e in active_events)
             if tier_counts:
                 fig_tier = px.pie(
                     values=list(tier_counts.values()),
@@ -294,7 +299,7 @@ if page == "📰 News Feed":
         
         with col2:
             # Confidence distribution
-            confidences = [sp["confidence"] for e in events for sp in e["signposts"]]
+            confidences = [sp["confidence"] for e in active_events for sp in e["signposts"]]
             if confidences:
                 fig_conf = px.histogram(
                     x=confidences,
@@ -309,9 +314,9 @@ if page == "📰 News Feed":
         
         # Timeline of events
         st.subheader("📅 Recent Events Timeline")
-        if any(e.get("published_at") for e in events):
+        if any(e.get("published_at") for e in active_events):
             timeline_data = []
-            for event in events[:10]:  # Show last 10 events
+            for event in active_events[:10]:  # Show last 10 active events
                 if event.get("published_at"):
                     timeline_data.append({
                         "Date": event["published_at"].strftime("%Y-%m-%d"),
