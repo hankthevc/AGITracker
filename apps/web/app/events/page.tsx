@@ -1,245 +1,270 @@
-'use client'
+"use client";
 
-import { useState, useEffect } from 'react'
-import { EventCard } from '@/components/events/EventCard'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { getApiBaseUrl } from '@/lib/apiBase'
-import { Event, EventsResponse } from '@/lib/types'
+import React, { useState, useMemo } from "react";
+import { EventCard, EventData } from "@/components/events/EventCard";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Search, Download, Filter, X } from "lucide-react";
+
+// This will be replaced with actual API call
+async function fetchEvents(): Promise<EventData[]> {
+  try {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000"}/v1/events?include_analysis=true&limit=100`);
+    if (!response.ok) {
+      throw new Error("Failed to fetch events");
+    }
+    return await response.json();
+  } catch (error) {
+    console.error("Error fetching events:", error);
+    return [];
+  }
+}
 
 export default function EventsPage() {
-  const [events, setEvents] = useState<Event[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [selectedTier, setSelectedTier] = useState<string | null>(null)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [startDate, setStartDate] = useState('')
-  const [endDate, setEndDate] = useState('')
-  const [skip, setSkip] = useState(0)
-  const [total, setTotal] = useState(0)
-  const limit = 50
-  
-  useEffect(() => {
-    fetchEvents()
-  }, [selectedTier, startDate, endDate, skip])
-  
-  const fetchEvents = async () => {
-    setLoading(true)
-    setError(null)
-    
-    try {
-      const apiUrl = getApiBaseUrl()
-      const params = new URLSearchParams()
-      
-      if (selectedTier) params.append('tier', selectedTier)
-      if (startDate) params.append('start_date', startDate)
-      if (endDate) params.append('end_date', endDate)
-      params.append('skip', skip.toString())
-      params.append('limit', limit.toString())
-      
-      const url = `${apiUrl}/v1/events?${params.toString()}`
-      const response = await fetch(url)
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch events: ${response.statusText}`)
+  const [events, setEvents] = useState<EventData[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [tierFilter, setTierFilter] = useState<string>("all");
+  const [dateFilter, setDateFilter] = useState<string>("all");
+  const [linkedOnly, setLinkedOnly] = useState(false);
+  const [showRetracted, setShowRetracted] = useState(false);
+
+  // Fetch events on mount
+  React.useEffect(() => {
+    fetchEvents().then(setEvents);
+  }, []);
+
+  // Filtered events
+  const filteredEvents = useMemo(() => {
+    return (events || []).filter((event) => {
+      // Search filter
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        const matchesSearch =
+          event.title.toLowerCase().includes(query) ||
+          event.summary?.toLowerCase().includes(query) ||
+          event.publisher.toLowerCase().includes(query);
+        if (!matchesSearch) return false;
       }
-      
-      const data: EventsResponse = await response.json()
-      setEvents(data.results || data.items || [])
-      setTotal(data.total || 0)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load events')
-    } finally {
-      setLoading(false)
-    }
-  }
-  
-  const handleSearch = () => {
-    setSkip(0)
-    fetchEvents()
-  }
-  
-  const handleExportJSON = () => {
-    const dataStr = JSON.stringify(events, null, 2)
-    const dataBlob = new Blob([dataStr], { type: 'application/json' })
-    const url = URL.createObjectURL(dataBlob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `events_${new Date().toISOString().split('T')[0]}.json`
-    link.click()
-  }
-  
-  const handleExportCSV = () => {
-    const headers = ['ID', 'Title', 'Publisher', 'Published', 'Tier', 'URL']
-    const rows = events.map(e => [
+
+      // Tier filter
+      if (tierFilter !== "all" && event.evidence_tier !== tierFilter) {
+        return false;
+      }
+
+      // Date filter
+      if (dateFilter !== "all") {
+        const eventDate = new Date(event.published_at);
+        const now = new Date();
+        const daysAgo = Math.floor((now.getTime() - eventDate.getTime()) / (1000 * 60 * 60 * 24));
+
+        if (dateFilter === "7days" && daysAgo > 7) return false;
+        if (dateFilter === "30days" && daysAgo > 30) return false;
+        if (dateFilter === "90days" && daysAgo > 90) return false;
+        if (dateFilter === "180days" && daysAgo > 180) return false;
+      }
+
+      // Linked filter
+      if (linkedOnly && (!event.signpost_links || event.signpost_links.length === 0)) {
+        return false;
+      }
+
+      // Retracted filter
+      if (!showRetracted && event.retracted) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [events, searchQuery, tierFilter, dateFilter, linkedOnly, showRetracted]);
+
+  // Export to JSON
+  const exportJSON = () => {
+    const dataStr = JSON.stringify(filteredEvents, null, 2);
+    const dataBlob = new Blob([dataStr], { type: "application/json" });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `agi-tracker-events-${new Date().toISOString().split("T")[0]}.json`;
+    link.click();
+  };
+
+  // Export to CSV
+  const exportCSV = () => {
+    const headers = ["ID", "Title", "Publisher", "Date", "Tier", "Signposts", "Significance", "URL"];
+    const rows = filteredEvents.map((e) => [
       e.id,
       `"${e.title.replace(/"/g, '""')}"`,
-      e.publisher || '',
-      e.published_at || e.date || '',
+      e.publisher,
+      e.published_at.split("T")[0],
       e.evidence_tier,
+      e.signpost_links?.length || 0,
+      e.analysis?.significance_score?.toFixed(2) || "N/A",
       e.source_url,
-    ])
-    
-    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n')
-    const dataBlob = new Blob([csv], { type: 'text/csv' })
-    const url = URL.createObjectURL(dataBlob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `events_${new Date().toISOString().split('T')[0]}.csv`
-    link.click()
-  }
-  
-  const tierColors = {
-    A: 'bg-green-600 text-white hover:bg-green-700',
-    B: 'bg-blue-600 text-white hover:bg-blue-700',
-    C: 'bg-yellow-600 text-white hover:bg-yellow-700',
-    D: 'bg-red-600 text-white hover:bg-red-700',
-  }
-  
+    ]);
+
+    const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const dataBlob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `agi-tracker-events-${new Date().toISOString().split("T")[0]}.csv`;
+    link.click();
+  };
+
+  // Clear all filters
+  const clearFilters = () => {
+    setSearchQuery("");
+    setTierFilter("all");
+    setDateFilter("all");
+    setLinkedOnly(false);
+    setShowRetracted(false);
+  };
+
+  const hasActiveFilters = searchQuery || tierFilter !== "all" || dateFilter !== "all" || linkedOnly;
+
   return (
-    <div className="space-y-6">
-      <div className="text-center space-y-4">
-        <h1 className="text-4xl font-bold tracking-tight">Events Feed</h1>
-        <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-          Browse AI progress events across all evidence tiers
+    <div className="container mx-auto px-4 py-8 max-w-6xl">
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-4xl font-bold mb-2">Event Feed</h1>
+        <p className="text-gray-600 dark:text-gray-400">
+          Browse AI progress events with evidence-based significance ratings
         </p>
       </div>
-      
-      {/* Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Filters</CardTitle>
-          <CardDescription>Filter events by tier, date range, or search</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+
+      {/* Filters Bar */}
+      <div className="bg-white dark:bg-gray-900 border rounded-lg p-4 mb-6 space-y-4">
+        <div className="flex flex-wrap gap-4">
+          {/* Search */}
+          <div className="flex-1 min-w-[250px]">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                type="text"
+                placeholder="Search events, publishers..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+          </div>
+
           {/* Tier Filter */}
-          <div>
-            <div className="text-sm font-medium mb-2">Evidence Tier</div>
-            <div className="flex gap-2">
-              <Badge
-                variant={selectedTier === null ? 'default' : 'outline'}
-                className="cursor-pointer"
-                onClick={() => setSelectedTier(null)}
-              >
-                All
-              </Badge>
-              {(['A', 'B', 'C', 'D'] as const).map((tier) => (
-                <Badge
-                  key={tier}
-                  variant={selectedTier === tier ? 'default' : 'outline'}
-                  className={`cursor-pointer ${selectedTier === tier ? tierColors[tier] : ''}`}
-                  onClick={() => setSelectedTier(tier)}
-                  data-testid={`tier-filter-${tier}`}
-                >
-                  {tier}
-                </Badge>
-              ))}
-            </div>
-          </div>
-          
-          {/* Date Range */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="start-date" className="text-sm font-medium block mb-2">
-                Start Date
-              </label>
-              <input
-                id="start-date"
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-full px-3 py-2 border rounded-md"
-              />
-            </div>
-            <div>
-              <label htmlFor="end-date" className="text-sm font-medium block mb-2">
-                End Date
-              </label>
-              <input
-                id="end-date"
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="w-full px-3 py-2 border rounded-md"
-              />
-            </div>
-          </div>
-          
+          <Select value={tierFilter} onValueChange={setTierFilter}>
+            <SelectTrigger className="w-[150px]">
+              <SelectValue placeholder="All tiers" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All tiers</SelectItem>
+              <SelectItem value="A">A-tier (Peer-reviewed)</SelectItem>
+              <SelectItem value="B">B-tier (Official labs)</SelectItem>
+              <SelectItem value="C">C-tier (Press)</SelectItem>
+              <SelectItem value="D">D-tier (Social)</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Date Filter */}
+          <Select value={dateFilter} onValueChange={setDateFilter}>
+            <SelectTrigger className="w-[150px]">
+              <SelectValue placeholder="All time" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All time</SelectItem>
+              <SelectItem value="7days">Last 7 days</SelectItem>
+              <SelectItem value="30days">Last 30 days</SelectItem>
+              <SelectItem value="90days">Last 90 days</SelectItem>
+              <SelectItem value="180days">Last 180 days</SelectItem>
+            </SelectContent>
+          </Select>
+
           {/* Export Buttons */}
-          <div className="flex gap-2 pt-4 border-t">
-            <button
-              onClick={handleExportJSON}
-              className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 text-sm"
-              disabled={events.length === 0}
-            >
-              Export JSON
-            </button>
-            <button
-              onClick={handleExportCSV}
-              className="px-4 py-2 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/80 text-sm"
-              disabled={events.length === 0}
-            >
-              Export CSV
-            </button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={exportJSON}>
+              <Download className="h-4 w-4 mr-2" />
+              JSON
+            </Button>
+            <Button variant="outline" size="sm" onClick={exportCSV}>
+              <Download className="h-4 w-4 mr-2" />
+              CSV
+            </Button>
           </div>
-        </CardContent>
-      </Card>
-      
-      {/* Results */}
-      {loading && (
+        </div>
+
+        {/* Toggle Filters */}
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant={linkedOnly ? "default" : "outline"}
+            size="sm"
+            onClick={() => setLinkedOnly(!linkedOnly)}
+          >
+            <Filter className="h-4 w-4 mr-2" />
+            Linked to signposts only
+          </Button>
+          <Button
+            variant={showRetracted ? "default" : "outline"}
+            size="sm"
+            onClick={() => setShowRetracted(!showRetracted)}
+          >
+            Show retracted
+          </Button>
+
+          {hasActiveFilters && (
+            <Button variant="ghost" size="sm" onClick={clearFilters}>
+              <X className="h-4 w-4 mr-2" />
+              Clear filters
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Stats Bar */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex gap-4 text-sm">
+          <span className="text-gray-600 dark:text-gray-400">
+            Showing <strong>{filteredEvents.length}</strong> of <strong>{events?.length || 0}</strong> events
+          </span>
+          {hasActiveFilters && (
+            <Badge variant="secondary">
+              Filters active
+            </Badge>
+          )}
+        </div>
+      </div>
+
+      {/* Events List */}
+      {filteredEvents.length === 0 ? (
         <div className="text-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading events...</p>
+          <p className="text-gray-500 dark:text-gray-400">
+            {events?.length === 0 ? "No events found. Check back soon!" : "No events match your filters."}
+          </p>
+          {hasActiveFilters && (
+            <Button variant="link" onClick={clearFilters} className="mt-2">
+              Clear filters
+            </Button>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {filteredEvents.map((event) => (
+            <EventCard key={event.id} event={event} />
+          ))}
         </div>
       )}
-      
-      {error && (
-        <Card className="border-destructive">
-          <CardContent className="pt-6">
-            <p className="text-destructive">{error}</p>
-          </CardContent>
-        </Card>
-      )}
-      
-      {!loading && !error && events.length === 0 && (
-        <Card>
-          <CardContent className="pt-6 text-center text-muted-foreground">
-            No events found matching your filters.
-          </CardContent>
-        </Card>
-      )}
-      
-      {!loading && !error && events.length > 0 && (
-        <>
-          <div className="text-sm text-muted-foreground">
-            Showing {skip + 1}–{Math.min(skip + limit, total)} of {total} events
-          </div>
-          
-          <div className="grid grid-cols-1 gap-6">
-            {events.map((event) => (
-              <EventCard key={event.id} event={event} />
-            ))}
-          </div>
-          
-          {/* Pagination */}
-          <div className="flex justify-center gap-4 pt-6">
-            <button
-              onClick={() => setSkip(Math.max(0, skip - limit))}
-              disabled={skip === 0}
-              className="px-4 py-2 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/80 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Previous
-            </button>
-            <button
-              onClick={() => setSkip(skip + limit)}
-              disabled={skip + limit >= total}
-              className="px-4 py-2 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/80 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Next
-            </button>
-          </div>
-        </>
+
+      {/* Load More (for pagination in the future) */}
+      {filteredEvents.length >= 100 && (
+        <div className="text-center mt-8">
+          <Button variant="outline">Load more events</Button>
+        </div>
       )}
     </div>
-  )
+  );
 }

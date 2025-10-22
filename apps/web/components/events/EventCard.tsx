@@ -1,234 +1,257 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { formatDate } from '@/lib/utils'
-import { Event, EventAnalysis } from '@/lib/types'
-import { getApiBaseUrl } from '@/lib/apiBase'
+import React, { useState } from "react";
+import { ChevronDown, ChevronUp, ExternalLink, AlertTriangle, CheckCircle2, Clock } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
-interface EventCardProps {
-  event: Event
-  showAnalysis?: boolean
+export interface EventAnalysis {
+  summary: string;
+  relevance_explanation?: string;
+  significance_score: number;
+  impact_json?: {
+    capabilities?: string;
+    timelines?: string;
+    safety_implications?: string;
+  };
 }
 
-export function EventCard({ event, showAnalysis = true }: EventCardProps) {
-  const [expanded, setExpanded] = useState(false)
-  const [analysis, setAnalysis] = useState<EventAnalysis | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  
-  const tierColors = {
-    A: 'bg-green-600 text-white hover:bg-green-700',
-    B: 'bg-blue-600 text-white hover:bg-blue-700',
-    C: 'bg-yellow-600 text-white hover:bg-yellow-700',
-    D: 'bg-red-600 text-white hover:bg-red-700',
-  }
-  
-  const tierLabels = {
-    A: 'Primary Evidence',
-    B: 'Official Lab',
-    C: 'Reputable Press',
-    D: 'Social Media',
-  }
-  
-  const movesGauges = event.evidence_tier === 'A' || event.evidence_tier === 'B'
-  
-  const fetchAnalysis = async () => {
-    if (analysis || loading) return
-    
-    setLoading(true)
-    setError(null)
-    
-    try {
-      const apiUrl = getApiBaseUrl()
-      const response = await fetch(`${apiUrl}/v1/events/${event.id}/analysis`)
-      
-      if (response.status === 404) {
-        setError('No analysis available yet')
-        return
-      }
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch analysis: ${response.statusText}`)
-      }
-      
-      const data = await response.json()
-      setAnalysis(data)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load analysis')
-    } finally {
-      setLoading(false)
-    }
-  }
-  
-  const handleToggleExpand = () => {
-    if (!expanded && showAnalysis) {
-      fetchAnalysis()
-    }
-    setExpanded(!expanded)
-  }
-  
+export interface EventData {
+  id: number;
+  title: string;
+  summary: string;
+  source_url: string;
+  publisher: string;
+  published_at: string;
+  evidence_tier: "A" | "B" | "C" | "D";
+  provisional: boolean;
+  needs_review: boolean;
+  retracted: boolean;
+  signpost_links?: Array<{
+    signpost_id: string;
+    signpost_name: string;
+    link_type: "supports" | "contradicts" | "related";
+  }>;
+  analysis?: EventAnalysis;
+}
+
+interface EventCardProps {
+  event: EventData;
+  compact?: boolean;
+}
+
+const tierConfig = {
+  A: {
+    label: "A-tier",
+    description: "Peer-reviewed",
+    color: "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20",
+  },
+  B: {
+    label: "B-tier",
+    description: "Official lab",
+    color: "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20",
+  },
+  C: {
+    label: "C-tier",
+    description: "Press (if true)",
+    color: "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border-yellow-500/20",
+  },
+  D: {
+    label: "D-tier",
+    description: "Social media",
+    color: "bg-gray-500/10 text-gray-700 dark:text-gray-400 border-gray-500/20",
+  },
+};
+
+const linkTypeIcons = {
+  supports: { icon: CheckCircle2, color: "text-green-600 dark:text-green-400" },
+  contradicts: { icon: AlertTriangle, color: "text-red-600 dark:text-red-400" },
+  related: { icon: Clock, color: "text-blue-600 dark:text-blue-400" },
+};
+
+export function EventCard({ event, compact = false }: EventCardProps) {
+  const [expanded, setExpanded] = useState(false);
+  const tierInfo = tierConfig[event.evidence_tier];
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  };
+
+  const getSignificanceBadge = (score: number) => {
+    if (score >= 0.9) return { label: "Major", color: "bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/20" };
+    if (score >= 0.7) return { label: "Significant", color: "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20" };
+    if (score >= 0.5) return { label: "Incremental", color: "bg-gray-500/10 text-gray-700 dark:text-gray-400 border-gray-500/20" };
+    return { label: "Minor", color: "bg-gray-400/10 text-gray-600 dark:text-gray-500 border-gray-400/20" };
+  };
+
   return (
-    <Card 
-      className="hover:shadow-lg transition-shadow" 
-      data-testid={`event-card-${event.id}`}
-    >
-      <CardHeader>
-        <div className="flex items-start justify-between gap-2">
-          <CardTitle className="text-lg flex-1">{event.title}</CardTitle>
-          <div className="flex flex-col gap-2">
-            <Badge
-              className={tierColors[event.evidence_tier]}
-              data-testid={`evidence-tier-${event.evidence_tier}`}
-            >
-              {event.evidence_tier}
-            </Badge>
-            {movesGauges && (
-              <Badge variant="outline" className="text-xs">
-                Moves Gauges
+    <Card className={`hover:shadow-lg transition-shadow ${event.retracted ? "opacity-60" : ""}`}>
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1">
+            <div className="flex flex-wrap items-center gap-2 mb-2">
+              <Badge variant="outline" className={tierInfo.color}>
+                {tierInfo.label}
               </Badge>
-            )}
-          </div>
-        </div>
-        <CardDescription>{tierLabels[event.evidence_tier]}</CardDescription>
-      </CardHeader>
-      
-      <CardContent className="space-y-4">
-        {event.summary && (
-          <p className="text-sm">{event.summary}</p>
-        )}
-        
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          <div>
-            <div className="text-muted-foreground">Source</div>
-            <a
-              href={event.source_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-primary hover:underline truncate block"
-            >
-              {event.publisher || 'Unknown'}
-            </a>
-          </div>
-          <div>
-            <div className="text-muted-foreground">Published</div>
-            <div>{formatDate(event.published_at || event.date || '')}</div>
-          </div>
-        </div>
-        
-        {event.signpost_links && event.signpost_links.length > 0 && (
-          <div>
-            <div className="text-sm text-muted-foreground mb-2">Linked Signposts</div>
-            <div className="flex flex-wrap gap-2">
-              {event.signpost_links.map((link) => (
-                <Badge 
-                  key={link.signpost_id} 
-                  variant="secondary"
-                  className="cursor-pointer hover:bg-secondary/80"
-                  title={link.signpost_name}
-                >
-                  {link.signpost_code}
+              {event.analysis && (
+                <Badge variant="outline" className={getSignificanceBadge(event.analysis.significance_score).color}>
+                  {getSignificanceBadge(event.analysis.significance_score).label}
                 </Badge>
-              ))}
+              )}
+              {event.provisional && (
+                <Badge variant="outline" className="bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-500/20">
+                  Provisional
+                </Badge>
+              )}
+              {event.needs_review && (
+                <Badge variant="outline" className="bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border-yellow-500/20">
+                  Needs Review
+                </Badge>
+              )}
+              {event.retracted && (
+                <Badge variant="outline" className="bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20">
+                  Retracted
+                </Badge>
+              )}
+            </div>
+            <CardTitle className={`text-xl mb-1 ${event.retracted ? "line-through" : ""}`}>
+              {event.title}
+            </CardTitle>
+            <CardDescription className="text-sm">
+              {event.publisher} • {formatDate(event.published_at)}
+            </CardDescription>
+          </div>
+          <a
+            href={event.source_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+          >
+            <ExternalLink className="h-5 w-5" />
+          </a>
+        </div>
+      </CardHeader>
+
+      <CardContent>
+        {/* Event Summary */}
+        {!compact && event.summary && (
+          <p className="text-sm text-gray-700 dark:text-gray-300 mb-4">{event.summary}</p>
+        )}
+
+        {/* Signpost Links */}
+        {event.signpost_links && event.signpost_links.length > 0 && (
+          <div className="mb-4">
+            <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">
+              Linked Signposts ({event.signpost_links.length})
+            </h4>
+            <div className="flex flex-wrap gap-2">
+              {event.signpost_links.map((link) => {
+                const LinkIcon = linkTypeIcons[link.link_type].icon;
+                return (
+                  <Badge
+                    key={link.signpost_id}
+                    variant="secondary"
+                    className="flex items-center gap-1"
+                  >
+                    <LinkIcon className={`h-3 w-3 ${linkTypeIcons[link.link_type].color}`} />
+                    {link.signpost_name}
+                  </Badge>
+                );
+              })}
             </div>
           </div>
         )}
-        
-        {showAnalysis && (event.evidence_tier === 'A' || event.evidence_tier === 'B') && (
+
+        {/* AI Analysis - "Why this matters" */}
+        {event.analysis && (
           <div className="border-t pt-4">
-            <button
-              onClick={handleToggleExpand}
-              className="text-sm font-medium text-primary hover:underline"
-              data-testid="expand-analysis-button"
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setExpanded(!expanded)}
+              className="w-full justify-between hover:bg-gray-100 dark:hover:bg-gray-800"
             >
-              {expanded ? '▼ Hide "Why this matters"' : '▶ Show "Why this matters"'}
-            </button>
-            
+              <span className="font-semibold text-sm">Why this matters</span>
+              {expanded ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
+            </Button>
+
             {expanded && (
-              <div className="mt-4 space-y-4">
-                {loading && (
-                  <div className="text-sm text-muted-foreground">Loading analysis...</div>
-                )}
-                
-                {error && (
-                  <div className="text-sm text-muted-foreground bg-muted p-3 rounded">
-                    {error}
-                  </div>
-                )}
-                
-                {analysis && (
-                  <div className="space-y-4">
-                    {analysis.summary && (
-                      <div>
-                        <div className="text-sm font-medium mb-1">Summary</div>
-                        <p className="text-sm text-muted-foreground">{analysis.summary}</p>
-                      </div>
-                    )}
-                    
-                    {analysis.relevance_explanation && (
-                      <div>
-                        <div className="text-sm font-medium mb-1">Why This Matters</div>
-                        <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                          {analysis.relevance_explanation}
+              <div className="mt-3 space-y-4">
+                {/* Summary */}
+                <div>
+                  <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                    {event.analysis.summary}
+                  </p>
+                </div>
+
+                {/* Impact Areas */}
+                {event.analysis.impact_json && (
+                  <div className="space-y-2">
+                    {event.analysis.impact_json.capabilities && (
+                      <div className="bg-blue-50 dark:bg-blue-950/30 p-3 rounded-md">
+                        <h5 className="text-xs font-semibold text-blue-900 dark:text-blue-300 mb-1">
+                          Capabilities
+                        </h5>
+                        <p className="text-sm text-blue-800 dark:text-blue-400">
+                          {event.analysis.impact_json.capabilities}
                         </p>
                       </div>
                     )}
-                    
-                    {analysis.impact_json && (
-                      <div>
-                        <div className="text-sm font-medium mb-2">Impact Timeline</div>
-                        <div className="space-y-2 text-sm">
-                          {analysis.impact_json.short && (
-                            <div>
-                              <span className="font-medium">0-6 months:</span>{' '}
-                              <span className="text-muted-foreground">{analysis.impact_json.short}</span>
-                            </div>
-                          )}
-                          {analysis.impact_json.medium && (
-                            <div>
-                              <span className="font-medium">6-18 months:</span>{' '}
-                              <span className="text-muted-foreground">{analysis.impact_json.medium}</span>
-                            </div>
-                          )}
-                          {analysis.impact_json.long && (
-                            <div>
-                              <span className="font-medium">18+ months:</span>{' '}
-                              <span className="text-muted-foreground">{analysis.impact_json.long}</span>
-                            </div>
-                          )}
-                        </div>
+                    {event.analysis.impact_json.timelines && (
+                      <div className="bg-purple-50 dark:bg-purple-950/30 p-3 rounded-md">
+                        <h5 className="text-xs font-semibold text-purple-900 dark:text-purple-300 mb-1">
+                          Timelines
+                        </h5>
+                        <p className="text-sm text-purple-800 dark:text-purple-400">
+                          {event.analysis.impact_json.timelines}
+                        </p>
                       </div>
                     )}
-                    
-                    {analysis.significance_score !== null && (
-                      <div className="flex items-center gap-2">
-                        <div className="text-sm font-medium">Significance:</div>
-                        <div className="flex-1 bg-muted rounded-full h-2">
-                          <div
-                            className="bg-primary h-2 rounded-full transition-all"
-                            style={{ width: `${(analysis.significance_score || 0) * 100}%` }}
-                          />
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          {((analysis.significance_score || 0) * 100).toFixed(0)}%
-                        </div>
-                      </div>
-                    )}
-                    
-                    {analysis.llm_version && (
-                      <div className="text-xs text-muted-foreground pt-2 border-t">
-                        Analysis: {analysis.llm_version} • Generated {formatDate(analysis.generated_at)}
+                    {event.analysis.impact_json.safety_implications && (
+                      <div className="bg-red-50 dark:bg-red-950/30 p-3 rounded-md">
+                        <h5 className="text-xs font-semibold text-red-900 dark:text-red-300 mb-1">
+                          Safety Implications
+                        </h5>
+                        <p className="text-sm text-red-800 dark:text-red-400">
+                          {event.analysis.impact_json.safety_implications}
+                        </p>
                       </div>
                     )}
                   </div>
                 )}
+
+                {/* Relevance Details */}
+                {event.analysis.relevance_explanation && (
+                  <div className="text-xs text-gray-600 dark:text-gray-400 pt-2 border-t">
+                    <details>
+                      <summary className="cursor-pointer font-semibold hover:text-gray-900 dark:hover:text-gray-200">
+                        Technical Details
+                      </summary>
+                      <p className="mt-2 leading-relaxed">{event.analysis.relevance_explanation}</p>
+                    </details>
+                  </div>
+                )}
+
+                {/* Significance Score */}
+                <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 pt-2 border-t">
+                  <span>AI-generated analysis</span>
+                  <span>Significance: {event.analysis.significance_score.toFixed(2)}/1.0</span>
+                </div>
               </div>
             )}
           </div>
         )}
       </CardContent>
     </Card>
-  )
+  );
 }
-

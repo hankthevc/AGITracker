@@ -2314,3 +2314,180 @@ async def list_prompt_runs(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error listing prompt runs: {str(e)}")
 
+
+# ======================================================================
+# REVIEW QUEUE ENDPOINTS (Phase 2)
+# ======================================================================
+
+@app.get("/v1/review-queue/mappings", tags=["review"])
+def get_review_queue(
+    needs_review_only: bool = True,
+    min_confidence: Optional[float] = None,
+    max_confidence: Optional[float] = None,
+    limit: int = Query(50, le=200),
+    offset: int = 0,
+    db: Session = Depends(get_db)
+):
+    """Get event-signpost mappings that need human review.
+    
+    Returns mappings with low confidence or flagged for review, sorted by confidence.
+    """
+    try:
+        query = db.query(EventSignpostLink).join(Event).join(Signpost)
+        
+        if needs_review_only:
+            query = query.filter(EventSignpostLink.needs_review == True)
+        
+        if min_confidence is not None:
+            query = query.filter(EventSignpostLink.confidence >= min_confidence)
+        
+        if max_confidence is not None:
+            query = query.filter(EventSignpostLink.confidence <= max_confidence)
+        
+        # Order by confidence (lowest first) and created_at (newest first)
+        query = query.order_by(EventSignpostLink.confidence.asc(), EventSignpostLink.created_at.desc())
+        
+        total = query.count()
+        links = query.limit(limit).offset(offset).all()
+        
+        result = []
+        for link in links:
+            event = db.query(Event).filter(Event.id == link.event_id).first()
+            signpost = db.query(Signpost).filter(Signpost.id == link.signpost_id).first()
+            
+            result.append({
+                "id": link.id,
+                "event_id": link.event_id,
+                "event_title": event.title if event else None,
+                "event_summary": event.summary if event else None,
+                "event_tier": event.evidence_tier if event else None,
+                "signpost_id": link.signpost_id,
+                "signpost_code": signpost.code if signpost else None,
+                "signpost_name": signpost.name if signpost else None,
+                "confidence": float(link.confidence) if link.confidence else None,
+                "rationale": link.rationale,
+                "impact_estimate": float(link.impact_estimate) if link.impact_estimate else None,
+                "link_type": link.link_type,
+                "needs_review": link.needs_review,
+                "reviewed_at": link.reviewed_at.isoformat() if link.reviewed_at else None,
+                "review_status": link.review_status,
+                "created_at": link.created_at.isoformat() if link.created_at else None
+            })
+        
+        return {
+            "mappings": result,
+            "total": total,
+            "limit": limit,
+            "offset": offset
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching review queue: {str(e)}")
+
+
+@app.post("/v1/review-queue/mappings/{mapping_id}/approve", tags=["review"])
+def approve_mapping(
+    mapping_id: int,
+    db: Session = Depends(get_db),
+    x_api_key: str = Header(None)
+):
+    """Approve a mapping (mark as reviewed and not needing review)."""
+    try:
+        # Verify API key for admin actions
+        if not x_api_key or x_api_key != settings.api_key:
+            raise HTTPException(status_code=403, detail="Invalid or missing API key")
+        
+        link = db.query(EventSignpostLink).filter(EventSignpostLink.id == mapping_id).first()
+        if not link:
+            raise HTTPException(status_code=404, detail="Mapping not found")
+        
+        link.needs_review = False
+        link.reviewed_at = datetime.utcnow()
+        link.review_status = "approved"
+        
+        db.commit()
+        
+        return {
+            "message": "Mapping approved",
+            "mapping_id": mapping_id,
+            "reviewed_at": link.reviewed_at.isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error approving mapping: {str(e)}")
+
+
+@app.post("/v1/review-queue/mappings/{mapping_id}/reject", tags=["review"])
+def reject_mapping(
+    mapping_id: int,
+    reason: Optional[str] = None,
+    db: Session = Depends(get_db),
+    x_api_key: str = Header(None)
+):
+    """Reject a mapping (mark as reviewed and rejected)."""
+    try:
+        # Verify API key for admin actions
+        if not x_api_key or x_api_key != settings.api_key:
+            raise HTTPException(status_code=403, detail="Invalid or missing API key")
+        
+        link = db.query(EventSignpostLink).filter(EventSignpostLink.id == mapping_id).first()
+        if not link:
+            raise HTTPException(status_code=404, detail="Mapping not found")
+        
+        link.needs_review = False
+        link.reviewed_at = datetime.utcnow()
+        link.review_status = "rejected"
+        link.rejection_reason = reason
+        
+        db.commit()
+        
+        return {
+            "message": "Mapping rejected",
+            "mapping_id": mapping_id,
+            "reason": reason,
+            "reviewed_at": link.reviewed_at.isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error rejecting mapping: {str(e)}")
+
+
+@app.get("/v1/review-queue/stats", tags=["review"])
+def get_review_stats(db: Session = Depends(get_db)):
+    """Get review queue statistics."""
+    try:
+        total_mappings = db.query(EventSignpostLink).count()
+        needs_review = db.query(EventSignpostLink).filter(EventSignpostLink.needs_review == True).count()
+        approved = db.query(EventSignpostLink).filter(EventSignpostLink.review_status == "approved").count()
+        rejected = db.query(EventSignpostLink).filter(EventSignpostLink.review_status == "rejected").count()
+        
+        # Confidence distribution
+        low_conf = db.query(EventSignpostLink).filter(EventSignpostLink.confidence < 0.5).count()
+        med_conf = db.query(EventSignpostLink).filter(
+            and_(EventSignpostLink.confidence >= 0.5, EventSignpostLink.confidence < 0.7)
+        ).count()
+        high_conf = db.query(EventSignpostLink).filter(EventSignpostLink.confidence >= 0.7).count()
+        
+        return {
+            "total_mappings": total_mappings,
+            "needs_review": needs_review,
+            "approved": approved,
+            "rejected": rejected,
+            "pending_review": total_mappings - approved - rejected,
+            "confidence_distribution": {
+                "low": low_conf,  # < 0.5
+                "medium": med_conf,  # 0.5-0.7
+                "high": high_conf  # >= 0.7
+            },
+            "review_rate": round((approved + rejected) / total_mappings * 100, 2) if total_mappings > 0 else 0.0
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching review stats: {str(e)}")
+
