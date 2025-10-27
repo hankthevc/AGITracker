@@ -25,6 +25,6 @@ COPY services/etl /app
 # Expose port (Railway will inject $PORT)
 EXPOSE 8000
 
-# Start uvicorn server
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# Start uvicorn server (use python -m to ensure it's found)
+CMD ["sh", "-c", "python -m uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
 
