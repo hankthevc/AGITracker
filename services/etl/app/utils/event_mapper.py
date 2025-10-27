@@ -232,8 +232,15 @@ def map_all_unmapped_events() -> Dict:
                 db.commit()
                 print(f"  ✓ Mapped: {event.title[:50]}... → {links_created} signposts (conf: {max_conf:.2f})")
         
+        # After mapping, check for B-tier corroboration
+        print(f"\n🔗 Checking B-tier corroboration...")
+        from app.utils.b_tier_corroboration import check_b_tier_corroboration
+        corroboration_stats = check_b_tier_corroboration(db)
+        stats["corroborated"] = corroboration_stats.get("corroborated", 0)
+        
         print(f"\n✅ Mapping complete!")
         print(f"   Processed: {stats['processed']}, Linked: {stats['linked']}, Needs review: {stats['needs_review']}, Unmapped: {stats['unmapped']}")
+        print(f"   Corroborated: {stats['corroborated']}")
         return stats
     
     finally:
