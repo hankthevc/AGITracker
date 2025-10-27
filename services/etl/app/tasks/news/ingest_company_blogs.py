@@ -20,6 +20,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 from app.database import SessionLocal
 from app.models import Event, IngestRun
 from app.config import settings
+from app.utils.fetcher import compute_dedup_hash
 
 
 ALLOWED_PUBLISHERS = {
@@ -188,6 +189,14 @@ def normalize_event_data(raw_data: Dict) -> Dict:
             source_domain = source_url.split('://', 1)[1].split('/')[0]
         except Exception:
             source_domain = None
+    
+    # Compute dedup_hash for robust deduplication (Phase A)
+    dedup_hash = compute_dedup_hash(
+        title=raw_data["title"],
+        source_domain=source_domain,
+        published_date=published_at
+    )
+    
     return {
         "title": raw_data["title"],
         "summary": raw_data.get("summary", ""),
@@ -197,33 +206,47 @@ def normalize_event_data(raw_data: Dict) -> Dict:
         "publisher": raw_data.get("publisher", "Unknown"),
         "published_at": published_at,
         "evidence_tier": "B",  # Company blogs are B-tier (official lab sources)
+        "outlet_cred": "B",  # Phase A: Add outlet_cred field
         "provisional": True,  # B-tier is provisional per policy
+        "dedup_hash": dedup_hash,  # Phase A: robust deduplication
         "parsed": {},  # Will be populated by mapper
         "needs_review": False  # Will be set by mapper based on confidence
     }
 
 
-def create_or_update_event(db, event_data: Dict) -> Event:
+def create_or_update_event(db, event_data: Dict) -> tuple[Event, bool]:
     """
-    Idempotently create or update an event using URL for deduplication.
+    Idempotently create or update an event using dedup_hash or URL for deduplication.
+    
+    Phase A: Prioritize dedup_hash for robust deduplication.
+    
+    Returns:
+        Tuple of (event, is_new) where is_new is True if event was just created
     """
+    dedup_hash = event_data.get("dedup_hash")
     source_url = event_data["source_url"]
     
-    # Check if event exists
-    existing = db.query(Event).filter(Event.source_url == source_url).first()
+    # Check for duplicates by dedup_hash (Phase A: most robust)
+    existing = None
+    if dedup_hash:
+        existing = db.query(Event).filter(Event.dedup_hash == dedup_hash).first()
+    
+    # Fallback to URL
+    if not existing:
+        existing = db.query(Event).filter(Event.source_url == source_url).first()
     
     if existing:
         # Update existing event
         for key, value in event_data.items():
             if value is not None:  # Only update non-null values
                 setattr(existing, key, value)
-        return existing
+        return existing, False
     else:
         # Create new event
         new_event = Event(**event_data)
         db.add(new_event)
         db.flush()
-        return new_event
+        return new_event, True
 
 
 @shared_task(name="ingest_company_blogs")
@@ -277,14 +300,14 @@ def ingest_company_blogs_task():
                 event_data = normalize_event_data(item)
                 
                 # Create or update event
-                event = create_or_update_event(db, event_data)
+                event, is_new = create_or_update_event(db, event_data)
                 
-                if event.id and event.ingested_at.date() == datetime.now(timezone.utc).date():
+                if is_new:
                     stats["inserted"] += 1
                     print(f"  ✓ Inserted: {event.title[:60]}...")
                 else:
-                    stats["updated"] += 1
-                    print(f"  ↻ Updated: {event.title[:60]}...")
+                    stats["skipped"] += 1
+                    print(f"  ⊘ Skipped (duplicate): {event.title[:60]}...")
                 
             except Exception as e:
                 stats["errors"] += 1
