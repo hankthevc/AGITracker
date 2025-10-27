@@ -180,3 +180,58 @@ def compute_content_hash(url: str, title: str) -> str:
     
     return hash_obj.hexdigest()
 
+
+def compute_dedup_hash(title: str, source_domain: Optional[str], published_date: Optional[str]) -> str:
+    """
+    Compute dedup_hash for robust event deduplication (Phase A).
+    
+    Hash based on: normalized_title + source_domain + published_date
+    This catches duplicates even if URLs differ (e.g., different tracking params).
+    
+    Args:
+        title: Event title
+        source_domain: Source domain (e.g., "arxiv.org", "openai.com")
+        published_date: Published date (ISO format string or date object)
+        
+    Returns:
+        Hexadecimal hash string (64 characters), or empty string if insufficient data
+        
+    Example:
+        >>> compute_dedup_hash("GPT-4 Released", "openai.com", "2023-03-14")
+        'e4f5a6b7...'
+    """
+    # Require at least title and domain to compute hash
+    if not title or not source_domain:
+        return ""
+    
+    # Normalize title
+    normalized_title = normalize_title(title)
+    
+    # Normalize domain (lowercase, remove www)
+    normalized_domain = source_domain.lower()
+    if normalized_domain.startswith("www."):
+        normalized_domain = normalized_domain[4:]
+    
+    # Normalize date to YYYY-MM-DD format if present
+    normalized_date = ""
+    if published_date:
+        # Handle datetime objects
+        if hasattr(published_date, 'date'):
+            normalized_date = published_date.date().isoformat()
+        elif hasattr(published_date, 'isoformat'):
+            normalized_date = published_date.isoformat()[:10]  # Take YYYY-MM-DD part
+        elif isinstance(published_date, str):
+            # Try to extract date from ISO string
+            try:
+                normalized_date = published_date[:10]  # Assume YYYY-MM-DD at start
+            except Exception:
+                normalized_date = ""
+    
+    # Combine for hashing
+    content = f"{normalized_title}|{normalized_domain}|{normalized_date}"
+    
+    # Compute SHA-256 hash
+    hash_obj = hashlib.sha256(content.encode("utf-8"))
+    
+    return hash_obj.hexdigest()
+

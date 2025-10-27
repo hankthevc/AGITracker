@@ -17,7 +17,7 @@ import feedparser
 from app.database import SessionLocal
 from app.models import Event, IngestRun
 from app.config import settings
-from app.utils.fetcher import compute_content_hash, canonicalize_url, normalize_title
+from app.utils.fetcher import compute_content_hash, compute_dedup_hash, canonicalize_url, normalize_title
 import os
 
 
@@ -85,8 +85,15 @@ def normalize_event_data(raw_data: Dict) -> Dict:
     source_url = raw_data.get("link", raw_data.get("url"))
     source_domain = "arxiv.org"
     
-    # Compute content hash for deduplication
+    # Compute content hash for deduplication (legacy, still used for some checks)
     content_hash = compute_content_hash(source_url, raw_data["title"])
+    
+    # Compute dedup_hash for robust deduplication (Phase A)
+    dedup_hash = compute_dedup_hash(
+        title=raw_data["title"],
+        source_domain=source_domain,
+        published_date=published_at
+    )
     
     return {
         "title": raw_data["title"],
@@ -97,8 +104,10 @@ def normalize_event_data(raw_data: Dict) -> Dict:
         "publisher": publisher,
         "published_at": published_at,
         "evidence_tier": "A",  # arXiv papers are A-tier (peer-reviewed/archived)
+        "outlet_cred": "A",  # Phase A: Add outlet_cred field
         "provisional": False,  # A-tier is NOT provisional - moves gauges directly
         "content_hash": content_hash,  # Phase 0: deduplication
+        "dedup_hash": dedup_hash,  # Phase A: robust deduplication
         "parsed": {
             "authors": raw_data.get("authors", []),
             "categories": raw_data.get("categories", [])
@@ -109,7 +118,9 @@ def normalize_event_data(raw_data: Dict) -> Dict:
 
 def create_or_update_event(db, event_data: Dict) -> tuple[Event, bool]:
     """
-    Idempotently create or update an event using URL or content_hash.
+    Idempotently create or update an event using dedup_hash, content_hash, or URL.
+    
+    Phase A: Prioritize dedup_hash for robust deduplication.
     
     Args:
         db: Database session
@@ -118,14 +129,20 @@ def create_or_update_event(db, event_data: Dict) -> tuple[Event, bool]:
     Returns:
         Tuple of (event, is_new) where is_new is True if event was just created
     """
+    dedup_hash = event_data.get("dedup_hash")
     content_hash = event_data.get("content_hash")
     source_url = event_data["source_url"]
     
-    # Check for duplicates by content_hash or URL
+    # Check for duplicates by dedup_hash (Phase A: most robust)
     existing = None
-    if content_hash:
+    if dedup_hash:
+        existing = db.query(Event).filter(Event.dedup_hash == dedup_hash).first()
+    
+    # Fallback to content_hash
+    if not existing and content_hash:
         existing = db.query(Event).filter(Event.content_hash == content_hash).first()
     
+    # Fallback to URL
     if not existing:
         existing = db.query(Event).filter(Event.source_url == source_url).first()
     

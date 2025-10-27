@@ -191,15 +191,25 @@ def map_all_unmapped_events() -> Dict:
                 if not signpost:
                     continue
                 
+                # Determine provisional status based on tier
+                # A tier: provisional=False (direct evidence, CAN move gauges)
+                # B tier: provisional=True (needs A-tier corroboration within 14 days)
+                # C/D tier: provisional=True (ALWAYS provisional, NEVER moves gauges)
+                provisional = tier in ("B", "C", "D")
+                
                 # Policy: C/D tier adds rationale note
                 rationale = f"Auto-mapped via alias registry (conf={conf:.2f})"
                 if tier in ("C", "D"):
                     rationale += " [C/D tier: displayed but NEVER moves gauges]"
+                elif tier == "B":
+                    rationale += " [B-tier: provisional until A-tier corroboration]"
                 
                 link = EventSignpostLink(
                     event_id=event.id,
                     signpost_id=signpost.id,
                     confidence=conf,
+                    tier=tier,  # Phase A: Add tier field
+                    provisional=provisional,  # Phase A: Add provisional field
                     rationale=rationale,
                     observed_at=event.published_at or event.ingested_at,
                     value=None,
@@ -222,8 +232,15 @@ def map_all_unmapped_events() -> Dict:
                 db.commit()
                 print(f"  ✓ Mapped: {event.title[:50]}... → {links_created} signposts (conf: {max_conf:.2f})")
         
+        # After mapping, check for B-tier corroboration
+        print(f"\n🔗 Checking B-tier corroboration...")
+        from app.utils.b_tier_corroboration import check_b_tier_corroboration
+        corroboration_stats = check_b_tier_corroboration(db)
+        stats["corroborated"] = corroboration_stats.get("corroborated", 0)
+        
         print(f"\n✅ Mapping complete!")
         print(f"   Processed: {stats['processed']}, Linked: {stats['linked']}, Needs review: {stats['needs_review']}, Unmapped: {stats['unmapped']}")
+        print(f"   Corroborated: {stats['corroborated']}")
         return stats
     
     finally:
