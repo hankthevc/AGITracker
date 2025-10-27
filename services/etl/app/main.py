@@ -122,6 +122,18 @@ def generate_etag(content: str, preset: str = "equal") -> str:
     return hashlib.md5(hash_input.encode()).hexdigest()
 
 
+@app.get("/debug/cors")
+def debug_cors():
+    """Debug endpoint to see CORS configuration."""
+    import os
+    return {
+        "cors_origins_from_settings": settings.cors_origins,
+        "cors_origins_parsed": [origin.strip() for origin in settings.cors_origins.split(",")],
+        "cors_origins_env_var": os.getenv("CORS_ORIGINS", "NOT_SET"),
+        "all_env_vars_starting_with_cors": {k: v for k, v in os.environ.items() if "CORS" in k.upper()},
+    }
+
+
 @app.get("/health")
 async def health():
     """Health check endpoint."""
