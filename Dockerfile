@@ -1,0 +1,30 @@
+# Dockerfile for AGI Tracker Backend API
+# Build from repository root
+
+FROM python:3.11-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    postgresql-client \
+    libpq-dev \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /app
+
+# Copy requirements file first (for layer caching)
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy entire services/etl directory
+COPY services/etl /app
+
+# Expose port (Railway will inject $PORT)
+EXPOSE 8000
+
+# Start uvicorn server
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+
