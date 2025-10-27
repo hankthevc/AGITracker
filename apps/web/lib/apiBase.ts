@@ -2,15 +2,15 @@
  * Centralized API base URL resolver with intelligent fallbacks.
  * 
  * Resolution order:
- * 1. NEXT_PUBLIC_API_URL environment variable
+ * 1. NEXT_PUBLIC_API_BASE_URL environment variable
  * 2. (Browser only) Auto-detect from window.location, port 8000 if on :3000
  * 3. Fallback to http://localhost:8000
  */
 
 export function getApiBaseUrl(): string {
   // 1. Check environment variable
-  if (process.env.NEXT_PUBLIC_API_URL) {
-    return process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, '') // Remove trailing slash
+  if (process.env.NEXT_PUBLIC_API_BASE_URL) {
+    return process.env.NEXT_PUBLIC_API_BASE_URL.replace(/\/$/, '') // Remove trailing slash
   }
   
   // 2. Browser auto-detection (only works client-side)

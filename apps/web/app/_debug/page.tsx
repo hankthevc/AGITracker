@@ -95,7 +95,7 @@ export default function DebugPage() {
             Resolution order:
           </p>
           <ol className="text-sm text-muted-foreground list-decimal list-inside mt-1">
-            <li>NEXT_PUBLIC_API_URL environment variable</li>
+            <li>NEXT_PUBLIC_API_BASE_URL environment variable</li>
             <li>(Browser) Auto-detect from window.location (port 8000 if on :3000)</li>
             <li>Fallback: http://localhost:8000</li>
           </ol>
