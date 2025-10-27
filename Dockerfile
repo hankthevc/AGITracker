@@ -13,11 +13,11 @@ RUN apt-get update && apt-get install -y \
 # Set working directory
 WORKDIR /app
 
-# Copy requirements file first (for layer caching)
-COPY requirements.txt .
+# Copy backend service files (pyproject.toml has dependencies)
+COPY services/etl/pyproject.toml services/etl/setup.py ./
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Install Python dependencies from pyproject.toml
+RUN pip install --no-cache-dir -e .
 
 # Copy entire services/etl directory
 COPY services/etl /app
