@@ -19,6 +19,9 @@ COPY services/etl/pyproject.toml services/etl/setup.py ./
 # Install Python dependencies from pyproject.toml
 RUN pip install --no-cache-dir -e .
 
+# Copy shared packages (scoring logic used by backend)
+COPY packages /app/packages
+
 # Copy entire services/etl directory
 COPY services/etl /app
 
