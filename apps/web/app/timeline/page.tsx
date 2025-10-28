@@ -33,7 +33,9 @@ async function fetchEvents(): Promise<EventData[]> {
       `${process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000"}/v1/events?include_analysis=true&limit=200`
     );
     if (!response.ok) throw new Error("Failed to fetch");
-    return await response.json();
+    const data = await response.json();
+    // API returns {total, results, items} - use items or results array
+    return data.items || data.results || data || [];
   } catch (error) {
     console.error("Error:", error);
     return [];

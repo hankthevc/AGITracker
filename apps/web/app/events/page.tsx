@@ -21,7 +21,9 @@ async function fetchEvents(): Promise<EventData[]> {
     if (!response.ok) {
       throw new Error("Failed to fetch events");
     }
-    return await response.json();
+    const data = await response.json();
+    // API returns {total, results, items} - use items or results array
+    return data.items || data.results || data || [];
   } catch (error) {
     console.error("Error fetching events:", error);
     return [];
