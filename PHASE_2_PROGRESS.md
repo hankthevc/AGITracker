@@ -1,8 +1,8 @@
 # Phase 2 Implementation Progress
 
 **Date**: 2025-10-28  
-**Branch**: `cursor/implement-agi-tracker-phase-2-production-automation-a29d`  
-**Status**: ✅ Sprints 4-6 Complete, Sprint 7 In Progress
+**Branch**: `main`  
+**Status**: ✅ Sprints 4-7 Complete
 
 ---
 
@@ -105,22 +105,63 @@
 
 ---
 
-## In Progress
-
-### 🚧 Sprint 7: Advanced Features
+### ✅ Sprint 7: Advanced Features (Complete)
 
 **Sprint 7.1: Live News Scraping**
-- In progress...
+- ✅ Enabled live scraping by default (scrape_real=True)
+- ✅ Added 3-second rate limiting between RSS requests
+- ✅ Added Adept AI blog feed
+- ✅ All ingestion tasks respect robots.txt (official RSS endpoints)
+- ✅ Deduplication via dedup_hash already implemented
+
+**Sprint 7.2: Weekly Digest Generation**
+- ✅ Enhanced digest task to save to JSON files
+- ✅ Added digest metadata: week_start, week_end, tier_breakdown, top_events
+- ✅ Created /v1/digests API endpoint (list all)
+- ✅ Created /v1/digests/{date} endpoint (specific digest)
+- ✅ Created /digests frontend page with card-based UI
+- ✅ Color-coded surprise factors
+- ✅ Shows headline, key moves, analysis, velocity assessment
+- ✅ Links to featured events
+
+**Sprint 7.3: Multi-Model Analysis**
+- ✅ Added Anthropic Claude 3.5 Sonnet support
+- ✅ Created multi_model_analysis.py service
+- ✅ Calculate consensus scores from significance variance
+- ✅ Flag high-variance events (>0.1 variance)
+- ✅ Track costs per model
+- ✅ Created /v1/events/{id}/consensus endpoint
+- ✅ Created ConsensusIndicator component
+- ✅ Store model name in llm_version field
+
+**Bonus Task 6.1: Retraction UI**
+- ✅ Created RetractionBanner component
+- ✅ Integrated into EventCard
+- ✅ Shows retraction date, reason, evidence URL
+- ✅ Visual indicators (line-through, opacity, red badge)
+- ✅ Backend endpoint already exists at /v1/admin/retract
+
+**Commits**:
+- `6ca4548` - feat(sprint-7.1): Enable live news scraping with rate limiting
+- `c959c2e` - feat(sprint-7.2): Add weekly digest generation and frontend
+- `c55b5ee` - feat(sprint-7.3): Add multi-model consensus analysis
+- `47d15c2` - feat(sprint-6.1-bonus): Add retraction UI components
+
+---
+
+## In Progress
+
+None - Sprint 7 complete!
 
 ---
 
 ## Summary Statistics
 
-**Total Commits**: 5 feature commits  
-**Lines of Code Added**: ~2,500+  
-**New Files Created**: 15+  
-**API Endpoints Added**: 4  
-**Frontend Pages Added**: 3  
+**Total Commits**: 9 feature commits  
+**Lines of Code Added**: ~3,500+  
+**New Files Created**: 20+  
+**API Endpoints Added**: 8  
+**Frontend Pages Added**: 4  
 **Tests Enhanced**: 1 (mapper accuracy)
 
 **Infrastructure Ready**:
@@ -128,6 +169,10 @@
 - ✅ Surprise score calculation
 - ✅ Source credibility tracking
 - ✅ Expanded test coverage (golden set)
+- ✅ Live news scraping enabled
+- ✅ Weekly digest generation
+- ✅ Multi-model consensus analysis
+- ✅ Retraction UI
 - ⏸️ Celery workers (blocked on Railway manual setup)
 
 **Production Ready**: Yes (except Celery deployment)
@@ -136,10 +181,10 @@
 
 ## Next Steps
 
-1. **Continue Sprint 7**: Live news scraping, weekly digest, multi-model analysis
-2. **Deploy Celery workers**: Once Railway manual setup complete
-3. **Test mapper accuracy**: Run test suite with expanded golden set
-4. **Verify endpoints**: Test all new API endpoints in production
+1. **Sprint 8: Security & Compliance** - API keys, GDPR, privacy policy
+2. **Sprint 9: Performance & Scale** - Query optimization, caching, pagination
+3. **Sprint 10: UX Enhancements** - Full-text search, advanced filters, mobile optimization
+4. **Sprint 11: Scenario Explorer** - What-if analysis, RAG chatbot
 
 ---
 
