@@ -8,40 +8,38 @@ Uses OpenAI to:
 
 Enabled when OPENAI_API_KEY is set and LLM budget available.
 """
-import os
-from typing import Dict, List, Optional, Tuple
 from openai import OpenAI
 
 from app.config import settings
-from app.tasks.llm_budget import can_spend, add_spend
+from app.tasks.llm_budget import add_spend, can_spend
 
 
 def parse_event_with_llm(
     title: str,
     summary: str,
-    signpost_codes: List[str],
+    signpost_codes: list[str],
     tier: str
-) -> List[Tuple[str, float, str]]:
+) -> list[tuple[str, float, str]]:
     """
     Use OpenAI to parse event and map to signposts.
-    
+
     Args:
         title: Event title
         summary: Event summary
         signpost_codes: Available signpost codes to choose from
         tier: Evidence tier (A/B/C/D)
-    
+
     Returns:
         List of (signpost_code, confidence, rationale) tuples
     """
     if not settings.openai_api_key:
         return []
-    
+
     # Estimate cost: ~500 tokens @ $0.15/1M = $0.000075
     estimated_cost = 0.0001
     if not can_spend(estimated_cost):
         return []
-    
+
     try:
         # Initialize OpenAI client without deprecated proxies parameter
         import httpx
@@ -49,7 +47,7 @@ def parse_event_with_llm(
             api_key=settings.openai_api_key,
             http_client=httpx.Client(timeout=30.0)
         )
-        
+
         prompt = f"""You are an AI progress analyst. Given this news event, identify which AGI signposts it relates to.
 
 Event title: {title}
@@ -84,7 +82,7 @@ Respond in JSON format:
 If the event doesn't clearly relate to any signpost, return empty signposts array.
 Confidence scoring: 0.9+ = explicit mention, 0.7-0.9 = strong implication, 0.5-0.7 = weak connection.
 """
-        
+
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": prompt}],
@@ -92,14 +90,14 @@ Confidence scoring: 0.9+ = explicit mention, 0.7-0.9 = strong implication, 0.5-0
             max_tokens=300,
             response_format={"type": "json_object"}
         )
-        
+
         # Track spend
         add_spend(estimated_cost)
-        
+
         # Parse response
         import json
         result = json.loads(response.choices[0].message.content)
-        
+
         matches = []
         for sp in result.get("signposts", [])[:2]:  # Cap at 2
             code = sp.get("code")
@@ -107,9 +105,9 @@ Confidence scoring: 0.9+ = explicit mention, 0.7-0.9 = strong implication, 0.5-0
                 conf = float(sp.get("confidence", 0.5))
                 rationale = sp.get("rationale", "LLM-identified relevance")
                 matches.append((code, conf, f"LLM: {rationale}"))
-        
+
         return matches
-    
+
     except Exception as e:
         print(f"⚠️  LLM parsing failed: {e}")
         return []

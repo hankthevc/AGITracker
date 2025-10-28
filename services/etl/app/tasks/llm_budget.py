@@ -1,6 +1,7 @@
 """LLM budget tracking and management."""
-import redis
 from datetime import datetime
+
+import redis
 
 from app.config import settings
 
@@ -15,13 +16,13 @@ def get_daily_spend() -> float:
     # Check if date has changed (reset at midnight UTC)
     today = datetime.utcnow().date().isoformat()
     stored_date = redis_client.get(BUDGET_DATE_KEY)
-    
+
     if stored_date is None or stored_date.decode() != today:
         # New day - reset
         redis_client.set(BUDGET_KEY, "0.0")
         redis_client.set(BUDGET_DATE_KEY, today)
         return 0.0
-    
+
     spend = redis_client.get(BUDGET_KEY)
     return float(spend) if spend else 0.0
 

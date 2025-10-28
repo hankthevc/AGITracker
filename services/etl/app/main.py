@@ -5,13 +5,11 @@ import os
 import sys
 import uuid
 from contextvars import ContextVar
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
-from typing import Optional
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from fastapi_cache import FastAPICache
 from fastapi_cache.backends.redis import RedisBackend
 from fastapi_cache.decorator import cache
@@ -28,7 +26,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "packages" /
 from app.config import settings
 from app.database import get_db
 from app.models import (
-    Benchmark,
     ChangelogEntry,
     Claim,
     ClaimSignpost,
@@ -86,14 +83,14 @@ app.add_middleware(
 async def add_request_id(request: Request, call_next):
     """Add X-Request-ID header to requests and responses for tracing."""
     import structlog
-    
+
     request_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
     request_id_context.set(request_id)
-    
+
     # Bind request_id to structlog context for all logs in this request
     structlog.contextvars.clear_contextvars()
     structlog.contextvars.bind_contextvars(request_id=request_id)
-    
+
     response = await call_next(request)
     response.headers["X-Request-ID"] = request_id
     return response
@@ -115,7 +112,7 @@ async def startup():
 def generate_etag(content: str, preset: str = "equal") -> str:
     """
     Generate ETag from response content + preset.
-    
+
     Ensures cache key varies by preset parameter (Task 0e requirement).
     """
     hash_input = f"{content}:{preset}"
@@ -147,19 +144,19 @@ async def health_full():
     Returns API configuration, task status, and system health.
     """
     from app.utils.task_tracking import get_all_task_statuses
-    
+
     task_statuses = get_all_task_statuses()
-    
+
     # Overall system health based on task statuses
     has_errors = any(t["status"] == "ERROR" for t in task_statuses.values())
     has_degraded = any(t["status"] == "DEGRADED" for t in task_statuses.values())
-    
+
     system_status = "ok"
     if has_errors:
         system_status = "degraded"
     elif has_degraded:
         system_status = "warning"
-    
+
     return {
         "status": system_status,
         "preset_default": "equal",
@@ -175,13 +172,13 @@ async def health_full():
 async def get_index(
     request: Request,
     response: Response,
-    date_param: Optional[str] = Query(None, alias="date"),
+    date_param: str | None = Query(None, alias="date"),
     preset: str = Query("equal", regex="^(equal|aschenbrenner|ai2027|custom)$"),
     db: Session = Depends(get_db),
 ):
     """
     Get AGI proximity index (overall + category scores).
-    
+
     Query params:
     - date: Optional date (YYYY-MM-DD) for historical snapshot. Defaults to latest.
     - preset: Scoring preset (equal, aschenbrenner, ai2027). Default: equal.
@@ -194,7 +191,7 @@ async def get_index(
             raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
     else:
         target_date = date.today()
-    
+
     # Get snapshot for date and preset
     snapshot = (
         db.query(IndexSnapshot)
@@ -207,7 +204,7 @@ async def get_index(
         .order_by(desc(IndexSnapshot.as_of_date))
         .first()
     )
-    
+
     if not snapshot:
         # No snapshot exists - return zeros with insufficient flags
         return {
@@ -236,17 +233,17 @@ async def get_index(
                 }
             },
         }
-    
+
     # Extract category values
     capabilities_val = float(snapshot.capabilities) if snapshot.capabilities else 0.0
     agents_val = float(snapshot.agents) if snapshot.agents else 0.0
     inputs_val = float(snapshot.inputs) if snapshot.inputs else 0.0
     security_val = float(snapshot.security) if snapshot.security else 0.0
-    
+
     # Detect insufficient data: overall is insufficient if inputs OR security is zero
     # (harmonic mean with zero produces zero, which is uninformative)
     insufficient_overall = (inputs_val == 0.0 or security_val == 0.0)
-    
+
     result = {
         "as_of_date": str(snapshot.as_of_date),
         "overall": float(snapshot.overall) if snapshot.overall else 0.0,
@@ -269,20 +266,20 @@ async def get_index(
             }
         },
     }
-    
+
     # Generate ETag (varies by preset per Task 0e)
     content_json = json.dumps(result, sort_keys=True)
     etag = generate_etag(content_json, preset)
-    
+
     # Check If-None-Match header
     if_none_match = request.headers.get("if-none-match")
     if if_none_match and if_none_match == etag:
         return Response(status_code=304)  # Not Modified
-    
+
     # Set ETag header
     response.headers["ETag"] = etag
     response.headers["Cache-Control"] = f"public, max-age={settings.index_cache_ttl_seconds}"
-    
+
     return result
 
 
@@ -291,34 +288,34 @@ async def get_index(
 @cache(expire=settings.signposts_cache_ttl_seconds)
 async def list_signposts(
     request: Request,
-    category: Optional[str] = Query(None, regex="^(capabilities|agents|inputs|security)$"),
-    first_class: Optional[bool] = None,
-    roadmap: Optional[str] = None,
+    category: str | None = Query(None, regex="^(capabilities|agents|inputs|security)$"),
+    first_class: bool | None = None,
+    roadmap: str | None = None,
     db: Session = Depends(get_db),
 ):
     """
     List signposts with optional filtering.
-    
+
     Query params:
     - category: Filter by category (capabilities, agents, inputs, security)
     - first_class: Filter by first-class status
     - roadmap: Filter by roadmap slug
     """
     query = db.query(Signpost)
-    
+
     if category:
         query = query.filter(Signpost.category == category)
-    
+
     if first_class is not None:
         query = query.filter(Signpost.first_class == first_class)
-    
+
     if roadmap:
         roadmap_obj = db.query(Roadmap).filter(Roadmap.slug == roadmap).first()
         if roadmap_obj:
             query = query.filter(Signpost.roadmap_id == roadmap_obj.id)
-    
+
     signposts = query.all()
-    
+
     return [
         {
             "id": s.id,
@@ -341,19 +338,19 @@ async def list_signposts(
 async def get_signpost(signpost_id: int, db: Session = Depends(get_db)):
     """Get detailed signpost information with evidence counts."""
     signpost = db.query(Signpost).filter(Signpost.id == signpost_id).first()
-    
+
     if not signpost:
         raise HTTPException(status_code=404, detail="Signpost not found")
-    
+
     # Count evidence by tier
     evidence_counts = {"A": 0, "B": 0, "C": 0, "D": 0}
-    
+
     claim_signposts = (
         db.query(ClaimSignpost)
         .filter(ClaimSignpost.signpost_id == signpost_id)
         .all()
     )
-    
+
     for cs in claim_signposts:
         claim = db.query(Claim).filter(Claim.id == cs.claim_id).first()
         if claim and not claim.retracted:
@@ -361,7 +358,7 @@ async def get_signpost(signpost_id: int, db: Session = Depends(get_db)):
             if source:
                 tier = source.credibility
                 evidence_counts[tier] = evidence_counts.get(tier, 0) + 1
-    
+
     return {
         "id": signpost.id,
         "code": signpost.code,
@@ -385,10 +382,10 @@ async def get_signpost(signpost_id: int, db: Session = Depends(get_db)):
 async def get_signpost_by_code(code: str, db: Session = Depends(get_db)):
     """Get signpost by code."""
     signpost = db.query(Signpost).filter(Signpost.code == code).first()
-    
+
     if not signpost:
         raise HTTPException(status_code=404, detail="Signpost not found")
-    
+
     return {
         "id": signpost.id,
         "code": signpost.code,
@@ -458,15 +455,15 @@ async def get_signpost_events_by_code(
 async def get_signpost_content(code: str, db: Session = Depends(get_db)):
     """Get rich educational content for a signpost."""
     signpost = db.query(Signpost).filter(Signpost.code == code).first()
-    
+
     if not signpost:
         raise HTTPException(status_code=404, detail="Signpost not found")
-    
+
     content = db.query(SignpostContent).filter(SignpostContent.signpost_id == signpost.id).first()
-    
+
     if not content:
         raise HTTPException(status_code=404, detail="Content not found for this signpost")
-    
+
     return {
         "signpost_code": signpost.code,
         "why_matters": content.why_matters,
@@ -482,16 +479,16 @@ async def get_signpost_content(code: str, db: Session = Depends(get_db)):
 async def get_signpost_predictions(code: str, db: Session = Depends(get_db)):
     """Get roadmap predictions for a signpost with status (ahead/on/behind)."""
     from app.metrics.roadmap_status import compute_status
-    
+
     signpost = db.query(Signpost).filter(Signpost.code == code).first()
-    
+
     if not signpost:
         raise HTTPException(status_code=404, detail="Signpost not found")
-    
+
     predictions = db.query(RoadmapPrediction).filter(
         RoadmapPrediction.signpost_id == signpost.id
     ).all()
-    
+
     # Get latest observed date for this signpost (from events or claims)
     latest_event_link = (
         db.query(EventSignpostLink)
@@ -500,18 +497,18 @@ async def get_signpost_predictions(code: str, db: Session = Depends(get_db)):
         .first()
     )
     observed_date = latest_event_link.observed_at.date() if latest_event_link and latest_event_link.observed_at else None
-    
+
     results = []
     for pred in predictions:
         roadmap = db.query(Roadmap).filter(Roadmap.id == pred.roadmap_id).first()
-        
+
         # Compute status if we have both dates
         status = None
         if pred.predicted_date and observed_date:
             status = compute_status(pred.predicted_date, observed_date, window_days=30)
         elif pred.predicted_date:
             status = "unobserved"
-        
+
         results.append({
             "roadmap_name": roadmap.name if roadmap else None,
             "roadmap_slug": roadmap.slug if roadmap else None,
@@ -523,7 +520,7 @@ async def get_signpost_predictions(code: str, db: Session = Depends(get_db)):
             "status": status,
             "observed_date": observed_date.isoformat() if observed_date else None,
         })
-    
+
     return {"predictions": results}
 
 
@@ -537,15 +534,15 @@ async def get_signpost_events(
 ):
     """
     Get recent events mapped to this signpost, grouped by evidence tier.
-    
+
     Returns last N events (default 10) with tier grouping.
     Policy: A/B tier events move gauges; C/D tier are "If true" only.
     """
     signpost = db.query(Signpost).filter(Signpost.code == code).first()
-    
+
     if not signpost:
         raise HTTPException(status_code=404, detail="Signpost not found")
-    
+
     # Get events linked to this signpost, ordered by published_at DESC
     event_links = (
         db.query(EventSignpostLink)
@@ -555,15 +552,15 @@ async def get_signpost_events(
         .limit(limit)
         .all()
     )
-    
+
     # Group by tier
     events_by_tier = {"A": [], "B": [], "C": [], "D": []}
-    
+
     for link in event_links:
         event = db.query(Event).filter(Event.id == link.event_id).first()
         if not event:
             continue
-        
+
         event_data = {
             "id": event.id,
             "title": event.title,
@@ -578,11 +575,11 @@ async def get_signpost_events(
             "rationale": link.rationale,
             "moves_gauge": event.evidence_tier in ("A", "B"),  # Policy: only A/B move gauges
         }
-        
+
         tier = event.evidence_tier
         if tier in events_by_tier:
             events_by_tier[tier].append(event_data)
-    
+
     return {
         "signpost_code": code,
         "signpost_name": signpost.name,
@@ -596,20 +593,20 @@ async def get_signpost_events(
 async def get_pace_analysis(code: str, db: Session = Depends(get_db)):
     """Get pace analysis comparing current progress to roadmap predictions."""
     signpost = db.query(Signpost).filter(Signpost.code == code).first()
-    
+
     if not signpost:
         raise HTTPException(status_code=404, detail="Signpost not found")
-    
+
     # Get current value from latest claim
     latest_claim_signpost = (
         db.query(ClaimSignpost)
         .filter(ClaimSignpost.signpost_id == signpost.id)
         .join(Claim)
-        .filter(Claim.retracted == False)
+        .filter(not Claim.retracted)
         .order_by(desc(Claim.observed_at))
         .first()
     )
-    
+
     current_value = None
     current_date = None
     if latest_claim_signpost:
@@ -617,41 +614,41 @@ async def get_pace_analysis(code: str, db: Session = Depends(get_db)):
         if claim:
             current_value = float(claim.metric_value) if claim.metric_value else None
             current_date = claim.observed_at.date()
-    
+
     # Get predictions
     predictions = db.query(RoadmapPrediction).filter(
         RoadmapPrediction.signpost_id == signpost.id
     ).all()
-    
+
     # Calculate ahead/behind for each roadmap (simplified linear interpolation)
     today = date.today()
     pace_metrics = []
-    
+
     for pred in predictions:
         if current_value and pred.predicted_date and signpost.target_value:
             # Calculate progress (0-1)
             baseline = float(signpost.baseline_value) if signpost.baseline_value else 0.0
             target = float(signpost.target_value)
-            
+
             if signpost.direction == ">=":
                 progress = (current_value - baseline) / (target - baseline) if target != baseline else 0
             else:  # "<="
                 progress = (baseline - current_value) / (baseline - target) if baseline != target else 0
-            
+
             progress = max(0.0, min(1.0, progress))
-            
+
             # Simple linear interpolation for expected progress
             days_until_target = (pred.predicted_date - today).days
             days_since_baseline = (today - date(2023, 1, 1)).days  # Approximate baseline date
-            
+
             if days_since_baseline > 0:
                 expected_progress = days_since_baseline / (days_since_baseline + days_until_target)
                 days_ahead = int((progress - expected_progress) * days_until_target)
             else:
                 days_ahead = 0
-            
+
             roadmap = db.query(Roadmap).filter(Roadmap.id == pred.roadmap_id).first()
-            
+
             pace_metrics.append({
                 "roadmap_name": roadmap.name if roadmap else None,
                 "roadmap_slug": roadmap.slug if roadmap else None,
@@ -661,18 +658,18 @@ async def get_pace_analysis(code: str, db: Session = Depends(get_db)):
                 "current_progress": round(progress * 100, 1),
                 "predicted_date": pred.predicted_date.isoformat(),
             })
-    
+
     # Get human-written analyses
     analyses_records = db.query(PaceAnalysis).filter(
         PaceAnalysis.signpost_id == signpost.id
     ).all()
-    
+
     analyses = {}
     for analysis in analyses_records:
         roadmap = db.query(Roadmap).filter(Roadmap.id == analysis.roadmap_id).first()
         if roadmap:
             analyses[roadmap.slug] = analysis.analysis_text
-    
+
     return {
         "signpost_code": signpost.code,
         "current_value": current_value,
@@ -687,15 +684,15 @@ async def get_pace_analysis(code: str, db: Session = Depends(get_db)):
 @cache(expire=settings.evidence_cache_ttl_seconds)
 async def list_evidence(
     request: Request,
-    signpost_id: Optional[int] = None,
-    tier: Optional[str] = Query(None, regex="^[ABCD]$"),
+    signpost_id: int | None = None,
+    tier: str | None = Query(None, regex="^[ABCD]$"),
     skip: int = 0,
     limit: int = 50,
     db: Session = Depends(get_db),
 ):
     """
     List evidence claims with optional filtering.
-    
+
     Query params:
     - signpost_id: Filter by signpost
     - tier: Filter by credibility tier (A/B/C/D)
@@ -703,9 +700,9 @@ async def list_evidence(
     - limit: Page size (max 100)
     """
     limit = min(limit, 100)
-    
-    query = db.query(Claim).filter(Claim.retracted == False)
-    
+
+    query = db.query(Claim).filter(not Claim.retracted)
+
     if signpost_id:
         claim_ids = (
             db.query(ClaimSignpost.claim_id)
@@ -714,7 +711,7 @@ async def list_evidence(
         )
         claim_ids = [c[0] for c in claim_ids]
         query = query.filter(Claim.id.in_(claim_ids))
-    
+
     if tier:
         source_ids = (
             db.query(Source.id)
@@ -723,10 +720,10 @@ async def list_evidence(
         )
         source_ids = [s[0] for s in source_ids]
         query = query.filter(Claim.source_id.in_(source_ids))
-    
+
     total = query.count()
     claims = query.order_by(desc(Claim.observed_at)).offset(skip).limit(limit).all()
-    
+
     results = []
     for claim in claims:
         source = db.query(Source).filter(Source.id == claim.source_id).first()
@@ -751,7 +748,7 @@ async def list_evidence(
                 "retracted": claim.retracted,
             }
         )
-    
+
     return {"total": total, "skip": skip, "limit": limit, "results": results}
 
 
@@ -766,19 +763,19 @@ async def public_feed(request: Request, db: Session = Depends(get_db)):
     # Only include A/B tier (verified) claims
     # Exclude dev fixtures unless INCLUDE_DEV_FIXTURES env var is set
     include_dev_fixtures = os.getenv("INCLUDE_DEV_FIXTURES", "false").lower() == "true"
-    
+
     query = db.query(Source.id).filter(Source.credibility.in_(["A", "B"]))
     if not include_dev_fixtures:
         query = query.filter(Source.domain != "dev-fixture.local")
-    
+
     source_ids = query.all()
     source_ids = [s[0] for s in source_ids]
-    
+
     claims = (
         db.query(Claim)
         .filter(
             and_(
-                Claim.retracted == False,
+                not Claim.retracted,
                 Claim.source_id.in_(source_ids)
             )
         )
@@ -786,7 +783,7 @@ async def public_feed(request: Request, db: Session = Depends(get_db)):
         .limit(100)
         .all()
     )
-    
+
     feed_items = []
     for claim in claims:
         source = db.query(Source).filter(Source.id == claim.source_id).first()
@@ -802,7 +799,7 @@ async def public_feed(request: Request, db: Session = Depends(get_db)):
                 "tier": source.credibility if source else None,
             }
         )
-    
+
     return {
         "version": "1.0",
         "license": "CC BY 4.0",
@@ -816,7 +813,7 @@ async def public_feed(request: Request, db: Session = Depends(get_db)):
 async def changelog(request: Request, skip: int = 0, limit: int = 50, db: Session = Depends(get_db)):
     """Get recent changelog entries."""
     limit = min(limit, 100)
-    
+
     total = db.query(ChangelogEntry).count()
     entries = (
         db.query(ChangelogEntry)
@@ -825,7 +822,7 @@ async def changelog(request: Request, skip: int = 0, limit: int = 50, db: Sessio
         .limit(limit)
         .all()
     )
-    
+
     return {
         "total": total,
         "skip": skip,
@@ -863,15 +860,15 @@ async def retract_claim(
 ):
     """Retract a claim (admin only). Requires X-API-Key header."""
     claim = db.query(Claim).filter(Claim.id == claim_id).first()
-    
+
     if not claim:
         raise HTTPException(status_code=404, detail="Claim not found")
-    
+
     if claim.retracted:
         raise HTTPException(status_code=400, detail="Claim already retracted")
-    
+
     claim.retracted = True
-    
+
     # Create changelog entry
     changelog_entry = ChangelogEntry(
         type="retract",
@@ -883,7 +880,7 @@ async def retract_claim(
     db.add(changelog_entry)
     db.commit()
     db.refresh(changelog_entry)
-    
+
     return {
         "status": "success",
         "claim_id": claim_id,
@@ -899,17 +896,17 @@ async def recompute_index(
 ):
     """Trigger index recomputation and purge cache (admin only)."""
     from app.tasks.snap_index import compute_daily_snapshot
-    
+
     try:
         result = compute_daily_snapshot()
-        
+
         # Purge cache after recomputation
         try:
             await FastAPICache.clear()
             print("✓ Cache purged after recomputation")
         except Exception as cache_err:
             print(f"⚠️  Cache purge failed: {cache_err}")
-        
+
         return {"status": "success", "result": result, "cache_purged": True}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Recompute failed: {str(e)}")
@@ -922,26 +919,26 @@ async def recompute_index(
 @limiter.limit(f"{settings.rate_limit_per_minute}/minute")
 async def list_events(
     request: Request,
-    tier: Optional[str] = Query(None, regex="^[ABCD]$"),
-    outlet_cred: Optional[str] = Query(None, regex="^[ABCD]$"),
-    source_tier: Optional[str] = Query(None, regex="^[ABCD]$"),
-    source_type: Optional[str] = Query(None, regex="^(news|paper|blog|leaderboard|gov)$"),
-    signpost_id: Optional[int] = None,
-    signpost_code: Optional[str] = None,
-    alias: Optional[str] = None,
-    needs_review: Optional[bool] = None,
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
-    since: Optional[str] = None,
-    until: Optional[str] = None,
-    min_confidence: Optional[float] = None,
+    tier: str | None = Query(None, regex="^[ABCD]$"),
+    outlet_cred: str | None = Query(None, regex="^[ABCD]$"),
+    source_tier: str | None = Query(None, regex="^[ABCD]$"),
+    source_type: str | None = Query(None, regex="^(news|paper|blog|leaderboard|gov)$"),
+    signpost_id: int | None = None,
+    signpost_code: str | None = None,
+    alias: str | None = None,
+    needs_review: bool | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    since: str | None = None,
+    until: str | None = None,
+    min_confidence: float | None = None,
     skip: int = 0,
     limit: int = 50,
     db: Session = Depends(get_db),
 ):
     """
     List news events with optional filtering.
-    
+
     Query params:
     - tier: Filter by evidence tier (A/B/C/D)
     - signpost_id: Filter by linked signpost
@@ -952,7 +949,7 @@ async def list_events(
     limit = min(limit, 100)
 
     query = query_active_events(db.query(Event))
-    
+
     # Filter out synthetic events by default (can be overridden with include_synthetic param)
     # Evidence tier (aliases: outlet_cred, source_tier)
     effective_tier = tier or outlet_cred or source_tier
@@ -1015,7 +1012,7 @@ async def list_events(
             raise HTTPException(status_code=400, detail="Invalid end_date. Use YYYY-MM-DD")
 
     events = query.order_by(desc(Event.published_at)).offset(skip).limit(limit).all()
-    
+
     # Server-side de-dup: prefer source_url if present; otherwise title+date key
     seen_keys = set()
     results = []
@@ -1075,12 +1072,12 @@ async def list_events(
 async def get_event(event_id: int, db: Session = Depends(get_db)):
     """Get detailed event information with signpost links, entities, and forecast comparison."""
     from app.services.forecast_comparison import get_forecast_comparison_for_event_link
-    
+
     event = db.query(Event).filter(Event.id == event_id).first()
-    
+
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
-    
+
     # Get signpost links
     links = (
         db.query(EventSignpostLink)
@@ -1093,7 +1090,7 @@ async def get_event(event_id: int, db: Session = Depends(get_db)):
         if signpost:
             # Get forecast comparison for this link
             forecast_comp = get_forecast_comparison_for_event_link(event.id, signpost.id, db)
-            
+
             signpost_links.append({
                 "signpost_id": signpost.id,
                 "signpost_code": signpost.code,
@@ -1105,7 +1102,7 @@ async def get_event(event_id: int, db: Session = Depends(get_db)):
                 "observed_at": link.observed_at.isoformat() if link.observed_at else None,
                 "forecast_comparison": forecast_comp if forecast_comp else None,
             })
-    
+
     # Get entities
     entities = (
         db.query(EventEntity)
@@ -1113,7 +1110,7 @@ async def get_event(event_id: int, db: Session = Depends(get_db)):
         .all()
     )
     entity_list = [{"type": e.type, "value": e.value} for e in entities]
-    
+
     return {
         "id": event.id,
         "title": event.title,
@@ -1135,14 +1132,14 @@ async def get_event(event_id: int, db: Session = Depends(get_db)):
 async def get_event_analysis(event_id: int, db: Session = Depends(get_db)):
     """
     Get LLM-generated analysis for an event (Phase 1).
-    
+
     Returns latest analysis if available, 404 if not found.
     """
     # Verify event exists
     event = db.query(Event).filter(Event.id == event_id).first()
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
-    
+
     # Get latest analysis for this event
     analysis = (
         db.query(EventAnalysis)
@@ -1150,10 +1147,10 @@ async def get_event_analysis(event_id: int, db: Session = Depends(get_db)):
         .order_by(desc(EventAnalysis.generated_at))
         .first()
     )
-    
+
     if not analysis:
         raise HTTPException(status_code=404, detail="No analysis available for this event")
-    
+
     return {
         "event_id": event.id,
         "summary": analysis.summary,
@@ -1172,15 +1169,15 @@ async def get_event_analysis(event_id: int, db: Session = Depends(get_db)):
 async def events_feed(
     request: Request,
     audience: str = Query("public", regex="^(public|research)$"),
-    include_research: Optional[bool] = Query(None, description="Alias for research audience"),
+    include_research: bool | None = Query(None, description="Alias for research audience"),
     db: Session = Depends(get_db),
 ):
     """
     JSON feed of news events (public or research audience).
-    
+
     Query params:
     - audience: 'public' (A/B tier only) or 'research' (A/B/C/D all tiers)
-    
+
     Public mode: Safe for general consumption, A/B tier only
     Research mode: Includes C/D tier with clear tier labels
     """
@@ -1194,10 +1191,10 @@ async def events_feed(
     else:
         # Research: All tiers (A/B/C/D)
         query = query_active_events(db.query(Event))
-    
+
     # Order by published date
     events = query.order_by(desc(Event.published_at)).limit(100).all()
-    
+
     feed_items = []
     for event in events:
         # Get linked signposts
@@ -1206,7 +1203,7 @@ async def events_feed(
             .filter(EventSignpostLink.event_id == event.id)
             .all()
         )
-        
+
         signposts = []
         for link in links:
             signpost = db.query(Signpost).filter(Signpost.id == link.signpost_id).first()
@@ -1215,7 +1212,7 @@ async def events_feed(
                     "code": signpost.code,
                     "confidence": float(link.confidence) if link.confidence else None,
                 })
-        
+
         feed_items.append({
             "title": event.title,
             "summary": event.summary,
@@ -1226,7 +1223,7 @@ async def events_feed(
             "provisional": event.provisional,
             "signposts": signposts,
         })
-    
+
     return {
         "version": "1.0",
         "license": "CC BY 4.0",
@@ -1247,15 +1244,15 @@ async def events_feed(
 async def roadmaps_compare(request: Request, db: Session = Depends(get_db)):
     """
     Compare all signposts against roadmap predictions.
-    
+
     Returns:
         List of signposts with current values and forecast comparisons
         showing ahead/on_track/behind status for each roadmap.
     """
     from app.services.forecast_comparison import get_all_forecast_comparisons
-    
+
     comparisons = get_all_forecast_comparisons(db)
-    
+
     return {
         "generated_at": datetime.utcnow().isoformat(),
         "signposts": comparisons,
@@ -1270,15 +1267,15 @@ async def roadmaps_compare(request: Request, db: Session = Depends(get_db)):
 async def list_event_links(
     request: Request,
     approved_only: bool = Query(True, description="Filter to approved links only"),
-    signpost_code: Optional[str] = None,
-    min_confidence: Optional[float] = None,
+    signpost_code: str | None = None,
+    min_confidence: float | None = None,
     skip: int = 0,
     limit: int = 50,
     db: Session = Depends(get_db),
 ):
     """
     List event-signpost links with filtering.
-    
+
     Query params:
     - approved_only: Filter to approved links (default: true)
     - signpost_code: Filter by signpost
@@ -1287,21 +1284,21 @@ async def list_event_links(
     """
     limit = min(limit, 100)
     query = db.query(EventSignpostLink)
-    
+
     if approved_only:
         query = query.filter(EventSignpostLink.approved_at.isnot(None))
-    
+
     if signpost_code:
         signpost = db.query(Signpost).filter(Signpost.code == signpost_code).first()
         if signpost:
             query = query.filter(EventSignpostLink.signpost_id == signpost.id)
-    
+
     if min_confidence is not None:
         query = query.filter(EventSignpostLink.confidence >= min_confidence)
-    
+
     total = query.count()
     links = query.order_by(desc(EventSignpostLink.observed_at)).offset(skip).limit(limit).all()
-    
+
     results = []
     for link in links:
         event = db.query(Event).filter(Event.id == link.event_id).first()
@@ -1318,7 +1315,7 @@ async def list_event_links(
                 "approved_at": link.approved_at.isoformat() if link.approved_at else None,
                 "approved_by": link.approved_by,
             })
-    
+
     return {"total": total, "skip": skip, "limit": limit, "results": results}
 
 
@@ -1333,12 +1330,12 @@ async def approve_event_mapping(
     Sets needs_review=False and marks links as approved. Requires X-API-Key header.
     """
     event = db.query(Event).filter(Event.id == event_id).first()
-    
+
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
-    
+
     event.needs_review = False
-    
+
     # Mark all links as approved with timestamp
     links = db.query(EventSignpostLink).filter(EventSignpostLink.event_id == event_id).all()
     approved_count = 0
@@ -1347,9 +1344,9 @@ async def approve_event_mapping(
             link.approved_at = datetime.utcnow()
             link.approved_by = "admin"
             approved_count += 1
-    
+
     db.commit()
-    
+
     return {
         "status": "success",
         "event_id": event_id,
@@ -1371,16 +1368,16 @@ async def reject_event_mapping(
     Removes all signpost links and marks for review. Requires X-API-Key header.
     """
     event = db.query(Event).filter(Event.id == event_id).first()
-    
+
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
-    
+
     # Count links before deletion for audit
     links_count = db.query(EventSignpostLink).filter(EventSignpostLink.event_id == event_id).count()
-    
+
     # Delete all signpost links
     db.query(EventSignpostLink).filter(EventSignpostLink.event_id == event_id).delete()
-    
+
     # Mark as needs review with reason
     event.needs_review = True
     event.parsed = {
@@ -1389,7 +1386,7 @@ async def reject_event_mapping(
         "rejection_reason": reason,
         "links_removed": links_count,
     }
-    
+
     # Create changelog entry
     changelog_entry = ChangelogEntry(
         type="update",
@@ -1398,9 +1395,9 @@ async def reject_event_mapping(
         reason=reason,
     )
     db.add(changelog_entry)
-    
+
     db.commit()
-    
+
     return {
         "status": "success",
         "event_id": event_id,
@@ -1415,20 +1412,20 @@ async def reject_event_mapping(
 async def get_latest_digest(request: Request):
     """
     Get latest weekly digest JSON (CC BY 4.0).
-    
+
     Returns most recent digest from public/digests/*.json or generates on-the-fly.
     """
     from pathlib import Path
-    
+
     digest_dir = Path(__file__).parent.parent.parent.parent / "public" / "digests"
-    
+
     if digest_dir.exists():
         # Find latest digest JSON
         json_files = sorted(digest_dir.glob("*.json"), reverse=True)
         if json_files:
             with open(json_files[0]) as f:
                 return json.load(f)
-    
+
     # No digest found, return empty placeholder
     return {
         "version": "1.0",
@@ -1457,7 +1454,7 @@ async def recompute_deprecated():
 async def get_roadmap_tracking(roadmap_id: int):
     """
     Get roadmap tracking data comparing predictions vs actual progress.
-    
+
     TODO(Phase 3): Implement forecast comparison logic
     """
     return {"todo": True, "message": "Phase 3: Not yet implemented"}
@@ -1465,37 +1462,37 @@ async def get_roadmap_tracking(roadmap_id: int):
 
 @app.get("/v1/review/queue")
 async def get_review_queue(
-    tier: Optional[str] = Query(None, regex="^[ABCD]$"),
+    tier: str | None = Query(None, regex="^[ABCD]$"),
     limit: int = Query(50, le=100),
     db: Session = Depends(get_db),
 ):
     """
     Get queue of events/mappings pending human review.
-    
+
     TODO(Phase 2): Implement review queue with prioritization
     """
-    from app.models import Event, EventSignpostLink, EventAnalysis, Signpost
-    
+    from app.models import Event, EventAnalysis, EventSignpostLink
+
     try:
         # Get events that need review (only active events)
-        events_query = query_active_events(db.query(Event)).filter(Event.needs_review == True)
+        events_query = query_active_events(db.query(Event)).filter(Event.needs_review)
         if tier:
             events_query = events_query.filter(Event.evidence_tier == tier)
-        
+
         events = events_query.order_by(Event.published_at.desc()).limit(limit).all()
-        
+
         result = []
         for event in events:
             # Get signpost links
             links = db.query(EventSignpostLink).filter(
                 EventSignpostLink.event_id == event.id
             ).all()
-            
+
             # Get analysis if available
             analysis = db.query(EventAnalysis).filter(
                 EventAnalysis.event_id == event.id
             ).order_by(EventAnalysis.generated_at.desc()).first()
-            
+
             result.append({
                 "type": "event",
                 "id": event.id,
@@ -1522,18 +1519,18 @@ async def get_review_queue(
                     "confidence": analysis.confidence_reasoning if analysis else None
                 } if analysis else None
             })
-        
+
         # Get counts for pagination (only active events)
-        total_events = query_active_events(db.query(Event)).filter(Event.needs_review == True).count()
-        total_mappings = db.query(EventSignpostLink).filter(EventSignpostLink.needs_review == True).count()
-        
+        total_events = query_active_events(db.query(Event)).filter(Event.needs_review).count()
+        total_mappings = db.query(EventSignpostLink).filter(EventSignpostLink.needs_review).count()
+
         return {
             "items": result,
             "total": total_events + total_mappings,
             "total_events": total_events,
             "total_mappings": total_mappings
         }
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching review queue: {str(e)}")
 
@@ -1542,62 +1539,63 @@ async def get_review_queue(
 async def submit_review(
     event_id: int,
     action: str = Query(..., regex="^(approve|reject|flag)$"),
-    reason: Optional[str] = None,
+    reason: str | None = None,
     verified: bool = Depends(verify_api_key),
     db: Session = Depends(get_db),
 ):
     """
     Submit human review decision for an event or mapping.
-    
+
     TODO(Phase 2): Implement review workflow with audit trail
     """
+    from datetime import datetime
+
     from app.models import Event, EventSignpostLink
-    from datetime import datetime, timezone
-    
+
     try:
         event = db.query(Event).filter(Event.id == event_id).first()
         if not event:
             raise HTTPException(status_code=404, detail=f"Event {event_id} not found")
-        
+
         if action == "approve":
             # Mark event as reviewed and approved
             event.needs_review = False
-            event.reviewed_at = datetime.now(timezone.utc)
+            event.reviewed_at = datetime.now(UTC)
             event.review_status = "approved"
-            
+
             # Also approve all signpost links for this event
             links = db.query(EventSignpostLink).filter(EventSignpostLink.event_id == event_id).all()
             for link in links:
                 link.needs_review = False
-                link.reviewed_at = datetime.now(timezone.utc)
+                link.reviewed_at = datetime.now(UTC)
                 link.review_status = "approved"
-            
+
             db.commit()
-            
+
             return {
                 "status": "approved",
                 "event_id": event_id,
                 "message": f"Event {event_id} and {len(links)} mappings approved",
                 "reviewed_at": event.reviewed_at
             }
-            
+
         elif action == "reject":
             # Mark event as reviewed but rejected
             event.needs_review = False
-            event.reviewed_at = datetime.now(timezone.utc)
+            event.reviewed_at = datetime.now(UTC)
             event.review_status = "rejected"
             event.rejection_reason = reason
-            
+
             # Also reject all signpost links for this event
             links = db.query(EventSignpostLink).filter(EventSignpostLink.event_id == event_id).all()
             for link in links:
                 link.needs_review = False
-                link.reviewed_at = datetime.now(timezone.utc)
+                link.reviewed_at = datetime.now(UTC)
                 link.review_status = "rejected"
                 link.rejection_reason = reason
-            
+
             db.commit()
-            
+
             return {
                 "status": "rejected",
                 "event_id": event_id,
@@ -1605,21 +1603,21 @@ async def submit_review(
                 "reason": reason,
                 "reviewed_at": event.reviewed_at
             }
-            
+
         elif action == "flag":
             # Flag for additional review
             event.needs_review = True
             event.flag_reason = reason
-            
+
             db.commit()
-            
+
             return {
                 "status": "flagged",
                 "event_id": event_id,
                 "message": f"Event {event_id} flagged for additional review",
                 "reason": reason
             }
-        
+
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Error processing review: {str(e)}")
@@ -1627,8 +1625,8 @@ async def submit_review(
 
 @app.get("/v1/predictions", tags=["predictions"])
 async def get_predictions(
-    signpost_id: Optional[int] = Query(None),
-    source: Optional[str] = Query(None),
+    signpost_id: int | None = Query(None),
+    source: str | None = Query(None),
     db: Session = Depends(get_db),
     limit: int = Query(100, ge=1, le=500),
 ):
@@ -1636,18 +1634,18 @@ async def get_predictions(
     Get expert predictions for signposts.
     """
     from app.models import ExpertPrediction, Signpost
-    
+
     try:
         query = db.query(ExpertPrediction)
-        
+
         if signpost_id:
             query = query.filter(ExpertPrediction.signpost_id == signpost_id)
-        
+
         if source:
             query = query.filter(ExpertPrediction.source.ilike(f"%{source}%"))
-        
+
         predictions = query.order_by(ExpertPrediction.predicted_date.asc()).limit(limit).all()
-        
+
         result = []
         for pred in predictions:
             signpost = db.query(Signpost).filter(Signpost.id == pred.signpost_id).first()
@@ -1664,28 +1662,28 @@ async def get_predictions(
                 "rationale": pred.rationale,
                 "added_at": pred.added_at
             })
-        
+
         return {
             "predictions": result,
             "total": len(result)
         }
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching predictions: {str(e)}")
 
 
 @app.get("/v1/predictions/compare", tags=["predictions"])
 async def compare_predictions_vs_actual(
-    signpost_id: Optional[int] = Query(None),
-    source: Optional[str] = Query(None),
+    signpost_id: int | None = Query(None),
+    source: str | None = Query(None),
     db: Session = Depends(get_db),
 ):
     """
     Compare expert predictions vs actual progress for signposts.
     """
-    from app.models import ExpertPrediction, Signpost, EventSignpostLink
-    from sqlalchemy import func
-    
+
+    from app.models import EventSignpostLink, ExpertPrediction, Signpost
+
     try:
         # Get predictions
         query = db.query(ExpertPrediction)
@@ -1693,25 +1691,25 @@ async def compare_predictions_vs_actual(
             query = query.filter(ExpertPrediction.signpost_id == signpost_id)
         if source:
             query = query.filter(ExpertPrediction.source.ilike(f"%{source}%"))
-        
+
         predictions = query.all()
-        
+
         result = []
         for pred in predictions:
             signpost = db.query(Signpost).filter(Signpost.id == pred.signpost_id).first()
             if not signpost:
                 continue
-            
+
             # Get actual progress from events
             actual_links = db.query(EventSignpostLink).filter(
                 EventSignpostLink.signpost_id == pred.signpost_id
             ).all()
-            
+
             if actual_links:
                 # Calculate current progress
                 latest_link = max(actual_links, key=lambda x: x.created_at)
                 current_progress = float(latest_link.impact_estimate) if latest_link.impact_estimate else 0.0
-                
+
                 # Calculate days ahead/behind if we have a predicted date
                 days_status = None
                 if pred.predicted_date:
@@ -1724,7 +1722,7 @@ async def compare_predictions_vs_actual(
             else:
                 current_progress = 0.0
                 days_status = "No data"
-            
+
             result.append({
                 "prediction_id": pred.id,
                 "source": pred.source,
@@ -1738,12 +1736,12 @@ async def compare_predictions_vs_actual(
                 "days_status": days_status,
                 "rationale": pred.rationale
             })
-        
+
         return {
             "comparisons": result,
             "total": len(result)
         }
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error comparing predictions: {str(e)}")
 
@@ -1755,32 +1753,33 @@ async def calculate_surprise_scores(
     """
     Calculate surprise scores for recent events vs expert predictions.
     """
-    from app.models import ExpertPrediction, Event, EventSignpostLink
-    from sqlalchemy import func, desc
-    
+    from sqlalchemy import desc, func
+
+    from app.models import Event, EventSignpostLink, ExpertPrediction
+
     try:
         # Get recent active events with signpost links
         recent_events = query_active_events(db.query(Event)).join(EventSignpostLink).filter(
             Event.published_at >= func.now() - func.interval('30 days')
         ).order_by(desc(Event.published_at)).limit(20).all()
-        
+
         surprise_scores = []
         for event in recent_events:
             event_links = db.query(EventSignpostLink).filter(
                 EventSignpostLink.event_id == event.id
             ).all()
-            
+
             for link in event_links:
                 # Get predictions for this signpost
                 predictions = db.query(ExpertPrediction).filter(
                     ExpertPrediction.signpost_id == link.signpost_id
                 ).all()
-                
+
                 if predictions:
                     # Calculate average surprise score
                     total_surprise = 0.0
                     prediction_count = 0
-                    
+
                     for pred in predictions:
                         if pred.predicted_date and event.published_at:
                             # Calculate how surprising this timing was
@@ -1788,7 +1787,7 @@ async def calculate_surprise_scores(
                             surprise_score = min(days_diff / 365.0, 1.0)  # Normalize to 0-1
                             total_surprise += surprise_score
                             prediction_count += 1
-                    
+
                     if prediction_count > 0:
                         avg_surprise = total_surprise / prediction_count
                         surprise_scores.append({
@@ -1799,15 +1798,15 @@ async def calculate_surprise_scores(
                             "confidence": float(link.confidence),
                             "published_at": event.published_at
                         })
-        
+
         # Sort by surprise score (most surprising first)
         surprise_scores.sort(key=lambda x: x["surprise_score"], reverse=True)
-        
+
         return {
             "surprise_scores": surprise_scores[:10],  # Top 10 most surprising
             "total_analyzed": len(surprise_scores)
         }
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error calculating surprise scores: {str(e)}")
 
@@ -1816,28 +1815,30 @@ async def calculate_surprise_scores(
 async def retract_event(
     event_id: int,
     reason: str,
-    evidence_url: Optional[str] = None,
+    evidence_url: str | None = None,
     verified: bool = Depends(verify_api_key),
     db: Session = Depends(get_db),
 ):
     """
     Retract an event with reason and evidence.
-    
+
     This marks an event as retracted, records the reason and evidence,
     and triggers recomputation of affected metrics.
     """
+    from datetime import datetime
+
+    import structlog
+
     from app.models import Event, EventSignpostLink
     from app.utils.cache import invalidate_signpost_caches
-    from datetime import datetime, timezone
-    import structlog
-    
+
     logger = structlog.get_logger()
-    
+
     try:
         event = db.query(Event).filter(Event.id == event_id).first()
         if not event:
             raise HTTPException(status_code=404, detail=f"Event {event_id} not found")
-        
+
         if event.retracted:
             # Idempotent: return success if already retracted
             return {
@@ -1848,20 +1849,20 @@ async def retract_event(
                 "evidence_url": event.retraction_evidence_url,
                 "message": f"Event {event_id} was already retracted."
             }
-        
+
         # Mark event as retracted
         event.retracted = True
-        event.retracted_at = datetime.now(timezone.utc)
+        event.retracted_at = datetime.now(UTC)
         event.retraction_reason = reason
         event.retraction_evidence_url = evidence_url
-        
+
         # Get affected signposts for recomputation
         affected_signposts = db.query(EventSignpostLink).filter(
             EventSignpostLink.event_id == event_id
         ).all()
-        
+
         affected_signpost_ids = [link.signpost_id for link in affected_signposts]
-        
+
         # Create changelog entry
         changelog = ChangelogEntry(
             type="retract",
@@ -1870,12 +1871,12 @@ async def retract_event(
             reason=reason,
         )
         db.add(changelog)
-        
+
         db.commit()
-        
+
         # Invalidate caches for affected signposts
         cache_count = await invalidate_signpost_caches(affected_signpost_ids)
-        
+
         # Log retraction for audit trail
         logger.info(
             "event_retracted",
@@ -1886,7 +1887,7 @@ async def retract_event(
             affected_signposts=len(affected_signpost_ids),
             caches_invalidated=cache_count
         )
-        
+
         return {
             "status": "retracted",
             "event_id": event_id,
@@ -1897,7 +1898,7 @@ async def retract_event(
             "caches_invalidated": cache_count,
             "message": f"Event {event_id} retracted successfully. {len(affected_signpost_ids)} signposts affected, {cache_count} caches invalidated."
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -1914,51 +1915,52 @@ async def get_source_credibility(
 ):
     """
     Get credibility scores for all sources using Wilson score interval.
-    
+
     Uses Wilson score lower bound for conservative credibility estimates
     that account for sample size uncertainty. Small-volume publishers get
     appropriately wide confidence intervals.
-    
+
     Query params:
     - min_volume: Minimum articles required (default 5)
     - exclude_d_tier: Whether to exclude D-tier sources (default true)
     """
+    from sqlalchemy import case, func
+
     from app.models import Event
-    from app.utils.statistics import wilson_lower_bound, credibility_tier
-    from sqlalchemy import func, case
-    
+    from app.utils.statistics import credibility_tier, wilson_lower_bound
+
     try:
         # Calculate retraction stats per publisher (only non-D-tier events)
         query = db.query(
             Event.publisher,
             func.count(Event.id).label('total_events'),
-            func.sum(case((Event.retracted == True, 1), else_=0)).label('retracted_count')
+            func.sum(case((Event.retracted, 1), else_=0)).label('retracted_count')
         )
-        
+
         # Exclude D-tier sources from input if requested
         if exclude_d_tier:
             query = query.filter(Event.evidence_tier.in_(["A", "B", "C"]))
-        
+
         results = query.group_by(Event.publisher).all()
-        
+
         credibility_scores = []
         for row in results:
             if not row.publisher or row.total_events < min_volume:
                 continue
-            
+
             retracted = row.retracted_count or 0
             total = row.total_events
             successes = total - retracted  # Non-retracted articles
-            
+
             # Wilson score lower bound (conservative estimate)
             wilson_score = wilson_lower_bound(successes, total, confidence=0.95)
-            
+
             # Determine tier based on Wilson score and volume
             tier = credibility_tier(wilson_score, total)
-            
+
             # Raw retraction rate for comparison
             retraction_rate = retracted / total if total > 0 else 0.0
-            
+
             credibility_scores.append({
                 "publisher": row.publisher,
                 "total_articles": total,
@@ -1968,10 +1970,10 @@ async def get_source_credibility(
                 "credibility_tier": tier,
                 "methodology": "wilson_95ci_lower"
             })
-        
+
         # Sort by credibility score descending
         credibility_scores.sort(key=lambda x: x["credibility_score"], reverse=True)
-        
+
         return {
             "sources": credibility_scores,
             "total_sources": len(credibility_scores),
@@ -1979,46 +1981,48 @@ async def get_source_credibility(
             "methodology": "Wilson score 95% confidence interval (lower bound)",
             "note": "Lower scores for low-volume publishers reflect statistical uncertainty"
         }
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error calculating source credibility: {str(e)}")
 
 
 @app.get("/v1/admin/source-credibility/history", tags=["admin"])
 async def get_source_credibility_history(
-    publisher: Optional[str] = Query(None, description="Filter by publisher"),
+    publisher: str | None = Query(None, description="Filter by publisher"),
     days: int = Query(30, description="Number of days of history"),
     db: Session = Depends(get_db),
 ):
     """
     Get historical source credibility snapshots.
-    
+
     Returns time-series data of publisher credibility scores.
     Useful for tracking reliability trends and identifying degradation.
-    
+
     Query params:
     - publisher: Filter to specific publisher (optional)
     - days: Number of days to query (default 30)
     """
-    from app.models import SourceCredibilitySnapshot
     from datetime import date, timedelta
+
     from sqlalchemy import desc
-    
+
+    from app.models import SourceCredibilitySnapshot
+
     try:
         cutoff_date = date.today() - timedelta(days=days)
-        
+
         query = db.query(SourceCredibilitySnapshot).filter(
             SourceCredibilitySnapshot.snapshot_date >= cutoff_date
         )
-        
+
         if publisher:
             query = query.filter(SourceCredibilitySnapshot.publisher == publisher)
-        
+
         snapshots = query.order_by(
             SourceCredibilitySnapshot.publisher,
             desc(SourceCredibilitySnapshot.snapshot_date)
         ).all()
-        
+
         # Format response
         history = []
         for snap in snapshots:
@@ -2032,14 +2036,14 @@ async def get_source_credibility_history(
                 "credibility_tier": snap.credibility_tier,
                 "methodology": snap.methodology
             })
-        
+
         return {
             "history": history,
             "total_snapshots": len(history),
             "days": days,
             "publisher_filter": publisher
         }
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching credibility history: {str(e)}")
 
@@ -2050,38 +2054,39 @@ async def get_source_credibility_history(
 
 @app.get("/v1/admin/prompts", tags=["admin"])
 async def list_prompts(
-    task_type: Optional[str] = Query(None, description="Filter by task type"),
+    task_type: str | None = Query(None, description="Filter by task type"),
     include_deprecated: bool = Query(False, description="Include deprecated prompts"),
     verified: bool = Depends(verify_api_key),
     db: Session = Depends(get_db),
 ):
     """
     List all LLM prompt templates with versioning info.
-    
+
     Returns all prompts used for AI analysis with their metadata.
     Useful for auditing prompt changes and A/B testing.
-    
+
     Query params:
     - task_type: Filter by task (e.g., "event_analysis", "event_mapping")
     - include_deprecated: Show deprecated prompts (default false)
     """
-    from app.models import LLMPrompt
     from sqlalchemy import desc
-    
+
+    from app.models import LLMPrompt
+
     try:
         query = db.query(LLMPrompt)
-        
+
         if task_type:
             query = query.filter(LLMPrompt.task_type == task_type)
-        
+
         if not include_deprecated:
-            query = query.filter(LLMPrompt.deprecated_at == None)
-        
+            query = query.filter(LLMPrompt.deprecated_at is None)
+
         prompts = query.order_by(
             LLMPrompt.task_type,
             desc(LLMPrompt.created_at)
         ).all()
-        
+
         result = []
         for prompt in prompts:
             result.append({
@@ -2096,13 +2101,13 @@ async def list_prompts(
                 "deprecated_at": prompt.deprecated_at.isoformat() if prompt.deprecated_at else None,
                 "is_active": prompt.deprecated_at is None
             })
-        
+
         return {
             "prompts": result,
             "total": len(result),
             "task_type_filter": task_type
         }
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error listing prompts: {str(e)}")
 
@@ -2117,12 +2122,12 @@ async def get_prompt_detail(
     Get full details of a specific prompt including template text.
     """
     from app.models import LLMPrompt
-    
+
     try:
         prompt = db.query(LLMPrompt).filter(LLMPrompt.id == prompt_id).first()
         if not prompt:
             raise HTTPException(status_code=404, detail=f"Prompt {prompt_id} not found")
-        
+
         return {
             "id": prompt.id,
             "version": prompt.version,
@@ -2137,7 +2142,7 @@ async def get_prompt_detail(
             "deprecated_at": prompt.deprecated_at.isoformat() if prompt.deprecated_at else None,
             "is_active": prompt.deprecated_at is None
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -2150,16 +2155,16 @@ async def create_prompt(
     task_type: str,
     prompt_template: str,
     model: str,
-    system_message: Optional[str] = None,
-    temperature: Optional[float] = None,
-    max_tokens: Optional[int] = None,
-    notes: Optional[str] = None,
+    system_message: str | None = None,
+    temperature: float | None = None,
+    max_tokens: int | None = None,
+    notes: str | None = None,
     verified: bool = Depends(verify_api_key),
     db: Session = Depends(get_db),
 ):
     """
     Create a new prompt template version.
-    
+
     Body:
     - version: Unique version identifier (e.g., "event-analysis-v2")
     - task_type: Task name (e.g., "event_analysis", "event_mapping")
@@ -2171,13 +2176,13 @@ async def create_prompt(
     - notes: Optional notes about this version
     """
     from app.models import LLMPrompt
-    
+
     try:
         # Check if version already exists
         existing = db.query(LLMPrompt).filter(LLMPrompt.version == version).first()
         if existing:
             raise HTTPException(status_code=400, detail=f"Prompt version '{version}' already exists")
-        
+
         prompt = LLMPrompt(
             version=version,
             task_type=task_type,
@@ -2188,11 +2193,11 @@ async def create_prompt(
             max_tokens=max_tokens,
             notes=notes
         )
-        
+
         db.add(prompt)
         db.commit()
         db.refresh(prompt)
-        
+
         return {
             "status": "created",
             "id": prompt.id,
@@ -2200,7 +2205,7 @@ async def create_prompt(
             "task_type": prompt.task_type,
             "created_at": prompt.created_at.isoformat()
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -2216,17 +2221,18 @@ async def deprecate_prompt(
 ):
     """
     Mark a prompt template as deprecated.
-    
+
     Deprecated prompts are hidden from active use but retained for audit trail.
     """
+    from datetime import datetime
+
     from app.models import LLMPrompt
-    from datetime import datetime, timezone
-    
+
     try:
         prompt = db.query(LLMPrompt).filter(LLMPrompt.id == prompt_id).first()
         if not prompt:
             raise HTTPException(status_code=404, detail=f"Prompt {prompt_id} not found")
-        
+
         if prompt.deprecated_at:
             return {
                 "status": "already_deprecated",
@@ -2234,17 +2240,17 @@ async def deprecate_prompt(
                 "version": prompt.version,
                 "deprecated_at": prompt.deprecated_at.isoformat()
             }
-        
-        prompt.deprecated_at = datetime.now(timezone.utc)
+
+        prompt.deprecated_at = datetime.now(UTC)
         db.commit()
-        
+
         return {
             "status": "deprecated",
             "id": prompt_id,
             "version": prompt.version,
             "deprecated_at": prompt.deprecated_at.isoformat()
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -2254,8 +2260,8 @@ async def deprecate_prompt(
 
 @app.get("/v1/admin/prompt-runs", tags=["admin"])
 async def list_prompt_runs(
-    task_name: Optional[str] = Query(None, description="Filter by task name"),
-    event_id: Optional[int] = Query(None, description="Filter by event ID"),
+    task_name: str | None = Query(None, description="Filter by task name"),
+    event_id: int | None = Query(None, description="Filter by event ID"),
     days: int = Query(7, description="Days of history"),
     limit: int = Query(100, description="Max results"),
     verified: bool = Depends(verify_api_key),
@@ -2263,38 +2269,40 @@ async def list_prompt_runs(
 ):
     """
     List LLM API call history with costs and token usage.
-    
+
     Returns audit trail of all LLM calls for cost tracking and debugging.
-    
+
     Query params:
     - task_name: Filter by task (e.g., "event_analysis")
     - event_id: Filter by specific event
     - days: Number of days of history (default 7)
     - limit: Max results to return (default 100)
     """
-    from app.models import LLMPromptRun
-    from datetime import datetime, timedelta, timezone
+    from datetime import datetime, timedelta
+
     from sqlalchemy import desc
-    
+
+    from app.models import LLMPromptRun
+
     try:
-        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
-        
+        cutoff = datetime.now(UTC) - timedelta(days=days)
+
         query = db.query(LLMPromptRun).filter(
             LLMPromptRun.created_at >= cutoff
         )
-        
+
         if task_name:
             query = query.filter(LLMPromptRun.task_name == task_name)
-        
+
         if event_id is not None:
             query = query.filter(LLMPromptRun.event_id == event_id)
-        
+
         runs = query.order_by(desc(LLMPromptRun.created_at)).limit(limit).all()
-        
+
         result = []
         total_cost = 0.0
         total_tokens = 0
-        
+
         for run in runs:
             result.append({
                 "id": run.id,
@@ -2309,10 +2317,10 @@ async def list_prompt_runs(
                 "error_message": run.error_message,
                 "created_at": run.created_at.isoformat()
             })
-            
+
             total_cost += float(run.cost_usd)
             total_tokens += run.total_tokens
-        
+
         return {
             "runs": result,
             "total_runs": len(result),
@@ -2322,7 +2330,7 @@ async def list_prompt_runs(
             "task_name_filter": task_name,
             "event_id_filter": event_id
         }
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error listing prompt runs: {str(e)}")
 
@@ -2332,41 +2340,41 @@ async def list_prompt_runs(
 # ======================================================================
 
 @app.get("/v1/review-queue/mappings", tags=["review"])
-def get_review_queue(
+def get_review_queue_mappings(
     needs_review_only: bool = True,
-    min_confidence: Optional[float] = None,
-    max_confidence: Optional[float] = None,
+    min_confidence: float | None = None,
+    max_confidence: float | None = None,
     limit: int = Query(50, le=200),
     offset: int = 0,
     db: Session = Depends(get_db)
 ):
     """Get event-signpost mappings that need human review.
-    
+
     Returns mappings with low confidence or flagged for review, sorted by confidence.
     """
     try:
         query = db.query(EventSignpostLink).join(Event).join(Signpost)
-        
+
         if needs_review_only:
-            query = query.filter(EventSignpostLink.needs_review == True)
-        
+            query = query.filter(EventSignpostLink.needs_review)
+
         if min_confidence is not None:
             query = query.filter(EventSignpostLink.confidence >= min_confidence)
-        
+
         if max_confidence is not None:
             query = query.filter(EventSignpostLink.confidence <= max_confidence)
-        
+
         # Order by confidence (lowest first) and created_at (newest first)
         query = query.order_by(EventSignpostLink.confidence.asc(), EventSignpostLink.created_at.desc())
-        
+
         total = query.count()
         links = query.limit(limit).offset(offset).all()
-        
+
         result = []
         for link in links:
             event = db.query(Event).filter(Event.id == link.event_id).first()
             signpost = db.query(Signpost).filter(Signpost.id == link.signpost_id).first()
-            
+
             result.append({
                 "id": link.id,
                 "event_id": link.event_id,
@@ -2385,14 +2393,14 @@ def get_review_queue(
                 "review_status": link.review_status,
                 "created_at": link.created_at.isoformat() if link.created_at else None
             })
-        
+
         return {
             "mappings": result,
             "total": total,
             "limit": limit,
             "offset": offset
         }
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching review queue: {str(e)}")
 
@@ -2408,23 +2416,23 @@ def approve_mapping(
         # Verify API key for admin actions
         if not x_api_key or x_api_key != settings.admin_api_key:
             raise HTTPException(status_code=403, detail="Invalid or missing API key")
-        
+
         link = db.query(EventSignpostLink).filter(EventSignpostLink.id == mapping_id).first()
         if not link:
             raise HTTPException(status_code=404, detail="Mapping not found")
-        
+
         link.needs_review = False
         link.reviewed_at = datetime.utcnow()
         link.review_status = "approved"
-        
+
         db.commit()
-        
+
         return {
             "message": "Mapping approved",
             "mapping_id": mapping_id,
             "reviewed_at": link.reviewed_at.isoformat()
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -2435,7 +2443,7 @@ def approve_mapping(
 @app.post("/v1/review-queue/mappings/{mapping_id}/reject", tags=["review"])
 def reject_mapping(
     mapping_id: int,
-    reason: Optional[str] = None,
+    reason: str | None = None,
     db: Session = Depends(get_db),
     x_api_key: str = Header(None)
 ):
@@ -2444,25 +2452,25 @@ def reject_mapping(
         # Verify API key for admin actions
         if not x_api_key or x_api_key != settings.admin_api_key:
             raise HTTPException(status_code=403, detail="Invalid or missing API key")
-        
+
         link = db.query(EventSignpostLink).filter(EventSignpostLink.id == mapping_id).first()
         if not link:
             raise HTTPException(status_code=404, detail="Mapping not found")
-        
+
         link.needs_review = False
         link.reviewed_at = datetime.utcnow()
         link.review_status = "rejected"
         link.rejection_reason = reason
-        
+
         db.commit()
-        
+
         return {
             "message": "Mapping rejected",
             "mapping_id": mapping_id,
             "reason": reason,
             "reviewed_at": link.reviewed_at.isoformat()
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -2475,17 +2483,17 @@ def get_review_stats(db: Session = Depends(get_db)):
     """Get review queue statistics."""
     try:
         total_mappings = db.query(EventSignpostLink).count()
-        needs_review = db.query(EventSignpostLink).filter(EventSignpostLink.needs_review == True).count()
+        needs_review = db.query(EventSignpostLink).filter(EventSignpostLink.needs_review).count()
         approved = db.query(EventSignpostLink).filter(EventSignpostLink.review_status == "approved").count()
         rejected = db.query(EventSignpostLink).filter(EventSignpostLink.review_status == "rejected").count()
-        
+
         # Confidence distribution
         low_conf = db.query(EventSignpostLink).filter(EventSignpostLink.confidence < 0.5).count()
         med_conf = db.query(EventSignpostLink).filter(
             and_(EventSignpostLink.confidence >= 0.5, EventSignpostLink.confidence < 0.7)
         ).count()
         high_conf = db.query(EventSignpostLink).filter(EventSignpostLink.confidence >= 0.7).count()
-        
+
         return {
             "total_mappings": total_mappings,
             "needs_review": needs_review,
@@ -2499,7 +2507,7 @@ def get_review_stats(db: Session = Depends(get_db)):
             },
             "review_rate": round((approved + rejected) / total_mappings * 100, 2) if total_mappings > 0 else 0.0
         }
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching review stats: {str(e)}")
 
@@ -2512,7 +2520,7 @@ def get_review_stats(db: Session = Depends(get_db)):
 def get_task_health(x_api_key: str = Header(None)):
     """
     Get health status of all Celery tasks.
-    
+
     Returns:
         - task_name: Name of the task
         - status: OK | DEGRADED | ERROR | PENDING | UNKNOWN
@@ -2521,29 +2529,29 @@ def get_task_health(x_api_key: str = Header(None)):
         - last_error: ISO timestamp of last error
         - error_msg: Error message if in ERROR state
         - age_seconds: Seconds since last run
-    
+
     Requires: x-api-key header
     """
     from app.utils.task_tracking import get_all_task_statuses
-    
+
     # Verify API key for admin endpoints
     if not x_api_key or x_api_key != settings.admin_api_key:
         raise HTTPException(status_code=403, detail="Invalid or missing API key")
-    
+
     try:
         statuses = get_all_task_statuses()
-        
+
         # Calculate overall health
         error_count = sum(1 for s in statuses.values() if s["status"] == "ERROR")
         degraded_count = sum(1 for s in statuses.values() if s["status"] == "DEGRADED")
         ok_count = sum(1 for s in statuses.values() if s["status"] == "OK")
-        
+
         overall_status = "OK"
         if error_count > 0:
             overall_status = "ERROR"
         elif degraded_count > 0:
             overall_status = "DEGRADED"
-        
+
         return {
             "overall_status": overall_status,
             "summary": {
@@ -2574,23 +2582,23 @@ def get_prediction_surprises(
 ):
     """
     Get events that most surprised expert predictions.
-    
+
     Returns events where timing significantly deviated from forecasts,
     ranked by surprise score (z-score based on prediction uncertainty).
-    
+
     Query params:
         - days: Look back period (default 90 days)
         - limit: Max results (default 10)
         - min_score: Minimum surprise score (default 1.0)
-    
+
     Returns:
         List of surprises with event details, predictions, and surprise scores
     """
     from app.services.surprise_calculation import get_surprises
-    
+
     try:
         surprises = get_surprises(db, days=days, limit=limit, min_surprise_score=min_score)
-        
+
         return {
             "surprises": surprises,
             "count": len(surprises),
@@ -2609,10 +2617,10 @@ def get_prediction_surprises(
 def get_prediction_accuracy(db: Session = Depends(get_db)):
     """
     Get prediction accuracy summary across all expert sources.
-    
+
     Returns statistics on how well predictions matched actual outcomes,
     broken down by prediction source (AI2027, Aschenbrenner, etc.).
-    
+
     Returns:
         - total_predictions_evaluated: Number of predictions with actual outcomes
         - sources: Per-source accuracy statistics including:
@@ -2622,7 +2630,7 @@ def get_prediction_accuracy(db: Session = Depends(get_db)):
           - late_pct: Percentage of predictions that were too late
     """
     from app.services.surprise_calculation import get_prediction_accuracy_summary
-    
+
     try:
         summary = get_prediction_accuracy_summary(db)
         return summary

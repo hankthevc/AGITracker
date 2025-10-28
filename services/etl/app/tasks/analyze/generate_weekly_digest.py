@@ -1,9 +1,7 @@
 """Generate weekly AI progress digest using LLM."""
 import json
-from datetime import datetime, timedelta, timezone
-from typing import Dict, Optional
+from datetime import UTC, datetime, timedelta
 
-from celery import shared_task
 from openai import OpenAI
 
 from app.celery_app import celery_app
@@ -20,38 +18,38 @@ def get_openai_client():
     return OpenAI(api_key=settings.openai_api_key)
 
 
-def generate_weekly_digest_llm(events_data: list, predictions_data: list) -> Optional[Dict]:
+def generate_weekly_digest_llm(events_data: list, predictions_data: list) -> dict | None:
     """Generate weekly digest using GPT-4o-mini.
-    
+
     Args:
         events_data: List of dicts with event info from the past week
         predictions_data: List of dicts with expert prediction comparisons
-    
+
     Returns:
         Dict with digest sections or None if generation fails
     """
     client = get_openai_client()
     if not client:
         return None
-    
+
     # Estimate cost: ~2000 input + 800 output tokens = ~0.0006 USD
     estimated_cost = 0.0006
-    
+
     if not can_spend(estimated_cost):
         print("⚠️  LLM budget exhausted, skipping weekly digest generation")
         return None
-    
+
     # Prepare context
     events_summary = "\n\n".join([
         f"**{e['title']}** (Tier {e['evidence_tier']}, {e['publisher']})\n{e['summary']}"
         for e in events_data[:10]  # Top 10 events
     ])
-    
+
     predictions_summary = "\n\n".join([
         f"**{p['signpost_name']}**: Predicted {p['predicted_date']}, Current progress: {p['current_progress']}"
         for p in predictions_data[:5]  # Top 5 predictions
     ])
-    
+
     prompt = f"""Generate a compelling weekly digest for the AGI Signpost Tracker.
 
 RECENT EVENTS (Past 7 Days):
@@ -82,20 +80,20 @@ Output as JSON with these exact keys.
             temperature=0.3,
             max_tokens=800,
         )
-        
+
         # Track actual spend
         usage = response.usage
         actual_cost = (usage.prompt_tokens / 1_000_000 * 0.15) + (usage.completion_tokens / 1_000_000 * 0.60)
         add_spend(actual_cost)
-        
+
         content = response.choices[0].message.content.strip()
-        
+
         # Handle markdown code blocks
         if content.startswith("```"):
             content = content.replace("```json", "").replace("```", "").strip()
-        
+
         digest = json.loads(content)
-        
+
         # Validate required keys
         required_keys = ["headline", "key_moves", "what_it_means", "velocity_assessment", "outlook", "surprise_factor"]
         if all(key in digest for key in required_keys):
@@ -103,7 +101,7 @@ Output as JSON with these exact keys.
         else:
             print(f"⚠️  Digest missing required keys: {[k for k in required_keys if k not in digest]}")
             return None
-        
+
     except Exception as e:
         print(f"❌ LLM digest generation failed: {e}")
         return None
@@ -112,25 +110,25 @@ Output as JSON with these exact keys.
 @celery_app.task(name="app.tasks.analyze.generate_weekly_digest.generate_weekly_digest")
 def generate_weekly_digest():
     """Generate weekly digest for the past 7 days.
-    
+
     This task should run weekly (e.g., every Monday morning).
     """
     db = SessionLocal()
     try:
         # Get events from the past 7 days
-        seven_days_ago = datetime.now(timezone.utc) - timedelta(days=7)
-        
+        seven_days_ago = datetime.now(UTC) - timedelta(days=7)
+
         events = db.query(Event).filter(
             Event.published_at >= seven_days_ago,
             Event.evidence_tier.in_(["A", "B", "C"])  # Include C tier for context
         ).order_by(Event.published_at.desc()).limit(20).all()
-        
+
         print(f"📊 Generating weekly digest for {len(events)} events from past 7 days")
-        
+
         if len(events) == 0:
             print("⚠️  No events found in the past 7 days, skipping digest")
             return
-        
+
         # Prepare events data
         events_data = []
         for event in events:
@@ -138,7 +136,7 @@ def generate_weekly_digest():
             analysis = db.query(EventAnalysis).filter(
                 EventAnalysis.event_id == event.id
             ).order_by(EventAnalysis.generated_at.desc()).first()
-            
+
             events_data.append({
                 "id": event.id,
                 "title": event.title,
@@ -148,11 +146,11 @@ def generate_weekly_digest():
                 "published_at": event.published_at.isoformat() if event.published_at else None,
                 "significance_score": float(analysis.significance_score) if analysis and analysis.significance_score else 0.5
             })
-        
+
         # Get prediction comparisons
         from app.models import ExpertPrediction, Signpost
         predictions = db.query(ExpertPrediction).limit(10).all()
-        
+
         predictions_data = []
         for pred in predictions:
             signpost = db.query(Signpost).filter(Signpost.id == pred.signpost_id).first()
@@ -161,22 +159,22 @@ def generate_weekly_digest():
                 links = db.query(EventSignpostLink).filter(
                     EventSignpostLink.signpost_id == pred.signpost_id
                 ).all()
-                
+
                 current_progress = 0.0
                 if links:
                     latest_link = max(links, key=lambda x: x.created_at)
                     current_progress = float(latest_link.impact_estimate) if latest_link.impact_estimate else 0.0
-                
+
                 predictions_data.append({
                     "signpost_name": signpost.name,
                     "predicted_date": pred.predicted_date.isoformat() if pred.predicted_date else None,
                     "current_progress": current_progress,
                     "source": pred.source
                 })
-        
+
         # Generate digest using LLM
         digest = generate_weekly_digest_llm(events_data, predictions_data)
-        
+
         if digest:
             # Store in database (reuse weekly_digest table if it exists, or create new)
             # For now, just print it
@@ -184,13 +182,13 @@ def generate_weekly_digest():
             print(f"Headline: {digest['headline']}")
             print(f"Key Moves: {len(digest.get('key_moves', []))} items")
             print(f"Surprise Factor: {digest.get('surprise_factor', 'N/A')}")
-            
+
             # TODO: Store in weekly_digest table
             return digest
         else:
             print("❌ Failed to generate weekly digest")
             return None
-        
+
     except Exception as e:
         print(f"❌ Error generating weekly digest: {e}")
         return None

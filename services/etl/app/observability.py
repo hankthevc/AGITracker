@@ -24,7 +24,7 @@ def setup_logging():
         stream=sys.stdout,
         level=log_level,
     )
-    
+
     structlog.configure(
         processors=[
             merge_contextvars,  # Merges request_id from ContextVar
@@ -48,7 +48,7 @@ def setup_sentry():
     """Initialize Sentry SDK if configured (env-gated)."""
     # Use sentry_dsn_api or fall back to legacy sentry_dsn
     dsn = settings.sentry_dsn_api or settings.sentry_dsn
-    
+
     if SENTRY_AVAILABLE and dsn:
         sentry_sdk.init(
             dsn=dsn,
@@ -80,7 +80,7 @@ def scrub_pii(event):
             if isinstance(event["request"]["data"], dict):
                 event["request"]["data"].pop("api_key", None)
                 event["request"]["data"].pop("password", None)
-    
+
     return event
 
 

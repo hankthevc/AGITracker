@@ -1,5 +1,4 @@
 """SQLAlchemy ORM models mirroring the database schema."""
-from datetime import datetime
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
@@ -25,9 +24,9 @@ from app.database import Base
 
 class Roadmap(Base):
     """Roadmap model."""
-    
+
     __tablename__ = "roadmaps"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     slug = Column(String(100), unique=True, nullable=False, index=True)
     name = Column(String(255), nullable=False)
@@ -38,7 +37,7 @@ class Roadmap(Base):
     source_url = Column(Text, nullable=True)
     summary = Column(Text, nullable=True)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
-    
+
     # Relationships
     signposts = relationship("Signpost", back_populates="roadmap")
     predictions = relationship("RoadmapPrediction", back_populates="roadmap")
@@ -47,9 +46,9 @@ class Roadmap(Base):
 
 class Signpost(Base):
     """Signpost model."""
-    
+
     __tablename__ = "signposts"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     code = Column(String(100), unique=True, nullable=False, index=True)
     roadmap_id = Column(Integer, ForeignKey("roadmaps.id"), nullable=True)
@@ -67,14 +66,14 @@ class Signpost(Base):
     icon_emoji = Column(String(10), nullable=True)
     embedding = Column(Vector(1536), nullable=True)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
-    
+
     # Relationships
     roadmap = relationship("Roadmap", back_populates="signposts")
     claim_signposts = relationship("ClaimSignpost", back_populates="signpost")
     predictions = relationship("RoadmapPrediction", back_populates="signpost")
     content = relationship("SignpostContent", back_populates="signpost", uselist=False)
     pace_analyses = relationship("PaceAnalysis", back_populates="signpost")
-    
+
     __table_args__ = (
         CheckConstraint(
             "category IN ('capabilities', 'agents', 'inputs', 'security')",
@@ -91,19 +90,19 @@ class Signpost(Base):
 
 class Benchmark(Base):
     """Benchmark model."""
-    
+
     __tablename__ = "benchmarks"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     code = Column(String(100), unique=True, nullable=False, index=True)
     name = Column(String(255), nullable=False)
     url = Column(Text, nullable=True)
     family = Column(String(50), nullable=False)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
-    
+
     # Relationships
     claim_benchmarks = relationship("ClaimBenchmark", back_populates="benchmark")
-    
+
     __table_args__ = (
         CheckConstraint(
             "family IN ('SWE_BENCH_VERIFIED', 'OSWORLD', 'WEBARENA', 'GPQA_DIAMOND', 'OTHER')",
@@ -114,19 +113,19 @@ class Benchmark(Base):
 
 class Source(Base):
     """Source model."""
-    
+
     __tablename__ = "sources"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     url = Column(Text, unique=True, nullable=False)
     domain = Column(String(255), nullable=True)
     source_type = Column(String(50), nullable=False)
     credibility = Column(String(1), nullable=False)
     first_seen_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
-    
+
     # Relationships
     claims = relationship("Claim", back_populates="source")
-    
+
     __table_args__ = (
         CheckConstraint(
             "source_type IN ('paper', 'leaderboard', 'model_card', 'press', 'blog', 'social')",
@@ -142,9 +141,9 @@ class Source(Base):
 
 class Claim(Base):
     """Claim model."""
-    
+
     __tablename__ = "claims"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String(500), nullable=True)
     summary = Column(Text, nullable=True)
@@ -158,13 +157,13 @@ class Claim(Base):
     raw_json = Column(JSONB, nullable=True)
     retracted = Column(Boolean, default=False)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
-    
+
     # Relationships
     source = relationship("Source", back_populates="claims")
     claim_benchmarks = relationship("ClaimBenchmark", back_populates="claim")
     claim_signposts = relationship("ClaimSignpost", back_populates="claim")
     changelogs = relationship("ChangelogEntry", back_populates="claim")
-    
+
     __table_args__ = (
         Index("idx_claims_observed_at", "observed_at"),
         Index("idx_claims_retracted", "retracted"),
@@ -173,12 +172,12 @@ class Claim(Base):
 
 class ClaimBenchmark(Base):
     """Many-to-many relationship between claims and benchmarks."""
-    
+
     __tablename__ = "claim_benchmarks"
-    
+
     claim_id = Column(Integer, ForeignKey("claims.id", ondelete="CASCADE"), primary_key=True)
     benchmark_id = Column(Integer, ForeignKey("benchmarks.id", ondelete="CASCADE"), primary_key=True)
-    
+
     # Relationships
     claim = relationship("Claim", back_populates="claim_benchmarks")
     benchmark = relationship("Benchmark", back_populates="claim_benchmarks")
@@ -186,14 +185,14 @@ class ClaimBenchmark(Base):
 
 class ClaimSignpost(Base):
     """Many-to-many relationship between claims and signposts with mapping metadata."""
-    
+
     __tablename__ = "claim_signposts"
-    
+
     claim_id = Column(Integer, ForeignKey("claims.id", ondelete="CASCADE"), primary_key=True)
     signpost_id = Column(Integer, ForeignKey("signposts.id", ondelete="CASCADE"), primary_key=True)
     fit_score = Column(Numeric, nullable=True)
     impact_estimate = Column(Numeric, nullable=True)
-    
+
     # Relationships
     claim = relationship("Claim", back_populates="claim_signposts")
     signpost = relationship("Signpost", back_populates="claim_signposts")
@@ -201,9 +200,9 @@ class ClaimSignpost(Base):
 
 class IndexSnapshot(Base):
     """Index snapshot model."""
-    
+
     __tablename__ = "index_snapshots"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     as_of_date = Column(Date, unique=True, nullable=False)
     capabilities = Column(Numeric, nullable=True)
@@ -219,9 +218,9 @@ class IndexSnapshot(Base):
 
 class ChangelogEntry(Base):
     """Changelog entry model."""
-    
+
     __tablename__ = "changelog"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     occurred_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
     type = Column(String(20), nullable=False)
@@ -230,10 +229,10 @@ class ChangelogEntry(Base):
     claim_id = Column(Integer, ForeignKey("claims.id"), nullable=True)
     reason = Column(Text, nullable=True)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
-    
+
     # Relationships
     claim = relationship("Claim", back_populates="changelogs")
-    
+
     __table_args__ = (
         CheckConstraint(
             "type IN ('add', 'update', 'retract')",
@@ -244,9 +243,9 @@ class ChangelogEntry(Base):
 
 class WeeklyDigest(Base):
     """Weekly digest model."""
-    
+
     __tablename__ = "weekly_digest"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     week_start = Column(Date, unique=True, nullable=False)
     json = Column(JSONB, nullable=True)
@@ -254,15 +253,15 @@ class WeeklyDigest(Base):
 
 class APIKey(Base):
     """API key model."""
-    
+
     __tablename__ = "api_keys"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), nullable=True)
     hashed_key = Column(String(255), unique=True, nullable=False)
     role = Column(String(20), nullable=False)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
-    
+
     __table_args__ = (
         CheckConstraint(
             "role IN ('admin', 'readonly')",
@@ -273,9 +272,9 @@ class APIKey(Base):
 
 class RoadmapPrediction(Base):
     """Roadmap prediction model for timeline predictions."""
-    
+
     __tablename__ = "roadmap_predictions"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     roadmap_id = Column(Integer, ForeignKey("roadmaps.id"), nullable=False)
     signpost_id = Column(Integer, ForeignKey("signposts.id"), nullable=True)
@@ -286,11 +285,11 @@ class RoadmapPrediction(Base):
     source_page = Column(Text, nullable=True)
     notes = Column(Text, nullable=True)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
-    
+
     # Relationships
     roadmap = relationship("Roadmap", back_populates="predictions")
     signpost = relationship("Signpost", back_populates="predictions")
-    
+
     __table_args__ = (
         CheckConstraint(
             "confidence_level IN ('high', 'medium', 'low')",
@@ -303,9 +302,9 @@ class RoadmapPrediction(Base):
 
 class SignpostContent(Base):
     """Rich educational content for signposts."""
-    
+
     __tablename__ = "signpost_content"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     signpost_id = Column(Integer, ForeignKey("signposts.id"), nullable=False, unique=True)
     why_matters = Column(Text, nullable=True)
@@ -314,10 +313,10 @@ class SignpostContent(Base):
     key_announcements = Column(JSONB, nullable=True)
     technical_explanation = Column(Text, nullable=True)
     updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now())
-    
+
     # Relationships
     signpost = relationship("Signpost", back_populates="content")
-    
+
     __table_args__ = (
         Index("idx_signpost_content_signpost", "signpost_id"),
     )
@@ -325,19 +324,19 @@ class SignpostContent(Base):
 
 class PaceAnalysis(Base):
     """Human-written pace analysis comparing progress to roadmap predictions."""
-    
+
     __tablename__ = "pace_analysis"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     signpost_id = Column(Integer, ForeignKey("signposts.id"), nullable=False)
     roadmap_id = Column(Integer, ForeignKey("roadmaps.id"), nullable=False)
     analysis_text = Column(Text, nullable=False)
     last_updated = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now())
-    
+
     # Relationships
     signpost = relationship("Signpost", back_populates="pace_analyses")
     roadmap = relationship("Roadmap", back_populates="pace_analyses")
-    
+
     __table_args__ = (
         Index("idx_pace_analysis_signpost", "signpost_id"),
         Index("idx_pace_analysis_roadmap", "roadmap_id"),
@@ -347,12 +346,12 @@ class PaceAnalysis(Base):
 class Event(Base):
     """
     News event model (v0.3).
-    
+
     Stores AI news/announcements from various sources with evidence tiering.
     """
-    
+
     __tablename__ = "events"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     title = Column(Text, nullable=False)
     summary = Column(Text, nullable=True)
@@ -381,12 +380,12 @@ class Event(Base):
     review_status = Column(Enum("pending", "approved", "rejected", "flagged", name="review_status"), nullable=True)
     rejection_reason = Column(Text, nullable=True)
     flag_reason = Column(Text, nullable=True)
-    
+
     # Relationships
     signpost_links = relationship("EventSignpostLink", back_populates="event", cascade="all, delete-orphan")
     entities = relationship("EventEntity", back_populates="event", cascade="all, delete-orphan")
     analysis = relationship("EventAnalysis", back_populates="event", cascade="all, delete-orphan")
-    
+
     __table_args__ = (
         CheckConstraint(
             "evidence_tier IN ('A', 'B', 'C', 'D')",
@@ -403,9 +402,9 @@ class EventSignpostLink(Base):
     """
     Link between events and signposts with confidence and extracted values.
     """
-    
+
     __tablename__ = "event_signpost_links"
-    
+
     event_id = Column(Integer, ForeignKey("events.id", ondelete="CASCADE"), primary_key=True)
     signpost_id = Column(Integer, ForeignKey("signposts.id", ondelete="CASCADE"), primary_key=True)
     confidence = Column(Numeric(3, 2), nullable=False)  # 0.00 to 1.00
@@ -421,11 +420,11 @@ class EventSignpostLink(Base):
     review_status = Column(Enum("pending", "approved", "rejected", "flagged", name="review_status"), nullable=True)
     rejection_reason = Column(Text, nullable=True)
     impact_estimate = Column(Numeric(3, 2), nullable=True)  # 0.00 to 1.00
-    
+
     # Relationships
     event = relationship("Event", back_populates="signpost_links")
     signpost = relationship("Signpost")
-    
+
     __table_args__ = (
         Index("idx_event_signpost_signpost_observed", "signpost_id", "observed_at"),
         Index("idx_event_signpost_signpost_created", "signpost_id", "created_at"),
@@ -436,14 +435,14 @@ class EventEntity(Base):
     """
     Helper table for extracted entities from events (benchmarks, metrics, orgs).
     """
-    
+
     __tablename__ = "event_entities"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     event_id = Column(Integer, ForeignKey("events.id", ondelete="CASCADE"), nullable=False, index=True)
     type = Column(String(100), nullable=False)  # e.g., "benchmark", "metric", "org"
     value = Column(Text, nullable=False)
-    
+
     # Relationships
     event = relationship("Event", back_populates="entities")
 
@@ -452,9 +451,9 @@ class IngestRun(Base):
     """
     Tracks ETL connector runs for monitoring and debugging.
     """
-    
+
     __tablename__ = "ingest_runs"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     connector_name = Column(String(100), nullable=False, index=True)
     started_at = Column(TIMESTAMP(timezone=True), nullable=False, index=True)
@@ -468,13 +467,13 @@ class IngestRun(Base):
 class EventAnalysis(Base):
     """
     LLM-generated analysis for events (Phase 1).
-    
+
     Stores AI-generated summaries, impact timelines, and significance scores
     for A/B tier events to help users understand "why this matters".
     """
-    
+
     __tablename__ = "events_analysis"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     event_id = Column(Integer, ForeignKey("events.id", ondelete="CASCADE"), nullable=False)
     summary = Column(Text, nullable=True)  # 2-3 sentence summary
@@ -484,10 +483,10 @@ class EventAnalysis(Base):
     significance_score = Column(Numeric, nullable=True)  # 0.0-1.0 significance score
     llm_version = Column(String(100), nullable=True)  # e.g., "gpt-4o-mini-2024-07-18/v1"
     generated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
-    
+
     # Relationships
     event = relationship("Event", back_populates="analysis")
-    
+
     __table_args__ = (
         Index("idx_events_analysis_event_generated", "event_id", "generated_at"),
     )
@@ -496,13 +495,13 @@ class EventAnalysis(Base):
 class ExpertPrediction(Base):
     """
     Expert predictions for signpost milestones (Phase 3).
-    
+
     Stores forecasts from various sources (AI2027, Aschenbrenner, Metaculus, etc.)
     with confidence intervals and prediction dates for comparison with actual progress.
     """
-    
+
     __tablename__ = "expert_predictions"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     source = Column(String(39), nullable=True)  # e.g., "AI2027", "Aschenbrenner", "Metaculus"
     signpost_id = Column(Integer, ForeignKey("signposts.id"), nullable=True)
@@ -512,11 +511,11 @@ class ExpertPrediction(Base):
     confidence_upper = Column(Numeric, nullable=True)  # Upper bound of confidence interval
     rationale = Column(Text, nullable=True)  # Expert's reasoning for the prediction
     added_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
-    
+
     # Relationships
     signpost = relationship("Signpost")
     accuracy_tracking = relationship("PredictionAccuracy", back_populates="prediction")
-    
+
     __table_args__ = (
         Index("idx_expert_predictions_signpost", "signpost_id"),
         Index("idx_expert_predictions_date", "predicted_date"),
@@ -526,13 +525,13 @@ class ExpertPrediction(Base):
 class PredictionAccuracy(Base):
     """
     Tracks accuracy of expert predictions over time (Phase 3).
-    
+
     Evaluates how well predictions match actual outcomes and computes
     calibration scores for different prediction sources.
     """
-    
+
     __tablename__ = "prediction_accuracy"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     prediction_id = Column(Integer, ForeignKey("expert_predictions.id"), nullable=True)
     evaluated_at = Column(TIMESTAMP(timezone=True), nullable=True)
@@ -540,10 +539,10 @@ class PredictionAccuracy(Base):
     error_magnitude = Column(Numeric, nullable=True)  # Normalized error (0-1)
     directional_correct = Column(Boolean, nullable=True)  # Was the direction of change correct?
     calibration_score = Column(Numeric, nullable=True)  # How well-calibrated the prediction was
-    
+
     # Relationships
     prediction = relationship("ExpertPrediction", back_populates="accuracy_tracking")
-    
+
     __table_args__ = (
         Index("idx_prediction_accuracy_prediction", "prediction_id"),
     )
@@ -552,13 +551,13 @@ class PredictionAccuracy(Base):
 class LLMPrompt(Base):
     """
     Stores versioned LLM prompts for audit trail (Phase 5).
-    
+
     Tracks all prompts used for AI analysis to ensure transparency
     and enable A/B testing of prompt variants.
     """
-    
+
     __tablename__ = "llm_prompts"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     version = Column(String(100), nullable=False, unique=True, index=True)  # e.g., "event-analysis-v1"
     task_type = Column(String(50), nullable=False, index=True)  # e.g., "event_analysis", "weekly_digest"
@@ -570,10 +569,10 @@ class LLMPrompt(Base):
     notes = Column(Text, nullable=True)  # Notes about this version
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
     deprecated_at = Column(TIMESTAMP(timezone=True), nullable=True)  # When this version was deprecated
-    
+
     # Relationships
     runs = relationship("LLMPromptRun", back_populates="prompt")
-    
+
     __table_args__ = (
         Index("idx_llm_prompts_task_type", "task_type"),
         Index("idx_llm_prompts_created", "created_at"),
@@ -583,12 +582,12 @@ class LLMPrompt(Base):
 class LLMPromptRun(Base):
     """
     Records every LLM API call for cost tracking and audit (Phase 5).
-    
+
     Captures input/output hashes, token usage, and costs for each call.
     """
-    
+
     __tablename__ = "llm_prompt_runs"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     prompt_id = Column(Integer, ForeignKey("llm_prompts.id"), nullable=True, index=True)
     task_name = Column(String(100), nullable=False, index=True)  # e.g., "map_event_to_signposts"
@@ -603,10 +602,10 @@ class LLMPromptRun(Base):
     success = Column(Boolean, nullable=False, default=True)
     error_message = Column(Text, nullable=True)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False, index=True)
-    
+
     # Relationships
     prompt = relationship("LLMPrompt", back_populates="runs")
-    
+
     __table_args__ = (
         Index("idx_llm_prompt_runs_task_created", "task_name", "created_at"),
         Index("idx_llm_prompt_runs_event", "event_id"),
@@ -616,12 +615,12 @@ class LLMPromptRun(Base):
 class SourceCredibilitySnapshot(Base):
     """
     Daily snapshots of source credibility scores (Phase 5).
-    
+
     Tracks publisher reliability over time based on retraction rates.
     """
-    
+
     __tablename__ = "source_credibility_snapshots"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     publisher = Column(String(255), nullable=False, index=True)
     snapshot_date = Column(Date, nullable=False, index=True)
@@ -632,7 +631,7 @@ class SourceCredibilitySnapshot(Base):
     credibility_tier = Column(String(1), nullable=False)  # A/B/C/D
     methodology = Column(String(50), nullable=False, default="wilson_95ci_lower")
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
-    
+
     __table_args__ = (
         Index("idx_source_cred_publisher_date", "publisher", "snapshot_date"),
         Index("idx_source_cred_date", "snapshot_date"),

@@ -2,30 +2,29 @@
 import json
 from datetime import date, datetime
 from pathlib import Path
-from typing import List, Dict
 
 from app.database import SessionLocal
-from app.models import ExpertPrediction, Signpost, RoadmapPrediction, Roadmap
+from app.models import ExpertPrediction, Signpost
 
 
-def load_forecast_json_files() -> List[Dict]:
+def load_forecast_json_files() -> list[dict]:
     """Load all forecast JSON files from infra/seeds/forecasts/."""
     # Path from services/etl/app/tasks/predictions -> project root -> infra/seeds/forecasts
     forecast_dir = Path(__file__).parent.parent.parent.parent.parent.parent / "infra" / "seeds" / "forecasts"
-    
+
     all_predictions = []
-    
+
     if not forecast_dir.exists():
         print(f"⚠️  Forecast directory not found: {forecast_dir}")
         return all_predictions
-    
+
     for json_file in forecast_dir.glob("*.json"):
         try:
-            with open(json_file, 'r') as f:
+            with open(json_file) as f:
                 data = json.load(f)
-            
+
             source_name = json_file.stem.replace('_', ' ').title()
-            
+
             # Handle different JSON formats
             if isinstance(data, list):
                 # Format 1: Array of predictions (e.g., ai2027.json)
@@ -46,7 +45,7 @@ def load_forecast_json_files() -> List[Dict]:
                     predicted_date = pred.get("prediction_date")
                     if predicted_date:
                         predicted_date = datetime.strptime(predicted_date, "%Y-%m-%d").date()
-                    
+
                     all_predictions.append({
                         "signpost_code": pred.get("signpost_code"),
                         "source": roadmap_name,
@@ -56,15 +55,15 @@ def load_forecast_json_files() -> List[Dict]:
                         "confidence_upper": None,
                         "rationale": pred.get("prediction_text", ""),
                     })
-            
+
             print(f"✓ Loaded {json_file.name}")
         except Exception as e:
             print(f"⚠️  Error loading {json_file.name}: {e}")
-    
+
     return all_predictions
 
 
-def seed_ai2027_predictions() -> List[Dict]:
+def seed_ai2027_predictions() -> list[dict]:
     """Seed predictions from AI2027 roadmap."""
     return [
         {
@@ -106,7 +105,7 @@ def seed_ai2027_predictions() -> List[Dict]:
     ]
 
 
-def seed_aschenbrenner_predictions() -> List[Dict]:
+def seed_aschenbrenner_predictions() -> list[dict]:
     """Seed predictions from Aschenbrenner's timeline."""
     return [
         {
@@ -139,7 +138,7 @@ def seed_aschenbrenner_predictions() -> List[Dict]:
     ]
 
 
-def seed_metaculus_predictions() -> List[Dict]:
+def seed_metaculus_predictions() -> list[dict]:
     """Seed predictions from Metaculus forecasting platform."""
     return [
         {
@@ -172,7 +171,7 @@ def seed_metaculus_predictions() -> List[Dict]:
     ]
 
 
-def seed_custom_predictions() -> List[Dict]:
+def seed_custom_predictions() -> list[dict]:
     """Seed some custom predictions for demonstration."""
     return [
         {
@@ -202,7 +201,7 @@ def seed_all_predictions():
     try:
         # Load from JSON files first (preferred)
         json_predictions = load_forecast_json_files()
-        
+
         # Get hardcoded predictions as fallback/supplement
         hardcoded_predictions = (
             seed_ai2027_predictions() +
@@ -210,34 +209,34 @@ def seed_all_predictions():
             seed_metaculus_predictions() +
             seed_custom_predictions()
         )
-        
+
         # Combine all predictions (JSON files take priority)
         all_predictions = json_predictions + hardcoded_predictions
-        
+
         # Get signpost mapping by code
         signposts = db.query(Signpost).all()
         signpost_by_code = {sp.code: sp.id for sp in signposts}
-        
+
         created_count = 0
         for pred_data in all_predictions:
             signpost_code = pred_data.pop("signpost_code")
             signpost_id = signpost_by_code.get(signpost_code)
-            
+
             if not signpost_id:
                 print(f"⚠️  Signpost {signpost_code} not found, skipping prediction")
                 continue
-            
+
             # Check if prediction already exists
             existing = db.query(ExpertPrediction).filter(
                 ExpertPrediction.signpost_id == signpost_id,
                 ExpertPrediction.source == pred_data["source"],
                 ExpertPrediction.predicted_date == pred_data["predicted_date"]
             ).first()
-            
+
             if existing:
                 print(f"⚠️  Prediction already exists for {signpost_code} from {pred_data['source']}")
                 continue
-            
+
             # Create new prediction
             prediction = ExpertPrediction(
                 signpost_id=signpost_id,
@@ -245,17 +244,17 @@ def seed_all_predictions():
             )
             db.add(prediction)
             created_count += 1
-        
+
         db.commit()
         print(f"✅ Created {created_count} expert predictions")
-        
+
         # Show summary
         sources = db.query(ExpertPrediction.source).distinct().all()
-        print(f"📊 Predictions by source:")
+        print("📊 Predictions by source:")
         for source in sources:
             count = db.query(ExpertPrediction).filter(ExpertPrediction.source == source[0]).count()
             print(f"  {source[0]}: {count} predictions")
-        
+
     except Exception as e:
         print(f"❌ Error seeding predictions: {e}")
         db.rollback()
