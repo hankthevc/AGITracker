@@ -176,15 +176,38 @@ def generate_weekly_digest():
         digest = generate_weekly_digest_llm(events_data, predictions_data)
 
         if digest:
-            # Store in database (reuse weekly_digest table if it exists, or create new)
-            # For now, just print it
-            print("✅ Weekly Digest Generated:")
+            # Store digest with metadata
+            digest_with_meta = {
+                **digest,
+                "week_start": seven_days_ago.date().isoformat(),
+                "week_end": datetime.now(UTC).date().isoformat(),
+                "generated_at": datetime.now(UTC).isoformat(),
+                "num_events": len(events),
+                "tier_breakdown": {
+                    "A": len([e for e in events if e.evidence_tier == "A"]),
+                    "B": len([e for e in events if e.evidence_tier == "B"]),
+                    "C": len([e for e in events if e.evidence_tier == "C"]),
+                },
+                "top_events": events_data[:5]  # Include top 5 events with links
+            }
+            
+            # Save to file system for API access (Sprint 7.2)
+            import os
+            digests_dir = os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "public", "digests")
+            os.makedirs(digests_dir, exist_ok=True)
+            
+            filename = f"{datetime.now(UTC).date().isoformat()}.json"
+            filepath = os.path.join(digests_dir, filename)
+            
+            with open(filepath, 'w') as f:
+                json.dump(digest_with_meta, f, indent=2)
+            
+            print(f"✅ Weekly Digest Generated and saved to {filepath}")
             print(f"Headline: {digest['headline']}")
             print(f"Key Moves: {len(digest.get('key_moves', []))} items")
             print(f"Surprise Factor: {digest.get('surprise_factor', 'N/A')}")
 
-            # TODO: Store in weekly_digest table
-            return digest
+            return digest_with_meta
         else:
             print("❌ Failed to generate weekly digest")
             return None

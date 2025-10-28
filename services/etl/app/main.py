@@ -2637,3 +2637,78 @@ def get_prediction_accuracy(db: Session = Depends(get_db)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error calculating accuracy: {str(e)}")
 
+
+# ========================================
+# DIGESTS ENDPOINTS (Sprint 7.2)
+# ========================================
+
+@app.get("/v1/digests", tags=["digests"])
+@cache(expire=3600)  # Cache for 1 hour
+def get_weekly_digests(
+    limit: int = Query(12, ge=1, le=52, description="Number of digests to return (default: 12 weeks)")
+):
+    """
+    Get weekly AGI progress digests.
+    
+    Returns the most recent weekly digests, which are generated every Sunday
+    and provide LLM-powered summaries of the week's most significant developments.
+    
+    Sprint 7.2: Weekly digest generation with LLM summaries.
+    """
+    import glob
+    
+    # Find all digest files in the public/digests directory
+    digests_dir = Path(__file__).parent.parent / "public" / "digests"
+    
+    if not digests_dir.exists():
+        return {"digests": [], "count": 0}
+    
+    digest_files = sorted(glob.glob(str(digests_dir / "*.json")), reverse=True)[:limit]
+    
+    digests = []
+    for filepath in digest_files:
+        try:
+            with open(filepath, 'r') as f:
+                digest = json.load(f)
+                # Add filename for reference
+                digest["filename"] = os.path.basename(filepath)
+                digests.append(digest)
+        except Exception as e:
+            print(f"Error loading digest {filepath}: {e}")
+            continue
+    
+    return {
+        "digests": digests,
+        "count": len(digests)
+    }
+
+
+@app.get("/v1/digests/{date_str}", tags=["digests"])
+@cache(expire=3600)  # Cache for 1 hour
+def get_weekly_digest_by_date(date_str: str):
+    """
+    Get a specific weekly digest by date (YYYY-MM-DD format).
+    
+    Sprint 7.2: Individual digest retrieval.
+    """
+    # Validate date format
+    try:
+        datetime.strptime(date_str, "%Y-%m-%d")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+    
+    # Find digest file
+    digests_dir = Path(__file__).parent.parent / "public" / "digests"
+    filepath = digests_dir / f"{date_str}.json"
+    
+    if not filepath.exists():
+        raise HTTPException(status_code=404, detail=f"No digest found for {date_str}")
+    
+    try:
+        with open(filepath, 'r') as f:
+            digest = json.load(f)
+            digest["filename"] = os.path.basename(filepath)
+            return digest
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error loading digest: {str(e)}")
+
