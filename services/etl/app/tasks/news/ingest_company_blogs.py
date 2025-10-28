@@ -105,16 +105,24 @@ def generate_synthetic_blog_events(total: int) -> list[dict]:
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
 def fetch_live_company_blogs(max_results: int = 150) -> list[dict]:
-    """Fetch live company blog/news posts via RSS/Atom where available (robots-aware)."""
+    """
+    Fetch live company blog/news posts via RSS/Atom (Sprint 7.1).
+    
+    Rate limiting: 3 second delay between requests (as per task requirements)
+    Robots.txt: All feeds use official RSS endpoints
+    User-Agent: Identifies as AGI-Signpost-Tracker
+    """
     import time
     feeds = [
-        # Major AI Labs
+        # Major AI Labs (Sprint 7.1 required)
         "https://openai.com/blog/rss.xml",
         "https://www.anthropic.com/news/rss.xml",
         "https://deepmind.google/discover/feeds/blog.xml",
         "https://ai.meta.com/blog/feed/",
         "https://cohere.com/blog/rss.xml",
         "https://mistral.ai/feed/",
+        # Additional Labs
+        "https://www.adept.ai/blog/rss.xml",  # Sprint 7.1: Added Adept
         # Research Orgs
         "https://www.microsoft.com/en-us/research/feed/",
         "https://blog.research.google/feeds/posts/default",
@@ -129,8 +137,8 @@ def fetch_live_company_blogs(max_results: int = 150) -> list[dict]:
     items: list[dict] = []
     for url in feeds:
         try:
-            # Add jitter to avoid thundering herd
-            time.sleep(random.uniform(0.1, 0.5))
+            # Sprint 7.1: Rate limiting - 3 seconds between requests
+            time.sleep(3.0)
             feed = feedparser.parse(url, agent="AGI-Signpost-Tracker/1.0 (+https://github.com/hankthevc/AGITracker)")
             for entry in feed.entries[:max_results]:
                 title = entry.get("title", "").strip()

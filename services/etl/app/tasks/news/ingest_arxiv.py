@@ -37,7 +37,17 @@ def load_fixture_data() -> list[dict]:
 
 
 def fetch_live_arxiv(max_results: int = 50) -> list[dict]:
-    """Fetch recent arXiv entries for target categories via Atom feed (robots-friendly)."""
+    """
+    Fetch recent arXiv entries for target categories via Atom feed (Sprint 7.1).
+    
+    Rate limiting: Built into arXiv API (max 1 request per 3 seconds)
+    Robots.txt: Uses official export API endpoint
+    Categories: cs.AI, cs.CL, cs.LG, cs.CV
+    """
+    import time
+    # Sprint 7.1: Respect arXiv rate limits (3 second delay)
+    time.sleep(3.0)
+    
     base = (
         "http://export.arxiv.org/api/query?"
         "search_query=cat:cs.AI+OR+cat:cs.CL+OR+cat:cs.LG+OR+cat:cs.CV"

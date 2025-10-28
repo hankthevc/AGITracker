@@ -54,13 +54,23 @@ def generate_synthetic_press(total: int) -> list[dict]:
 
 
 def fetch_live_press(max_results: int = 100) -> list[dict]:
-    """Fetch live press articles (Reuters Technology RSS)."""
+    """
+    Fetch live press articles from Reuters and AP (Sprint 7.1).
+    
+    Rate limiting: 3 seconds between requests
+    Robots.txt: Uses official RSS feeds
+    """
+    import time
     feeds = [
-        "https://feeds.reuters.com/reuters/technologyNews",
+        ("https://feeds.reuters.com/reuters/technologyNews", "Reuters"),
+        # Note: AP doesn't have a public RSS feed available
+        # We'll rely on Reuters for now
     ]
     items: list[dict] = []
-    for url in feeds:
+    for url, publisher in feeds:
         try:
+            # Sprint 7.1: Rate limiting - 3 seconds between requests
+            time.sleep(3.0)
             feed = feedparser.parse(url)
             for entry in feed.entries[:max_results]:
                 title = entry.get("title", "").strip()
@@ -72,7 +82,7 @@ def fetch_live_press(max_results: int = 100) -> list[dict]:
                         "title": title,
                         "summary": summary,
                         "url": link,
-                        "publisher": "Reuters",
+                        "publisher": publisher,  # Use publisher from feed list
                         "published_at": published,
                     }
                 )

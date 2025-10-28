@@ -44,7 +44,7 @@ class Settings(BaseSettings):
     rate_limit_per_minute: int = 100  # Requests per minute per IP
 
     # Scrapers
-    scrape_real: bool = False  # Use fixtures by default
+    scrape_real: bool = True  # Enable live scraping by default (Sprint 7.1)
     http_timeout_seconds: int = 20
     http_max_retries: int = 3
     http_backoff_base_seconds: int = 1
