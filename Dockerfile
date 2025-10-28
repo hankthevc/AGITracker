@@ -31,4 +31,5 @@ ENV PYTHONPATH=/app:/app/packages/scoring/python:$PYTHONPATH
 EXPOSE 8000
 
 # Start command - use uvicorn directly (Railway sets PORT automatically)
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# Note: Use exec form with shell to properly expand PORT variable
+CMD sh -c "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"
