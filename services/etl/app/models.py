@@ -366,6 +366,7 @@ class Event(Base):
     outlet_cred = Column(Enum("A", "B", "C", "D", name="outlet_cred"), nullable=True, index=True)
     content_text = Column(Text, nullable=True)  # Full article content
     content_hash = Column(Text, nullable=True)  # SHA-256 hash for deduplication
+    dedup_hash = Column(Text, nullable=True)  # Phase A: robust deduplication (title+domain+date)
     author = Column(String(255), nullable=True)
     byline = Column(String(500), nullable=True)
     lang = Column(String(10), nullable=False, server_default="en")
@@ -408,6 +409,8 @@ class EventSignpostLink(Base):
     event_id = Column(Integer, ForeignKey("events.id", ondelete="CASCADE"), primary_key=True)
     signpost_id = Column(Integer, ForeignKey("signposts.id", ondelete="CASCADE"), primary_key=True)
     confidence = Column(Numeric(3, 2), nullable=False)  # 0.00 to 1.00
+    tier = Column(Enum("A", "B", "C", "D", name="outlet_cred"), nullable=True)  # Phase A: denormalized tier
+    provisional = Column(Boolean, nullable=False, server_default="true")  # Phase A: provisional status
     rationale = Column(Text, nullable=True)
     observed_at = Column(TIMESTAMP(timezone=True), nullable=True)  # Date claim refers to
     value = Column(Numeric, nullable=True)  # Extracted numeric value if applicable
