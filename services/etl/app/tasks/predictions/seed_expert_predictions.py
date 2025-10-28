@@ -10,7 +10,8 @@ from app.models import ExpertPrediction, Signpost, RoadmapPrediction, Roadmap
 
 def load_forecast_json_files() -> List[Dict]:
     """Load all forecast JSON files from infra/seeds/forecasts/."""
-    forecast_dir = Path(__file__).parent.parent.parent.parent.parent / "infra" / "seeds" / "forecasts"
+    # Path from services/etl/app/tasks/predictions -> project root -> infra/seeds/forecasts
+    forecast_dir = Path(__file__).parent.parent.parent.parent.parent.parent / "infra" / "seeds" / "forecasts"
     
     all_predictions = []
     
