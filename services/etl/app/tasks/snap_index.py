@@ -42,7 +42,12 @@ except ImportError:
 
 
 # Load preset weights
-weights_path = Path(__file__).parent.parent.parent.parent.parent / "packages" / "shared" / "config" / "weights.json"
+# Try Docker path first, fall back to development path
+docker_weights_path = Path("/app/packages/shared/config/weights.json")
+dev_weights_path = Path(__file__).parent.parent.parent.parent.parent / "packages" / "shared" / "config" / "weights.json"
+
+weights_path = docker_weights_path if docker_weights_path.exists() else dev_weights_path
+
 with open(weights_path) as f:
     PRESET_WEIGHTS = json.load(f)
 
