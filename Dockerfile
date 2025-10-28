@@ -18,11 +18,14 @@ COPY services/etl/pyproject.toml services/etl/setup.py ./
 # Install Python dependencies
 RUN pip install --no-cache-dir -e .
 
+# Copy shared packages directory (needed for scoring logic)
+COPY packages /app/packages
+
 # Copy application code from services/etl
 COPY services/etl/app ./app
 
-# Set Python path to include app directory
-ENV PYTHONPATH=/app:$PYTHONPATH
+# Set Python path to include app directory and packages
+ENV PYTHONPATH=/app:/app/packages/scoring/python:$PYTHONPATH
 
 # Expose port (Railway will override with PORT env var)
 EXPOSE 8000
