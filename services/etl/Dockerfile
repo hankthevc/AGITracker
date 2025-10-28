@@ -17,8 +17,12 @@ COPY app ./app
 # Install Python dependencies
 RUN pip install --no-cache-dir -e .
 
+# Copy start script
+COPY start.sh ./
+RUN chmod +x start.sh
+
 # Expose port (Railway will override with PORT env var)
 EXPOSE 8000
 
-# Start command - use shell form to allow environment variable substitution
-CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
+# Start command
+CMD ["./start.sh"]
