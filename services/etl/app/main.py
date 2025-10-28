@@ -2406,7 +2406,7 @@ def approve_mapping(
     """Approve a mapping (mark as reviewed and not needing review)."""
     try:
         # Verify API key for admin actions
-        if not x_api_key or x_api_key != settings.api_key:
+        if not x_api_key or x_api_key != settings.admin_api_key:
             raise HTTPException(status_code=403, detail="Invalid or missing API key")
         
         link = db.query(EventSignpostLink).filter(EventSignpostLink.id == mapping_id).first()
@@ -2442,7 +2442,7 @@ def reject_mapping(
     """Reject a mapping (mark as reviewed and rejected)."""
     try:
         # Verify API key for admin actions
-        if not x_api_key or x_api_key != settings.api_key:
+        if not x_api_key or x_api_key != settings.admin_api_key:
             raise HTTPException(status_code=403, detail="Invalid or missing API key")
         
         link = db.query(EventSignpostLink).filter(EventSignpostLink.id == mapping_id).first()
@@ -2502,4 +2502,130 @@ def get_review_stats(db: Session = Depends(get_db)):
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching review stats: {str(e)}")
+
+
+# =============================================================================
+# ADMIN ENDPOINTS - Task Monitoring (Sprint 4.2)
+# =============================================================================
+
+@app.get("/v1/admin/tasks/health", tags=["admin"])
+def get_task_health(x_api_key: str = Header(None)):
+    """
+    Get health status of all Celery tasks.
+    
+    Returns:
+        - task_name: Name of the task
+        - status: OK | DEGRADED | ERROR | PENDING | UNKNOWN
+        - last_run: ISO timestamp of last execution
+        - last_success: ISO timestamp of last successful execution
+        - last_error: ISO timestamp of last error
+        - error_msg: Error message if in ERROR state
+        - age_seconds: Seconds since last run
+    
+    Requires: x-api-key header
+    """
+    from app.utils.task_tracking import get_all_task_statuses
+    
+    # Verify API key for admin endpoints
+    if not x_api_key or x_api_key != settings.admin_api_key:
+        raise HTTPException(status_code=403, detail="Invalid or missing API key")
+    
+    try:
+        statuses = get_all_task_statuses()
+        
+        # Calculate overall health
+        error_count = sum(1 for s in statuses.values() if s["status"] == "ERROR")
+        degraded_count = sum(1 for s in statuses.values() if s["status"] == "DEGRADED")
+        ok_count = sum(1 for s in statuses.values() if s["status"] == "OK")
+        
+        overall_status = "OK"
+        if error_count > 0:
+            overall_status = "ERROR"
+        elif degraded_count > 0:
+            overall_status = "DEGRADED"
+        
+        return {
+            "overall_status": overall_status,
+            "summary": {
+                "ok": ok_count,
+                "degraded": degraded_count,
+                "error": error_count,
+                "pending": sum(1 for s in statuses.values() if s["status"] == "PENDING"),
+                "unknown": sum(1 for s in statuses.values() if s["status"] == "UNKNOWN"),
+            },
+            "tasks": statuses,
+            "timestamp": datetime.utcnow().isoformat() + "Z"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching task health: {str(e)}")
+
+
+# =============================================================================
+# PREDICTIONS & SURPRISES - Intelligence Features (Sprint 5.3)
+# =============================================================================
+
+@app.get("/v1/predictions/surprises", tags=["predictions"])
+@cache(expire=3600)  # Cache for 1 hour
+def get_prediction_surprises(
+    days: int = Query(90, description="Look back this many days"),
+    limit: int = Query(10, description="Maximum number of surprises to return"),
+    min_score: float = Query(1.0, description="Minimum surprise score to include"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get events that most surprised expert predictions.
+    
+    Returns events where timing significantly deviated from forecasts,
+    ranked by surprise score (z-score based on prediction uncertainty).
+    
+    Query params:
+        - days: Look back period (default 90 days)
+        - limit: Max results (default 10)
+        - min_score: Minimum surprise score (default 1.0)
+    
+    Returns:
+        List of surprises with event details, predictions, and surprise scores
+    """
+    from app.services.surprise_calculation import get_surprises
+    
+    try:
+        surprises = get_surprises(db, days=days, limit=limit, min_surprise_score=min_score)
+        
+        return {
+            "surprises": surprises,
+            "count": len(surprises),
+            "filters": {
+                "days": days,
+                "limit": limit,
+                "min_score": min_score
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error calculating surprises: {str(e)}")
+
+
+@app.get("/v1/predictions/accuracy", tags=["predictions"])
+@cache(expire=3600)  # Cache for 1 hour
+def get_prediction_accuracy(db: Session = Depends(get_db)):
+    """
+    Get prediction accuracy summary across all expert sources.
+    
+    Returns statistics on how well predictions matched actual outcomes,
+    broken down by prediction source (AI2027, Aschenbrenner, etc.).
+    
+    Returns:
+        - total_predictions_evaluated: Number of predictions with actual outcomes
+        - sources: Per-source accuracy statistics including:
+          - count: Number of predictions
+          - avg_surprise: Average surprise score (lower is more accurate)
+          - early_pct: Percentage of predictions that were too early
+          - late_pct: Percentage of predictions that were too late
+    """
+    from app.services.surprise_calculation import get_prediction_accuracy_summary
+    
+    try:
+        summary = get_prediction_accuracy_summary(db)
+        return summary
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error calculating accuracy: {str(e)}")
 

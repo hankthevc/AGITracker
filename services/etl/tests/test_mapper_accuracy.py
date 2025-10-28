@@ -100,13 +100,13 @@ def test_mapper_accuracy_on_golden_set(db):
             summary=gold_example.get("summary", ""),
             publisher=gold_example.get("publisher", "Test Publisher"),
             source_url=f"https://test.example.com/{idx}",
-            evidence_tier=gold_example.get("tier", "B"),
+            evidence_tier=gold_example.get("evidence_tier", "B"),
             published_at=datetime.utcnow(),
             source_type="test",
         )
         
         # Get gold standard signpost codes
-        gold_signpost_codes = set(gold_example.get("signpost_codes", []))
+        gold_signpost_codes = set(gold_example.get("expected_signposts", []))
         
         if not gold_signpost_codes:
             print(f"⚠️  Example {idx+1} has no gold signpost codes, skipping")
@@ -191,12 +191,12 @@ def test_mapper_confidence_calibration(db):
             summary=gold_example.get("summary", ""),
             publisher=gold_example.get("publisher", "Test Publisher"),
             source_url=f"https://test.example.com/{idx}",
-            evidence_tier=gold_example.get("tier", "B"),
+            evidence_tier=gold_example.get("evidence_tier", "B"),
             published_at=datetime.utcnow(),
             source_type="test",
         )
         
-        gold_signpost_codes = set(gold_example.get("signpost_codes", []))
+        gold_signpost_codes = set(gold_example.get("expected_signposts", []))
         
         if not gold_signpost_codes:
             continue
