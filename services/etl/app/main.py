@@ -46,14 +46,14 @@ from app.models import (
 )
 from app.utils.query_helpers import query_active_events
 
-# Import scoring functions
-try:
-    from core import compute_confidence_bands, compute_index_from_categories
-except ImportError:
-    from packages.scoring.python.core import (
-        compute_confidence_bands,
-        compute_index_from_categories,
-    )
+# Import scoring functions (disabled - not currently used in main.py)
+# try:
+#     from core import compute_confidence_bands, compute_index_from_categories
+# except ImportError:
+#     from packages.scoring.python.core import (
+#         compute_confidence_bands,
+#         compute_index_from_categories,
+#     )
 
 # Initialize rate limiter
 limiter = Limiter(key_func=get_remote_address)

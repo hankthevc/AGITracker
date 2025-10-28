@@ -14,11 +14,11 @@ RUN apt-get update && apt-get install -y \
 COPY pyproject.toml setup.py ./
 COPY app ./app
 
-# Copy packages directory (shared scoring logic)
-COPY ../../packages /packages
-
 # Install Python dependencies
 RUN pip install --no-cache-dir -e .
+
+# Create packages directory and add to Python path
+ENV PYTHONPATH=/app:$PYTHONPATH
 
 # Copy start script
 COPY start.sh ./
