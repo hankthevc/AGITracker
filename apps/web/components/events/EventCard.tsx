@@ -5,6 +5,7 @@ import { ChevronDown, ChevronUp, ExternalLink, AlertTriangle, CheckCircle2, Cloc
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { RetractionBanner } from "@/components/events/RetractionBanner";
 
 export interface EventAnalysis {
   summary: string;
@@ -28,6 +29,9 @@ export interface EventData {
   provisional: boolean;
   needs_review: boolean;
   retracted: boolean;
+  retracted_at?: string;
+  retraction_reason?: string;
+  retraction_evidence_url?: string;
   signpost_links?: Array<{
     signpost_id: string;
     signpost_name: string;
@@ -139,6 +143,17 @@ export function EventCard({ event, compact = false }: EventCardProps) {
       </CardHeader>
 
       <CardContent>
+        {/* Retraction Banner (Sprint 6.1) */}
+        {event.retracted && (
+          <div className="mb-4">
+            <RetractionBanner
+              retractedAt={event.retracted_at}
+              reason={event.retraction_reason}
+              evidenceUrl={event.retraction_evidence_url}
+            />
+          </div>
+        )}
+
         {/* Event Summary */}
         {!compact && event.summary && (
           <p className="text-sm text-gray-700 dark:text-gray-300 mb-4">{event.summary}</p>
