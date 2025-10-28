@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     # OpenAI
     openai_api_key: str = ""
 
+    # Anthropic (Sprint 7.3)
+    anthropic_api_key: str = ""
+
     # LLM Budget
     llm_budget_daily_usd: float = 20.0
 

@@ -2712,3 +2712,30 @@ def get_weekly_digest_by_date(date_str: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error loading digest: {str(e)}")
 
+
+# ========================================
+# MULTI-MODEL CONSENSUS (Sprint 7.3)
+# ========================================
+
+@app.get("/v1/events/{event_id}/consensus", tags=["events"])
+@cache(expire=3600)  # Cache for 1 hour
+def get_event_consensus(event_id: str, db: Session = Depends(get_db)):
+    """
+    Get multi-model consensus analysis for an event.
+    
+    Sprint 7.3: Returns consensus scores and variance between different LLMs.
+    """
+    from app.services.multi_model_analysis import get_consensus_analysis
+    
+    try:
+        consensus = get_consensus_analysis(db, event_id)
+        
+        if not consensus:
+            raise HTTPException(status_code=404, detail=f"No consensus analysis found for event {event_id}")
+        
+        return consensus
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving consensus: {str(e)}")
+
