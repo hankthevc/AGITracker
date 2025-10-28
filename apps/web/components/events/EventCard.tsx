@@ -152,14 +152,16 @@ export function EventCard({ event, compact = false }: EventCardProps) {
             </h4>
             <div className="flex flex-wrap gap-2">
               {event.signpost_links.map((link) => {
-                const LinkIcon = linkTypeIcons[link.link_type].icon;
+                const linkType = link.link_type || "related";
+                const LinkIcon = linkTypeIcons[linkType]?.icon || Clock;
+                const iconColor = linkTypeIcons[linkType]?.color || "text-blue-600 dark:text-blue-400";
                 return (
                   <Badge
                     key={link.signpost_id}
                     variant="secondary"
                     className="flex items-center gap-1"
                   >
-                    <LinkIcon className={`h-3 w-3 ${linkTypeIcons[link.link_type].color}`} />
+                    <LinkIcon className={`h-3 w-3 ${iconColor}`} />
                     {link.signpost_name}
                   </Badge>
                 );
