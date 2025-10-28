@@ -24,12 +24,15 @@ COPY packages /app/packages
 # Copy application code from services/etl
 COPY services/etl/app ./app
 
+# Copy startup script
+COPY services/etl/start_server.py ./start_server.py
+RUN chmod +x start_server.py
+
 # Set Python path to include app directory and packages
 ENV PYTHONPATH=/app:/app/packages/scoring/python:$PYTHONPATH
 
 # Expose port (Railway will override with PORT env var)
 EXPOSE 8000
 
-# Start command - Railway will provide PORT as environment variable
-# We'll use a startup script to handle this
-CMD ["python", "-c", "import os, sys; os.execvp('uvicorn', ['uvicorn', 'app.main:app', '--host', '0.0.0.0', '--port', os.environ.get('PORT', '8000')])"]
+# Start command - use dedicated Python script
+CMD ["python", "start_server.py"]
