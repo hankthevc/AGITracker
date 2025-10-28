@@ -1,9 +1,66 @@
 """Seed expert predictions from various sources."""
-from datetime import date
+import json
+from datetime import date, datetime
+from pathlib import Path
 from typing import List, Dict
 
 from app.database import SessionLocal
-from app.models import ExpertPrediction, Signpost
+from app.models import ExpertPrediction, Signpost, RoadmapPrediction, Roadmap
+
+
+def load_forecast_json_files() -> List[Dict]:
+    """Load all forecast JSON files from infra/seeds/forecasts/."""
+    forecast_dir = Path(__file__).parent.parent.parent.parent.parent / "infra" / "seeds" / "forecasts"
+    
+    all_predictions = []
+    
+    if not forecast_dir.exists():
+        print(f"⚠️  Forecast directory not found: {forecast_dir}")
+        return all_predictions
+    
+    for json_file in forecast_dir.glob("*.json"):
+        try:
+            with open(json_file, 'r') as f:
+                data = json.load(f)
+            
+            source_name = json_file.stem.replace('_', ' ').title()
+            
+            # Handle different JSON formats
+            if isinstance(data, list):
+                # Format 1: Array of predictions (e.g., ai2027.json)
+                for pred in data:
+                    all_predictions.append({
+                        "signpost_code": pred.get("signpost_code"),
+                        "source": source_name,
+                        "predicted_date": datetime.strptime(pred.get("target_date"), "%Y-%m-%d").date() if pred.get("target_date") else None,
+                        "predicted_value": pred.get("predicted_value"),
+                        "confidence_lower": None,
+                        "confidence_upper": None,
+                        "rationale": pred.get("rationale", pred.get("label", "")),
+                    })
+            elif isinstance(data, dict) and "predictions" in data:
+                # Format 2: Object with predictions array (e.g., aschenbrenner.json)
+                roadmap_name = data.get("roadmap", source_name)
+                for pred in data.get("predictions", []):
+                    predicted_date = pred.get("prediction_date")
+                    if predicted_date:
+                        predicted_date = datetime.strptime(predicted_date, "%Y-%m-%d").date()
+                    
+                    all_predictions.append({
+                        "signpost_code": pred.get("signpost_code"),
+                        "source": roadmap_name,
+                        "predicted_date": predicted_date,
+                        "predicted_value": pred.get("prediction_value"),
+                        "confidence_lower": None,
+                        "confidence_upper": None,
+                        "rationale": pred.get("prediction_text", ""),
+                    })
+            
+            print(f"✓ Loaded {json_file.name}")
+        except Exception as e:
+            print(f"⚠️  Error loading {json_file.name}: {e}")
+    
+    return all_predictions
 
 
 def seed_ai2027_predictions() -> List[Dict]:
@@ -142,13 +199,19 @@ def seed_all_predictions():
     """Seed all expert predictions into the database."""
     db = SessionLocal()
     try:
-        # Get all predictions from all sources
-        all_predictions = (
+        # Load from JSON files first (preferred)
+        json_predictions = load_forecast_json_files()
+        
+        # Get hardcoded predictions as fallback/supplement
+        hardcoded_predictions = (
             seed_ai2027_predictions() +
             seed_aschenbrenner_predictions() +
             seed_metaculus_predictions() +
             seed_custom_predictions()
         )
+        
+        # Combine all predictions (JSON files take priority)
+        all_predictions = json_predictions + hardcoded_predictions
         
         # Get signpost mapping by code
         signposts = db.query(Signpost).all()
