@@ -2406,7 +2406,7 @@ def approve_mapping(
     """Approve a mapping (mark as reviewed and not needing review)."""
     try:
         # Verify API key for admin actions
-        if not x_api_key or x_api_key != settings.api_key:
+        if not x_api_key or x_api_key != settings.admin_api_key:
             raise HTTPException(status_code=403, detail="Invalid or missing API key")
         
         link = db.query(EventSignpostLink).filter(EventSignpostLink.id == mapping_id).first()
@@ -2442,7 +2442,7 @@ def reject_mapping(
     """Reject a mapping (mark as reviewed and rejected)."""
     try:
         # Verify API key for admin actions
-        if not x_api_key or x_api_key != settings.api_key:
+        if not x_api_key or x_api_key != settings.admin_api_key:
             raise HTTPException(status_code=403, detail="Invalid or missing API key")
         
         link = db.query(EventSignpostLink).filter(EventSignpostLink.id == mapping_id).first()
@@ -2502,4 +2502,60 @@ def get_review_stats(db: Session = Depends(get_db)):
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching review stats: {str(e)}")
+
+
+# =============================================================================
+# ADMIN ENDPOINTS - Task Monitoring (Sprint 4.2)
+# =============================================================================
+
+@app.get("/v1/admin/tasks/health", tags=["admin"])
+def get_task_health(x_api_key: str = Header(None)):
+    """
+    Get health status of all Celery tasks.
+    
+    Returns:
+        - task_name: Name of the task
+        - status: OK | DEGRADED | ERROR | PENDING | UNKNOWN
+        - last_run: ISO timestamp of last execution
+        - last_success: ISO timestamp of last successful execution
+        - last_error: ISO timestamp of last error
+        - error_msg: Error message if in ERROR state
+        - age_seconds: Seconds since last run
+    
+    Requires: x-api-key header
+    """
+    from app.utils.task_tracking import get_all_task_statuses
+    
+    # Verify API key for admin endpoints
+    if not x_api_key or x_api_key != settings.admin_api_key:
+        raise HTTPException(status_code=403, detail="Invalid or missing API key")
+    
+    try:
+        statuses = get_all_task_statuses()
+        
+        # Calculate overall health
+        error_count = sum(1 for s in statuses.values() if s["status"] == "ERROR")
+        degraded_count = sum(1 for s in statuses.values() if s["status"] == "DEGRADED")
+        ok_count = sum(1 for s in statuses.values() if s["status"] == "OK")
+        
+        overall_status = "OK"
+        if error_count > 0:
+            overall_status = "ERROR"
+        elif degraded_count > 0:
+            overall_status = "DEGRADED"
+        
+        return {
+            "overall_status": overall_status,
+            "summary": {
+                "ok": ok_count,
+                "degraded": degraded_count,
+                "error": error_count,
+                "pending": sum(1 for s in statuses.values() if s["status"] == "PENDING"),
+                "unknown": sum(1 for s in statuses.values() if s["status"] == "UNKNOWN"),
+            },
+            "tasks": statuses,
+            "timestamp": datetime.utcnow().isoformat() + "Z"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching task health: {str(e)}")
 
