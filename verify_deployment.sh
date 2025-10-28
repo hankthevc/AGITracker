@@ -28,8 +28,8 @@ echo ""
 echo "Test 1: API Health Endpoint"
 echo "-----------------------------------"
 HEALTH_RESPONSE=$(curl -s -w "\n%{http_code}" "${API_URL}/health")
-HTTP_CODE=$(echo "$HEALTH_RESPONSE" | tail -n1)
-BODY=$(echo "$HEALTH_RESPONSE" | head -n-1)
+HTTP_CODE=$(echo "$HEALTH_RESPONSE" | tail -n 1)
+BODY=$(echo "$HEALTH_RESPONSE" | sed '$d')
 
 if [ "$HTTP_CODE" = "200" ]; then
     echo -e "${GREEN}✅ Health endpoint: PASS${NC}"
@@ -46,8 +46,8 @@ echo "-----------------------------------"
 TASK_HEALTH_RESPONSE=$(curl -s -w "\n%{http_code}" \
     -H "x-api-key: ${ADMIN_API_KEY}" \
     "${API_URL}/v1/admin/tasks/health")
-HTTP_CODE=$(echo "$TASK_HEALTH_RESPONSE" | tail -n1)
-BODY=$(echo "$TASK_HEALTH_RESPONSE" | head -n-1)
+HTTP_CODE=$(echo "$TASK_HEALTH_RESPONSE" | tail -n 1)
+BODY=$(echo "$TASK_HEALTH_RESPONSE" | sed '$d')
 
 if [ "$HTTP_CODE" = "200" ]; then
     echo -e "${GREEN}✅ Task health endpoint: PASS${NC}"
@@ -74,8 +74,8 @@ echo ""
 echo "Test 3: Events Endpoint"
 echo "-----------------------------------"
 EVENTS_RESPONSE=$(curl -s -w "\n%{http_code}" "${API_URL}/v1/events?limit=1")
-HTTP_CODE=$(echo "$EVENTS_RESPONSE" | tail -n1)
-BODY=$(echo "$EVENTS_RESPONSE" | head -n-1)
+HTTP_CODE=$(echo "$EVENTS_RESPONSE" | tail -n 1)
+BODY=$(echo "$EVENTS_RESPONSE" | sed '$d')
 
 if [ "$HTTP_CODE" = "200" ]; then
     echo -e "${GREEN}✅ Events endpoint: PASS${NC}"
@@ -95,8 +95,8 @@ echo ""
 echo "Test 4: Predictions Surprises Endpoint"
 echo "-----------------------------------"
 SURPRISES_RESPONSE=$(curl -s -w "\n%{http_code}" "${API_URL}/v1/predictions/surprises")
-HTTP_CODE=$(echo "$SURPRISES_RESPONSE" | tail -n1)
-BODY=$(echo "$SURPRISES_RESPONSE" | head -n-1)
+HTTP_CODE=$(echo "$SURPRISES_RESPONSE" | tail -n 1)
+BODY=$(echo "$SURPRISES_RESPONSE" | sed '$d')
 
 if [ "$HTTP_CODE" = "200" ]; then
     echo -e "${GREEN}✅ Surprises endpoint: PASS${NC}"
@@ -112,8 +112,8 @@ echo ""
 echo "Test 5: Source Credibility Endpoint"
 echo "-----------------------------------"
 CREDIBILITY_RESPONSE=$(curl -s -w "\n%{http_code}" "${API_URL}/v1/admin/source-credibility")
-HTTP_CODE=$(echo "$CREDIBILITY_RESPONSE" | tail -n1)
-BODY=$(echo "$CREDIBILITY_RESPONSE" | head -n-1)
+HTTP_CODE=$(echo "$CREDIBILITY_RESPONSE" | tail -n 1)
+BODY=$(echo "$CREDIBILITY_RESPONSE" | sed '$d')
 
 if [ "$HTTP_CODE" = "200" ]; then
     echo -e "${GREEN}✅ Source credibility endpoint: PASS${NC}"
