@@ -94,6 +94,11 @@ jobs:
       - name: Install dependencies
         run: npm install
       
+      - name: Install package dependencies
+        run: |
+          cd packages/scoring/typescript
+          npm install
+      
       - name: Run TypeScript unit tests
         run: |
           cd packages/scoring/typescript

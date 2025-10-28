@@ -4,28 +4,25 @@ Company blog ingestion task (B-tier evidence).
 Priority: 1 (highest - runs first)
 Sources: OpenAI, Anthropic, Google DeepMind, Meta AI, xAI, Cohere, Mistral (allowlist)
 """
-import json
-from datetime import datetime, timezone
-from pathlib import Path
-from typing import Dict, List
 import hashlib
-import os
+import json
 import random
-
-from celery import shared_task
-import feedparser
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from urllib.parse import urlparse
+
+import feedparser
+from celery import shared_task
 from tenacity import retry, stop_after_attempt, wait_exponential
 
+from app.config import settings
 from app.database import SessionLocal
 from app.models import Event, IngestRun
-from app.config import settings
 from app.utils.fetcher import compute_dedup_hash
-
 
 ALLOWED_PUBLISHERS = {
     "OpenAI",
-    "Anthropic", 
+    "Anthropic",
     "Google DeepMind",
     "Meta AI",
     "xAI",
@@ -34,7 +31,7 @@ ALLOWED_PUBLISHERS = {
 }
 
 
-def load_fixture_data() -> List[Dict]:
+def load_fixture_data() -> list[dict]:
     """Load company blog fixture data for CI/testing."""
     # Priority: merged fixture > comprehensive > legacy
     paths_to_try = [
@@ -42,22 +39,22 @@ def load_fixture_data() -> List[Dict]:
         Path(__file__).parent.parent.parent.parent.parent.parent / "infra" / "fixtures" / "news" / "ai_news_oct2024_oct2025.json",
         Path(__file__).parent.parent.parent.parent.parent.parent / "infra" / "fixtures" / "news" / "ai_news_2024.json",
     ]
-    
+
     for path in paths_to_try:
         if path.exists():
             with open(path) as f:
                 data = json.load(f)
                 print(f"  📂 Loaded {len(data)} events from {path.name}")
                 return data
-    
+
     return []
 
 
-def generate_synthetic_blog_events(total: int) -> List[Dict]:
+def generate_synthetic_blog_events(total: int) -> list[dict]:
     """Generate synthetic company blog events with clear signpost cues and numeric values."""
     if total <= 0:
         return []
-    items: List[Dict] = []
+    items: list[dict] = []
     publishers = [
         ("OpenAI", "https://openai.com/blog/"),
         ("Anthropic", "https://www.anthropic.com/news/"),
@@ -76,7 +73,7 @@ def generate_synthetic_blog_events(total: int) -> List[Dict]:
         ("Compute", "10^", "flops", [26, 27]),
         ("Datacenter Power", "gw", "gw", [1, 3, 5, 10]),
     ]
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     for i in range(total):
         pub, base = random.choice(publishers)
         kind = random.choice(templates)
@@ -107,7 +104,7 @@ def generate_synthetic_blog_events(total: int) -> List[Dict]:
 
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
-def fetch_live_company_blogs(max_results: int = 150) -> List[Dict]:
+def fetch_live_company_blogs(max_results: int = 150) -> list[dict]:
     """Fetch live company blog/news posts via RSS/Atom where available (robots-aware)."""
     import time
     feeds = [
@@ -126,10 +123,10 @@ def fetch_live_company_blogs(max_results: int = 150) -> List[Dict]:
         "https://openai.com/research/rss.xml",
         # Open Source
         "https://huggingface.co/blog/feed.xml",
-        # Compute/Infrastructure  
+        # Compute/Infrastructure
         "https://www.nvidia.com/en-us/about-nvidia/ai-computing/rss/",
     ]
-    items: List[Dict] = []
+    items: list[dict] = []
     for url in feeds:
         try:
             # Add jitter to avoid thundering herd
@@ -171,7 +168,7 @@ def fetch_live_company_blogs(max_results: int = 150) -> List[Dict]:
     return items
 
 
-def normalize_event_data(raw_data: Dict) -> Dict:
+def normalize_event_data(raw_data: dict) -> dict:
     """Normalize raw blog data to event schema."""
     # Parse published_at if string
     published_at = raw_data.get("published_at")
@@ -180,7 +177,7 @@ def normalize_event_data(raw_data: Dict) -> Dict:
             published_at = datetime.fromisoformat(published_at.replace('Z', '+00:00'))
         except ValueError:
             published_at = None
-    
+
     # Source domain
     source_url = raw_data["url"]
     source_domain = None
@@ -189,14 +186,14 @@ def normalize_event_data(raw_data: Dict) -> Dict:
             source_domain = source_url.split('://', 1)[1].split('/')[0]
         except Exception:
             source_domain = None
-    
+
     # Compute dedup_hash for robust deduplication (Phase A)
     dedup_hash = compute_dedup_hash(
         title=raw_data["title"],
         source_domain=source_domain,
         published_date=published_at
     )
-    
+
     return {
         "title": raw_data["title"],
         "summary": raw_data.get("summary", ""),
@@ -214,27 +211,27 @@ def normalize_event_data(raw_data: Dict) -> Dict:
     }
 
 
-def create_or_update_event(db, event_data: Dict) -> tuple[Event, bool]:
+def create_or_update_event(db, event_data: dict) -> tuple[Event, bool]:
     """
     Idempotently create or update an event using dedup_hash or URL for deduplication.
-    
+
     Phase A: Prioritize dedup_hash for robust deduplication.
-    
+
     Returns:
         Tuple of (event, is_new) where is_new is True if event was just created
     """
     dedup_hash = event_data.get("dedup_hash")
     source_url = event_data["source_url"]
-    
+
     # Check for duplicates by dedup_hash (Phase A: most robust)
     existing = None
     if dedup_hash:
         existing = db.query(Event).filter(Event.dedup_hash == dedup_hash).first()
-    
+
     # Fallback to URL
     if not existing:
         existing = db.query(Event).filter(Event.source_url == source_url).first()
-    
+
     if existing:
         # Update existing event
         for key, value in event_data.items():
@@ -253,29 +250,29 @@ def create_or_update_event(db, event_data: Dict) -> tuple[Event, bool]:
 def ingest_company_blogs_task():
     """
     Ingest company blog posts (B-tier evidence).
-    
+
     Priority: 1 (highest)
     Evidence tier: B (official lab sources, provisional)
-    
+
     Returns:
         dict: Statistics about ingestion
     """
     db = SessionLocal()
     stats = {"inserted": 0, "updated": 0, "skipped": 0, "errors": 0}
-    
+
     # Create ingest run record
     run = IngestRun(
         connector_name="ingest_company_blogs",
-        started_at=datetime.now(timezone.utc),
+        started_at=datetime.now(UTC),
         status="running",
     )
     db.add(run)
     db.commit()
-    
+
     try:
         # Determine if we should use live or fixture data
         use_live = settings.scrape_real
-        
+
         if use_live:
             print("🔵 Live mode: Fetching company blogs via RSS/Atom feeds")
             raw_data = fetch_live_company_blogs()
@@ -285,9 +282,9 @@ def ingest_company_blogs_task():
         else:
             print("🟢 Fixture mode: Loading company blog fixtures")
             raw_data = load_fixture_data()
-        
+
         print(f"📰 Processing {len(raw_data)} company blog posts...")
-        
+
         for item in raw_data:
             try:
                 # Validate publisher is in allowlist
@@ -295,49 +292,49 @@ def ingest_company_blogs_task():
                     print(f"  ⚠️  Skipping non-allowlisted publisher: {item.get('publisher')}")
                     stats["skipped"] += 1
                     continue
-                
+
                 # Normalize to event schema
                 event_data = normalize_event_data(item)
-                
+
                 # Create or update event
                 event, is_new = create_or_update_event(db, event_data)
-                
+
                 if is_new:
                     stats["inserted"] += 1
                     print(f"  ✓ Inserted: {event.title[:60]}...")
                 else:
                     stats["skipped"] += 1
                     print(f"  ⊘ Skipped (duplicate): {event.title[:60]}...")
-                
+
             except Exception as e:
                 stats["errors"] += 1
                 print(f"  ❌ Error processing item: {e}")
                 continue
-        
+
         db.commit()
-        
+
         # Update ingest run
-        run.finished_at = datetime.now(timezone.utc)
+        run.finished_at = datetime.now(UTC)
         run.status = "success"
         run.new_events_count = stats["inserted"]
         run.new_links_count = 0  # mapper updates later
         db.commit()
-        
-        print(f"\n✅ Company blogs ingestion complete!")
+
+        print("\n✅ Company blogs ingestion complete!")
         print(f"   Inserted: {stats['inserted']}, Updated: {stats['updated']}, Skipped: {stats['skipped']}, Errors: {stats['errors']}")
-        
+
         return stats
-    
+
     except Exception as e:
         db.rollback()
         # Update ingest run on failure
-        run.finished_at = datetime.now(timezone.utc)
+        run.finished_at = datetime.now(UTC)
         run.status = "fail"
         run.error = str(e)
         db.commit()
         print(f"❌ Fatal error in company blogs ingestion: {e}")
         raise
-    
+
     finally:
         db.close()
 

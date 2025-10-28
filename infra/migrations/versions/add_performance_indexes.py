@@ -16,7 +16,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = 'perf_indexes_001'
-down_revision = None  # TODO: Update with actual previous revision
+down_revision = '016_news_pipeline'
 branch_labels = None
 depends_on = None
 

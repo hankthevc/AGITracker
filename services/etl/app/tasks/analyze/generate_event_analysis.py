@@ -12,12 +12,12 @@ Prompt Version: v1 (2025-10-20)
 
 Example prompt structure:
     You are an AI progress analyst. Analyze this event:
-    
+
     Title: {title}
     Summary: {summary}
     Source: {publisher} ({tier}-tier)
     Signposts: {signpost_names}
-    
+
     Output JSON:
     {
       "summary": "2-3 sentence summary",
@@ -32,17 +32,15 @@ Example prompt structure:
     }
 """
 import json
-from datetime import datetime, timezone, timedelta
-from typing import Dict, List, Optional
+from datetime import UTC, datetime, timedelta
 
-from celery import shared_task
 import openai
+from celery import shared_task
 
+from app.config import settings
 from app.database import SessionLocal
 from app.models import Event, EventAnalysis, EventSignpostLink, Signpost
-from app.config import settings
 from app.utils.llm_budget import check_budget, record_spend
-
 
 # LLM Configuration
 LLM_MODEL = "gpt-4o-mini"
@@ -55,19 +53,19 @@ PRICE_PER_1K_INPUT_TOKENS = 0.00015  # $0.15 per 1M input tokens
 PRICE_PER_1K_OUTPUT_TOKENS = 0.0006  # $0.60 per 1M output tokens
 
 
-def build_analysis_prompt(event: Event, signposts: List[Signpost]) -> str:
+def build_analysis_prompt(event: Event, signposts: list[Signpost]) -> str:
     """
     Build prompt for event analysis.
-    
+
     Args:
         event: Event object to analyze
         signposts: List of linked signposts
-        
+
     Returns:
         Formatted prompt string
     """
     signpost_names = ", ".join([s.name for s in signposts]) if signposts else "None"
-    
+
     prompt = f"""You are an AI progress analyst tracking proximity to artificial general intelligence (AGI).
 
 Analyze this event and output your analysis as valid JSON only (no markdown, no extra text):
@@ -101,17 +99,17 @@ Analyze this event and output your analysis as valid JSON only (no markdown, no 
 - Focus on AGI-relevant implications
 
 Output JSON only:"""
-    
+
     return prompt
 
 
-def parse_llm_response(response_text: str) -> Optional[Dict]:
+def parse_llm_response(response_text: str) -> dict | None:
     """
     Parse LLM JSON response, handling markdown code blocks if present.
-    
+
     Args:
         response_text: Raw LLM response
-        
+
     Returns:
         Parsed dict or None if parsing fails
     """
@@ -121,12 +119,12 @@ def parse_llm_response(response_text: str) -> Optional[Dict]:
         text = text[7:]  # Remove ```json
     elif text.startswith("```"):
         text = text[3:]  # Remove ```
-    
+
     if text.endswith("```"):
         text = text[:-3]  # Remove trailing ```
-    
+
     text = text.strip()
-    
+
     try:
         return json.loads(text)
     except json.JSONDecodeError as e:
@@ -138,11 +136,11 @@ def parse_llm_response(response_text: str) -> Optional[Dict]:
 def calculate_cost(prompt_tokens: int, completion_tokens: int) -> float:
     """
     Calculate OpenAI API cost for gpt-4o-mini.
-    
+
     Args:
         prompt_tokens: Input token count
         completion_tokens: Output token count
-        
+
     Returns:
         Cost in USD
     """
@@ -151,14 +149,14 @@ def calculate_cost(prompt_tokens: int, completion_tokens: int) -> float:
     return input_cost + output_cost
 
 
-def generate_analysis_for_event(db, event: Event) -> Optional[EventAnalysis]:
+def generate_analysis_for_event(db, event: Event) -> EventAnalysis | None:
     """
     Generate LLM analysis for a single event.
-    
+
     Args:
         db: Database session
         event: Event to analyze
-        
+
     Returns:
         EventAnalysis object or None if generation failed
     """
@@ -173,10 +171,10 @@ def generate_analysis_for_event(db, event: Event) -> Optional[EventAnalysis]:
         signpost = db.query(Signpost).filter(Signpost.id == link.signpost_id).first()
         if signpost:
             signposts.append(signpost)
-    
+
     # Build prompt
     prompt = build_analysis_prompt(event, signposts)
-    
+
     try:
         # Call OpenAI API or use mock data for demo
         if not settings.openai_api_key:
@@ -193,7 +191,7 @@ def generate_analysis_for_event(db, event: Event) -> Optional[EventAnalysis]:
                 "confidence_reasoning": f"Confidence is {'high' if event.evidence_tier == 'A' else 'moderate' if event.evidence_tier == 'B' else 'low'} due to {event.evidence_tier}-tier source credibility. {'Direct verification available' if event.evidence_tier == 'A' else 'Official lab announcement' if event.evidence_tier == 'B' else 'Unverified claims'}.",
                 "significance_score": 0.7 if event.evidence_tier == 'A' else 0.6 if event.evidence_tier == 'B' else 0.4
             }
-            
+
             # Create EventAnalysis object with mock data
             analysis = EventAnalysis(
                 event_id=event.id,
@@ -204,13 +202,13 @@ def generate_analysis_for_event(db, event: Event) -> Optional[EventAnalysis]:
                 significance_score=mock_analysis.get("significance_score"),
                 llm_version="mock-demo-v1",
             )
-            
+
             db.add(analysis)
             db.flush()
-            
+
             print(f"  ✓ Generated mock analysis for event {event.id}")
             return analysis
-        
+
         client = openai.OpenAI(api_key=settings.openai_api_key)
         response = client.chat.completions.create(
             model=LLM_MODEL,
@@ -221,22 +219,22 @@ def generate_analysis_for_event(db, event: Event) -> Optional[EventAnalysis]:
             temperature=0.3,  # Lower temperature for more consistent output
             max_tokens=1000,
         )
-        
+
         # Parse response
         response_text = response.choices[0].message.content
         parsed = parse_llm_response(response_text)
-        
+
         if not parsed:
             print(f"  ❌ Failed to parse JSON for event {event.id}")
             return None
-        
+
         # Calculate cost
         usage = response.usage
         cost = calculate_cost(usage.prompt_tokens, usage.completion_tokens)
-        
+
         # Record spend
         record_spend(cost, LLM_MODEL)
-        
+
         # Create EventAnalysis object
         analysis = EventAnalysis(
             event_id=event.id,
@@ -247,13 +245,13 @@ def generate_analysis_for_event(db, event: Event) -> Optional[EventAnalysis]:
             significance_score=parsed.get("significance_score"),
             llm_version=LLM_VERSION,
         )
-        
+
         db.add(analysis)
         db.flush()
-        
+
         print(f"  ✓ Generated analysis for event {event.id} (${cost:.4f})")
         return analysis
-    
+
     except Exception as e:
         print(f"  ❌ Error generating analysis for event {event.id}: {e}")
         return None
@@ -263,36 +261,36 @@ def generate_analysis_for_event(db, event: Event) -> Optional[EventAnalysis]:
 def generate_event_analysis_task():
     """
     Generate LLM-powered analysis for A/B tier events (Phase 1).
-    
+
     Schedule: Every 12 hours
     Budget: $20 warning, $50 hard stop per day
-    
+
     Returns:
         dict: Statistics about generation (analyzed, skipped, errors)
     """
     db = SessionLocal()
     stats = {"analyzed": 0, "skipped": 0, "errors": 0, "budget_blocked": False}
-    
+
     print("🤖 Starting event analysis generation...")
-    
+
     try:
         # Check budget before processing
         budget = check_budget()
-        
+
         if budget["blocked"]:
             print(f"🛑 Hard limit reached: ${budget['current_spend_usd']:.2f}/day (limit: ${budget['hard_limit_usd']:.2f})")
             stats["budget_blocked"] = True
             return stats
-        
+
         if budget["warning"]:
             print(f"⚠️  Budget warning: ${budget['current_spend_usd']:.2f}/day (threshold: ${budget['warning_threshold_usd']:.2f})")
-        
+
         # Find A/B tier events from last 7 days without analysis
-        cutoff_date = datetime.now(timezone.utc) - timedelta(days=LOOKBACK_DAYS)
-        
+        cutoff_date = datetime.now(UTC) - timedelta(days=LOOKBACK_DAYS)
+
         # Subquery: events with existing analysis
         analyzed_event_ids = db.query(EventAnalysis.event_id).distinct()
-        
+
         # Query: A/B tier events without analysis
         events_to_analyze = (
             db.query(Event)
@@ -305,9 +303,9 @@ def generate_event_analysis_task():
             .limit(BATCH_SIZE)
             .all()
         )
-        
+
         print(f"📊 Found {len(events_to_analyze)} A/B tier events to analyze (last {LOOKBACK_DAYS} days)")
-        
+
         for event in events_to_analyze:
             # Re-check budget before each event (in case we crossed threshold)
             budget = check_budget()
@@ -315,31 +313,31 @@ def generate_event_analysis_task():
                 print(f"🛑 Hard limit reached mid-processing: ${budget['current_spend_usd']:.2f}")
                 stats["budget_blocked"] = True
                 break
-            
+
             # Generate analysis
             analysis = generate_analysis_for_event(db, event)
-            
+
             if analysis:
                 stats["analyzed"] += 1
             else:
                 stats["errors"] += 1
-        
+
         db.commit()
-        
-        print(f"\n✅ Event analysis complete!")
+
+        print("\n✅ Event analysis complete!")
         print(f"   Analyzed: {stats['analyzed']}, Skipped: {stats['skipped']}, Errors: {stats['errors']}")
-        
+
         # Final budget status
         final_budget = check_budget()
         print(f"   💰 Budget: ${final_budget['current_spend_usd']:.2f} / ${final_budget['hard_limit_usd']:.2f}")
-        
+
         return stats
-    
+
     except Exception as e:
         db.rollback()
         print(f"❌ Fatal error in event analysis: {e}")
         raise
-    
+
     finally:
         db.close()
 
