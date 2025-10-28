@@ -14,6 +14,7 @@ celery_app = Celery(
         "app.tasks.extract_claims",
         "app.tasks.snap_index",
         "app.tasks.analyze.generate_event_analysis",  # Phase 1: Event analysis
+        "app.tasks.credibility.snapshot_credibility",  # Phase 2: Source credibility
     ],
 )
 
@@ -124,6 +125,12 @@ celery_app.conf.beat_schedule = {
     "generate-event-analysis-evening": {
         "task": "generate_event_analysis",
         "schedule": crontab(hour=19, minute=0),  # 7:00 PM UTC daily
+    },
+    # Source credibility snapshot (Phase 2) - daily credibility tracking
+    # Runs once daily after ingestion tasks complete
+    "snapshot-source-credibility": {
+        "task": "app.tasks.credibility.snapshot_credibility.snapshot_source_credibility",
+        "schedule": crontab(hour=9, minute=0),  # 9:00 AM UTC daily (after all ingestion/analysis)
     },
 }
 
