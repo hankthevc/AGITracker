@@ -1,4 +1,5 @@
-# Use Python 3.11 slim image
+# Dockerfile for AGI Tracker ETL Service
+# Designed to be run from repository root with services/etl as build context
 FROM python:3.11-slim
 
 # Set working directory
@@ -12,17 +13,13 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy dependency files first (for layer caching)
-COPY pyproject.toml setup.py ./
+COPY services/etl/pyproject.toml services/etl/setup.py ./
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -e .
 
-# Copy application code
-COPY app ./app
-
-# Copy start script
-COPY start.sh ./
-RUN chmod +x start.sh
+# Copy application code from services/etl
+COPY services/etl/app ./app
 
 # Set Python path to include app directory
 ENV PYTHONPATH=/app:$PYTHONPATH
