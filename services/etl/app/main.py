@@ -2559,3 +2559,73 @@ def get_task_health(x_api_key: str = Header(None)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching task health: {str(e)}")
 
+
+# =============================================================================
+# PREDICTIONS & SURPRISES - Intelligence Features (Sprint 5.3)
+# =============================================================================
+
+@app.get("/v1/predictions/surprises", tags=["predictions"])
+@cache(expire=3600)  # Cache for 1 hour
+def get_prediction_surprises(
+    days: int = Query(90, description="Look back this many days"),
+    limit: int = Query(10, description="Maximum number of surprises to return"),
+    min_score: float = Query(1.0, description="Minimum surprise score to include"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get events that most surprised expert predictions.
+    
+    Returns events where timing significantly deviated from forecasts,
+    ranked by surprise score (z-score based on prediction uncertainty).
+    
+    Query params:
+        - days: Look back period (default 90 days)
+        - limit: Max results (default 10)
+        - min_score: Minimum surprise score (default 1.0)
+    
+    Returns:
+        List of surprises with event details, predictions, and surprise scores
+    """
+    from app.services.surprise_calculation import get_surprises
+    
+    try:
+        surprises = get_surprises(db, days=days, limit=limit, min_surprise_score=min_score)
+        
+        return {
+            "surprises": surprises,
+            "count": len(surprises),
+            "filters": {
+                "days": days,
+                "limit": limit,
+                "min_score": min_score
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error calculating surprises: {str(e)}")
+
+
+@app.get("/v1/predictions/accuracy", tags=["predictions"])
+@cache(expire=3600)  # Cache for 1 hour
+def get_prediction_accuracy(db: Session = Depends(get_db)):
+    """
+    Get prediction accuracy summary across all expert sources.
+    
+    Returns statistics on how well predictions matched actual outcomes,
+    broken down by prediction source (AI2027, Aschenbrenner, etc.).
+    
+    Returns:
+        - total_predictions_evaluated: Number of predictions with actual outcomes
+        - sources: Per-source accuracy statistics including:
+          - count: Number of predictions
+          - avg_surprise: Average surprise score (lower is more accurate)
+          - early_pct: Percentage of predictions that were too early
+          - late_pct: Percentage of predictions that were too late
+    """
+    from app.services.surprise_calculation import get_prediction_accuracy_summary
+    
+    try:
+        summary = get_prediction_accuracy_summary(db)
+        return summary
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error calculating accuracy: {str(e)}")
+
