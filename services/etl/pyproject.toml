@@ -25,6 +25,10 @@ dependencies = [
     "pyyaml>=6.0.1",
     "fastapi-cache2[redis]>=0.2.1",
     "slowapi>=0.1.9",
+    "langchain>=0.1.0",
+    "langchain-openai>=0.0.2",
+    "langchain-community>=0.0.10",
+    "anthropic>=0.40.0",
 ]
 
 [project.optional-dependencies]

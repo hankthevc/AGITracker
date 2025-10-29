@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { SentryInitializer } from '@/components/SentryInitializer'
 import { Navigation } from '@/components/Navigation'
 import { KeyboardShortcutsProvider } from '@/components/KeyboardShortcutsProvider'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 import './globals.css'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -41,12 +42,13 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         <SentryInitializer />
-        <KeyboardShortcutsProvider>
-          <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
-            <Navigation />
-            <main className="container mx-auto px-4 py-8">
-              {children}
-            </main>
+        <ErrorBoundary>
+          <KeyboardShortcutsProvider>
+            <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
+              <Navigation />
+              <main className="container mx-auto px-4 py-8">
+                {children}
+              </main>
           <footer className="border-t bg-white/50 mt-16">
             <div className="container mx-auto px-4 py-8">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-6">
@@ -127,7 +129,8 @@ export default function RootLayout({
             </div>
           </footer>
         </div>
-        </KeyboardShortcutsProvider>
+          </KeyboardShortcutsProvider>
+        </ErrorBoundary>
       </body>
     </html>
   )

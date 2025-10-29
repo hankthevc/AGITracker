@@ -392,6 +392,9 @@ class Event(Base):
     url_status_code = Column(Integer, nullable=True)
     url_is_valid = Column(Boolean, nullable=False, server_default="true")
     url_error = Column(Text, nullable=True)
+    
+    # Phase 4: Vector embedding for semantic search
+    embedding = Column(Vector(1536), nullable=True)
 
     # Relationships
     signpost_links = relationship("EventSignpostLink", back_populates="event", cascade="all, delete-orphan")

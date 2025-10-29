@@ -8,6 +8,7 @@ import { SafetyDial } from '@/components/SafetyDial'
 import { PresetSwitcher } from '@/components/PresetSwitcher'
 import { ChangelogPanel } from '@/components/ChangelogPanel'
 import { ThisWeeksMovesStrip } from '@/components/ThisWeeksMovesStrip'
+import { HistoricalIndexChart } from '@/components/HistoricalIndexChart'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useIndex } from '@/hooks/useIndex'
 import { formatDate } from '@/lib/utils'
@@ -164,6 +165,9 @@ function HomeContent() {
       
       {/* What moved this week */}
       <ThisWeeksMovesStrip />
+      
+      {/* Historical Progress Chart */}
+      <HistoricalIndexChart preset={preset} showCategories={false} height={350} />
       
       {/* Recent changelog */}
       <ChangelogPanel />
