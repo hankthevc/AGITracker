@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { ChevronDown, ChevronUp, ExternalLink, AlertTriangle, CheckCircle2, Clock } from "lucide-react";
+import { ChevronDown, ChevronUp, ExternalLink, AlertTriangle, CheckCircle2, Clock, AlertCircle } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,11 @@ export interface EventData {
   retracted_at?: string;
   retraction_reason?: string;
   retraction_evidence_url?: string;
+  // Sprint 10: URL validation fields
+  url_is_valid?: boolean;
+  url_status_code?: number;
+  url_error?: string;
+  url_validated_at?: string;
   signpost_links?: Array<{
     signpost_id: string;
     signpost_name: string;
@@ -151,6 +156,28 @@ export function EventCard({ event, compact = false }: EventCardProps) {
               reason={event.retraction_reason}
               evidenceUrl={event.retraction_evidence_url}
             />
+          </div>
+        )}
+
+        {/* Sprint 10: URL Validation Warning */}
+        {event.url_is_valid === false && (
+          <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-500 flex-shrink-0 mt-0.5" />
+              <div className="flex-1 text-sm">
+                <p className="font-medium text-yellow-800 dark:text-yellow-400 mb-1">
+                  Source link may be unavailable
+                </p>
+                <p className="text-yellow-700 dark:text-yellow-500 text-xs">
+                  {event.url_error || `Link returned HTTP ${event.url_status_code}`}
+                  {event.url_validated_at && (
+                    <span className="text-yellow-600 dark:text-yellow-600">
+                      {" "}• Checked {formatDate(event.url_validated_at)}
+                    </span>
+                  )}
+                </p>
+              </div>
+            </div>
           </div>
         )}
 
