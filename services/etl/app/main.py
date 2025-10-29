@@ -1,4 +1,5 @@
 """FastAPI main application for AGI Signpost Tracker API."""
+import base64
 import hashlib
 import json
 import os
@@ -57,6 +58,55 @@ limiter = Limiter(key_func=get_remote_address)
 
 # Context variable for request tracing
 request_id_context: ContextVar[str] = ContextVar("request_id", default="")
+
+
+# =============================================================================
+# CURSOR PAGINATION HELPERS (Sprint 9)
+# =============================================================================
+
+def encode_cursor(published_at: datetime, event_id: int) -> str:
+    """
+    Encode cursor for pagination.
+    
+    Uses base64 encoding of: ISO8601_timestamp|event_id
+    This provides a stable, opaque cursor for clients.
+    
+    Args:
+        published_at: Event publication timestamp
+        event_id: Event database ID
+        
+    Returns:
+        Base64-encoded cursor string
+    """
+    cursor_data = f"{published_at.isoformat()}|{event_id}"
+    return base64.b64encode(cursor_data.encode()).decode()
+
+
+def decode_cursor(cursor: str) -> tuple[datetime, int]:
+    """
+    Decode cursor from base64.
+    
+    Args:
+        cursor: Base64-encoded cursor string
+        
+    Returns:
+        Tuple of (published_at, event_id)
+        
+    Raises:
+        HTTPException: If cursor is invalid or malformed
+    """
+    try:
+        cursor_data = base64.b64decode(cursor.encode()).decode()
+        timestamp_str, event_id_str = cursor_data.split("|")
+        return datetime.fromisoformat(timestamp_str), int(event_id_str)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid cursor: {str(e)}")
+
+
+# =============================================================================
+# FASTAPI APP INITIALIZATION
+# =============================================================================
+
 
 app = FastAPI(
     title="AGI Signpost Tracker API",
@@ -965,6 +1015,7 @@ async def list_events(
     min_confidence: float | None = None,
     skip: int = 0,
     limit: int = 50,
+    cursor: str | None = None,  # Sprint 9: Cursor-based pagination
     db: Session = Depends(get_db),
 ):
     """
@@ -974,8 +1025,14 @@ async def list_events(
     - tier: Filter by evidence tier (A/B/C/D)
     - signpost_id: Filter by linked signpost
     - needs_review: Filter by review status
-    - skip: Pagination offset
+    - skip: Pagination offset (legacy, prefer cursor)
     - limit: Page size (max 100)
+    - cursor: Cursor for pagination (Sprint 9)
+    
+    Returns:
+    - results: List of events
+    - next_cursor: Cursor for next page (if has_more)
+    - has_more: Whether more results exist
     """
     limit = min(limit, 100)
 
@@ -1042,7 +1099,29 @@ async def list_events(
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid end_date. Use YYYY-MM-DD")
 
-    events = query.order_by(desc(Event.published_at)).offset(skip).limit(limit).all()
+    # Sprint 9: Cursor-based pagination
+    # If cursor is provided, filter to events before the cursor position
+    if cursor:
+        cursor_published_at, cursor_event_id = decode_cursor(cursor)
+        # Use composite index: WHERE (published_at, id) < (cursor_time, cursor_id)
+        # This works with ORDER BY published_at DESC, id DESC
+        query = query.filter(
+            or_(
+                Event.published_at < cursor_published_at,
+                and_(
+                    Event.published_at == cursor_published_at,
+                    Event.id < cursor_event_id
+                )
+            )
+        )
+
+    # Fetch limit + 1 to determine if there are more results
+    events = query.order_by(desc(Event.published_at), desc(Event.id)).offset(skip).limit(limit + 1).all()
+    
+    # Check if there are more results
+    has_more = len(events) > limit
+    if has_more:
+        events = events[:limit]  # Trim to actual limit
 
     # Server-side de-dup: prefer source_url if present; otherwise title+date key
     seen_keys = set()
@@ -1095,8 +1174,24 @@ async def list_events(
             "needs_review": event.needs_review,
             "signpost_links": signpost_links,
         })
+    
+    # Sprint 9: Generate next_cursor if there are more results
+    next_cursor = None
+    if has_more and results:
+        last_event = events[-1]  # Use last event from trimmed list
+        next_cursor = encode_cursor(last_event.published_at, last_event.id)
+    
     # Include both results and items keys for compatibility with existing web code
-    return {"total": len(results), "skip": skip, "limit": limit, "results": results, "items": results}
+    return {
+        "total": len(results), 
+        "skip": skip, 
+        "limit": limit, 
+        "results": results, 
+        "items": results,
+        # Sprint 9: Cursor pagination fields
+        "has_more": has_more,
+        "next_cursor": next_cursor,
+    }
 
 
 @app.get("/v1/events/{event_id}")
