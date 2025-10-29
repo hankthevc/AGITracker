@@ -157,6 +157,9 @@ export default function RootLayout({
                     CC BY 4.0
                   </a>
                 </p>
+                <p className="mt-2 text-xs text-muted-foreground/70">
+                  ✨ Sprint 9: Performance & Scale - Optimized for 10,000+ events
+                </p>
               </div>
             </div>
           </footer>
