@@ -46,7 +46,7 @@ export default function DigestsPage() {
     const fetchDigests = async () => {
       try {
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL || "https://api-production-8535.up.railway.app"}/v1/digests?limit=12`
+          `${process.env.NEXT_PUBLIC_API_URL || "https://agi-tracker-production.up.railway.app"}/v1/digests?limit=12`
         );
 
         if (!response.ok) {
