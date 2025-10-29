@@ -252,21 +252,27 @@ class WeeklyDigest(Base):
 
 
 class APIKey(Base):
-    """API key model."""
+    """API key model for authentication and rate limiting."""
 
     __tablename__ = "api_keys"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(100), nullable=True)
-    hashed_key = Column(String(255), unique=True, nullable=False)
-    role = Column(String(20), nullable=False)
-    created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
+    name = Column(String(100), nullable=False)
+    key_hash = Column(String(64), unique=True, nullable=False, index=True)  # SHA-256 of API key
+    tier = Column(Enum("public", "authenticated", "admin", name="api_key_tier"), nullable=False, default="authenticated")
+    created_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False, index=True)
+    last_used_at = Column(TIMESTAMP(timezone=True), nullable=True)
+    is_active = Column(Boolean, default=True, nullable=False, index=True)
+    usage_count = Column(Integer, default=0, nullable=False)
+    rate_limit = Column(Integer, nullable=True)  # Custom rate limit (overrides tier default)
+    notes = Column(Text, nullable=True)
 
     __table_args__ = (
         CheckConstraint(
-            "role IN ('admin', 'readonly')",
-            name="check_api_key_role"
+            "tier IN ('public', 'authenticated', 'admin')",
+            name="check_api_key_tier"
         ),
+        Index("idx_api_keys_active_tier", "is_active", "tier"),
     )
 
 

@@ -86,33 +86,77 @@ export default function RootLayout({
           </main>
           <footer className="border-t bg-white/50 mt-16">
             <div className="container mx-auto px-4 py-8">
-              <div className="flex items-center justify-between text-sm text-muted-foreground">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-6">
                 <div>
-                  <p>© 2025 AGI Signpost Tracker</p>
-                  <p className="mt-1">
-                    JSON feeds:{' '}
-                    <a href="/v1/feed.json" className="text-primary hover:underline">
-                      Index
-                    </a>
-                    {' • '}
-                    <a href="/v1/events/feed.json" className="text-primary hover:underline">
-                      Events (Public)
-                    </a>
-                    {' • '}
-                    <a href="/v1/events/feed.json?include_research=true" className="text-primary hover:underline">
-                      Events (Research)
-                    </a>
-                    {' (CC BY 4.0)'}
+                  <h3 className="font-semibold text-sm mb-3">About</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Evidence-first dashboard tracking proximity to AGI via measurable signposts.
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    © 2025 AGI Signpost Tracker
                   </p>
                 </div>
-                <div className="text-right">
-                  <p>Evidence-first, neutral, and open</p>
-                  <p className="mt-1">
-                    <Link href="/methodology" className="text-primary hover:underline">
-                      Read our methodology
-                    </Link>
-                  </p>
+                
+                <div>
+                  <h3 className="font-semibold text-sm mb-3">Resources</h3>
+                  <ul className="space-y-2 text-sm text-muted-foreground">
+                    <li>
+                      <Link href="/methodology" className="hover:text-primary transition-colors">
+                        Methodology
+                      </Link>
+                    </li>
+                    <li>
+                      <a href={`${process.env.NEXT_PUBLIC_API_URL}/docs`} className="hover:text-primary transition-colors" target="_blank" rel="noopener">
+                        API Docs
+                      </a>
+                    </li>
+                    <li>
+                      <a href="https://github.com/hankthevc/AGITracker" className="hover:text-primary transition-colors" target="_blank" rel="noopener">
+                        GitHub
+                      </a>
+                    </li>
+                    <li>
+                      <Link href="/changelog" className="hover:text-primary transition-colors">
+                        Changelog
+                      </Link>
+                    </li>
+                  </ul>
                 </div>
+                
+                <div>
+                  <h3 className="font-semibold text-sm mb-3">Legal</h3>
+                  <ul className="space-y-2 text-sm text-muted-foreground">
+                    <li>
+                      <Link href="/legal/privacy" className="hover:text-primary transition-colors">
+                        Privacy Policy
+                      </Link>
+                    </li>
+                    <li>
+                      <Link href="/legal/terms" className="hover:text-primary transition-colors">
+                        Terms of Service
+                      </Link>
+                    </li>
+                    <li>
+                      <a href="https://creativecommons.org/licenses/by/4.0/" className="hover:text-primary transition-colors" target="_blank" rel="noopener">
+                        CC BY 4.0 License
+                      </a>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+              
+              <div className="pt-6 border-t text-center text-sm text-muted-foreground">
+                <p>
+                  All data available via{' '}
+                  <a href="/v1/feed.json" className="text-primary hover:underline">
+                    JSON feeds
+                  </a>
+                  {' • '}
+                  Licensed under{' '}
+                  <a href="https://creativecommons.org/licenses/by/4.0/" className="text-primary hover:underline" target="_blank" rel="noopener">
+                    CC BY 4.0
+                  </a>
+                </p>
               </div>
             </div>
           </footer>

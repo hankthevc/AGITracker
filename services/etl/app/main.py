@@ -2513,6 +2513,192 @@ def get_review_stats(db: Session = Depends(get_db)):
 
 
 # =============================================================================
+# ADMIN ENDPOINTS - API Key Management (Sprint 8.1)
+# =============================================================================
+
+@app.post("/v1/admin/api-keys", tags=["admin"])
+def create_new_api_key(
+    name: str,
+    tier: str = "authenticated",
+    notes: str = None,
+    rate_limit: int = None,
+    x_api_key: str = Header(None),
+    db: Session = Depends(get_db)
+):
+    """
+    Create a new API key (admin only).
+    
+    Args:
+        name: Human-readable name for the key
+        tier: Key tier (public, authenticated, admin)
+        notes: Optional notes about the key
+        rate_limit: Optional custom rate limit (requests/min)
+    
+    Returns:
+        Created API key details with raw key (ONLY shown once!)
+    
+    Requires: x-api-key header with admin privileges
+    """
+    from app.middleware.api_key_auth import create_api_key, APIKeyTier
+    
+    # Verify admin API key
+    if not x_api_key or x_api_key != settings.admin_api_key:
+        raise HTTPException(status_code=403, detail="Invalid or missing admin API key")
+    
+    # Validate tier
+    valid_tiers = [APIKeyTier.PUBLIC, APIKeyTier.AUTHENTICATED, APIKeyTier.ADMIN]
+    if tier not in valid_tiers:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Invalid tier. Must be one of: {', '.join(valid_tiers)}"
+        )
+    
+    try:
+        api_key_obj, raw_key = create_api_key(
+            db=db,
+            name=name,
+            tier=tier,
+            notes=notes,
+            rate_limit=rate_limit
+        )
+        
+        return {
+            "id": api_key_obj.id,
+            "name": api_key_obj.name,
+            "tier": api_key_obj.tier,
+            "rate_limit": api_key_obj.rate_limit,
+            "created_at": api_key_obj.created_at.isoformat(),
+            "key": raw_key,  # ONLY time raw key is shown!
+            "warning": "Save this key now! It cannot be retrieved later."
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating API key: {str(e)}")
+
+
+@app.get("/v1/admin/api-keys", tags=["admin"])
+def list_api_keys_endpoint(
+    include_inactive: bool = False,
+    x_api_key: str = Header(None),
+    db: Session = Depends(get_db)
+):
+    """
+    List all API keys (admin only).
+    
+    Args:
+        include_inactive: Whether to include revoked keys
+    
+    Returns:
+        List of API keys (without raw key values)
+    
+    Requires: x-api-key header with admin privileges
+    """
+    from app.middleware.api_key_auth import list_api_keys
+    
+    # Verify admin API key
+    if not x_api_key or x_api_key != settings.admin_api_key:
+        raise HTTPException(status_code=403, detail="Invalid or missing admin API key")
+    
+    try:
+        keys = list_api_keys(db, include_inactive=include_inactive)
+        
+        return {
+            "keys": [
+                {
+                    "id": key.id,
+                    "name": key.name,
+                    "tier": key.tier,
+                    "is_active": key.is_active,
+                    "created_at": key.created_at.isoformat(),
+                    "last_used_at": key.last_used_at.isoformat() if key.last_used_at else None,
+                    "usage_count": key.usage_count,
+                    "rate_limit": key.rate_limit,
+                    "notes": key.notes
+                }
+                for key in keys
+            ],
+            "total": len(keys)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error listing API keys: {str(e)}")
+
+
+@app.delete("/v1/admin/api-keys/{key_id}", tags=["admin"])
+def revoke_api_key_endpoint(
+    key_id: int,
+    x_api_key: str = Header(None),
+    db: Session = Depends(get_db)
+):
+    """
+    Revoke (deactivate) an API key (admin only).
+    
+    Args:
+        key_id: ID of the API key to revoke
+    
+    Returns:
+        Success status
+    
+    Requires: x-api-key header with admin privileges
+    """
+    from app.middleware.api_key_auth import revoke_api_key
+    
+    # Verify admin API key
+    if not x_api_key or x_api_key != settings.admin_api_key:
+        raise HTTPException(status_code=403, detail="Invalid or missing admin API key")
+    
+    try:
+        success = revoke_api_key(db, key_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="API key not found")
+        
+        return {
+            "status": "success",
+            "message": f"API key {key_id} revoked",
+            "key_id": key_id,
+            "is_active": False
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error revoking API key: {str(e)}")
+
+
+@app.get("/v1/admin/api-keys/usage", tags=["admin"])
+def get_api_key_usage(
+    days: int = Query(7, description="Number of days to look back"),
+    x_api_key: str = Header(None),
+    db: Session = Depends(get_db)
+):
+    """
+    Get API usage statistics (admin only).
+    
+    Args:
+        days: Number of days to look back
+    
+    Returns:
+        Usage statistics including total requests and top consumers
+    
+    Requires: x-api-key header with admin privileges
+    """
+    from app.middleware.api_key_auth import get_usage_stats
+    
+    # Verify admin API key
+    if not x_api_key or x_api_key != settings.admin_api_key:
+        raise HTTPException(status_code=403, detail="Invalid or missing admin API key")
+    
+    try:
+        stats = get_usage_stats(db, days=days)
+        return {
+            "period_days": days,
+            "active_keys": stats["active_keys"],
+            "total_requests": stats["total_requests"],
+            "top_consumers": stats["top_consumers"],
+            "timestamp": datetime.utcnow().isoformat() + "Z"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching usage stats: {str(e)}")
+
+
+# =============================================================================
 # ADMIN ENDPOINTS - Task Monitoring (Sprint 4.2)
 # =============================================================================
 
