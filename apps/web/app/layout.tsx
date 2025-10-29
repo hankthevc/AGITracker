@@ -1,12 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import Link from 'next/link'
 import { Menu, X } from 'lucide-react'
 import { SentryInitializer } from '@/components/SentryInitializer'
 import { SearchBar } from '@/components/SearchBar'
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import './globals.css'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -17,6 +18,9 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  
+  // Sprint 10.5: Keyboard shortcuts
+  useKeyboardShortcuts()
 
   return (
     <html lang="en">
