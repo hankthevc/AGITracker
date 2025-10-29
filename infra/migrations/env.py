@@ -6,8 +6,15 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
-# Add the ETL service to the path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../services/etl'))
+# Add the app directory to Python path
+# In Docker: /app/app contains the models
+# In local dev: ../../services/etl relative path
+if os.path.exists('/app/app'):
+    # Docker environment
+    sys.path.insert(0, '/app')
+else:
+    # Local development
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../services/etl'))
 
 # Import Base directly from SQLAlchemy to avoid triggering engine creation
 from sqlalchemy.ext.declarative import declarative_base
