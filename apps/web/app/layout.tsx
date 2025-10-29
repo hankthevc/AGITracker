@@ -1,46 +1,33 @@
+'use client'
+
+import { useState } from 'react'
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import Link from 'next/link'
+import { Menu, X } from 'lucide-react'
 import { SentryInitializer } from '@/components/SentryInitializer'
 import { SearchBar } from '@/components/SearchBar'
 import './globals.css'
 
 const inter = Inter({ subsets: ['latin'] })
 
-export const metadata: Metadata = {
-  title: 'AGI Signpost Tracker',
-  description: 'Evidence-first dashboard tracking proximity to AGI via measurable signposts',
-  openGraph: {
-    title: 'AGI Signpost Tracker',
-    description: 'Evidence-first dashboard tracking proximity to AGI via measurable signposts',
-    type: 'website',
-    images: [
-      {
-        url: '/api/og?title=AGI%20Signpost%20Tracker&description=Evidence-first%20dashboard%20tracking%20proximity%20to%20AGI',
-        width: 1200,
-        height: 630,
-        alt: 'AGI Signpost Tracker',
-      },
-    ],
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: 'AGI Signpost Tracker',
-    description: 'Evidence-first dashboard tracking proximity to AGI via measurable signposts',
-    images: ['/api/og?title=AGI%20Signpost%20Tracker&description=Evidence-first%20dashboard%20tracking%20proximity%20to%20AGI'],
-  },
-}
-
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
   return (
     <html lang="en">
+      <head>
+        <title>AGI Signpost Tracker</title>
+        <meta name="description" content="Evidence-first dashboard tracking proximity to AGI via measurable signposts" />
+      </head>
       <body className={inter.className}>
         <SentryInitializer />
         <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
+          {/* Sprint 10.4: Mobile-responsive navigation */}
           <nav className="border-b bg-white/50 backdrop-blur-sm sticky top-0 z-50">
             <div className="container mx-auto px-4 py-4">
               <div className="flex items-center justify-between gap-4">
@@ -48,12 +35,13 @@ export default function RootLayout({
                   AGI Signpost Tracker
                 </Link>
                 
-                {/* Sprint 10: Search Bar */}
+                {/* Desktop Search Bar */}
                 <div className="hidden md:block flex-1 max-w-md mx-4">
                   <SearchBar />
                 </div>
 
-                <div className="flex gap-4 flex-wrap">
+                {/* Desktop Navigation */}
+                <div className="hidden lg:flex gap-4 flex-wrap">
                   <Link href="/" className="text-sm font-medium hover:text-primary transition-colors">
                     Home
                   </Link>
@@ -85,7 +73,97 @@ export default function RootLayout({
                     Admin
                   </Link>
                 </div>
+
+                {/* Mobile menu button */}
+                <button
+                  onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                  className="lg:hidden p-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
+                  aria-label="Toggle menu"
+                >
+                  {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+                </button>
               </div>
+
+              {/* Mobile menu */}
+              {mobileMenuOpen && (
+                <div className="lg:hidden mt-4 pb-4 space-y-2">
+                  {/* Mobile Search */}
+                  <div className="mb-4">
+                    <SearchBar />
+                  </div>
+                  
+                  <Link
+                    href="/"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="block py-2 text-sm font-medium hover:text-primary transition-colors"
+                  >
+                    Home
+                  </Link>
+                  <Link
+                    href="/insights"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="block py-2 text-sm font-medium hover:text-primary transition-colors"
+                  >
+                    🔍 Insights
+                  </Link>
+                  <Link
+                    href="/news"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="block py-2 text-sm font-medium hover:text-primary transition-colors"
+                  >
+                    News
+                  </Link>
+                  <Link
+                    href="/events"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="block py-2 text-sm font-medium hover:text-primary transition-colors"
+                  >
+                    Events
+                  </Link>
+                  <Link
+                    href="/benchmarks"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="block py-2 text-sm font-medium hover:text-primary transition-colors"
+                  >
+                    Benchmarks
+                  </Link>
+                  <Link
+                    href="/compute"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="block py-2 text-sm font-medium hover:text-primary transition-colors"
+                  >
+                    Compute
+                  </Link>
+                  <Link
+                    href="/security"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="block py-2 text-sm font-medium hover:text-primary transition-colors"
+                  >
+                    Security
+                  </Link>
+                  <Link
+                    href="/changelog"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="block py-2 text-sm font-medium hover:text-primary transition-colors"
+                  >
+                    Changelog
+                  </Link>
+                  <Link
+                    href="/methodology"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="block py-2 text-sm font-medium hover:text-primary transition-colors"
+                  >
+                    Methodology
+                  </Link>
+                  <Link
+                    href="/admin/review"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="block py-2 text-sm font-medium hover:text-primary transition-colors"
+                  >
+                    Admin
+                  </Link>
+                </div>
+              )}
             </div>
           </nav>
           <main className="container mx-auto px-4 py-8">
