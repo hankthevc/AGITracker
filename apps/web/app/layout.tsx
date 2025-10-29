@@ -158,7 +158,7 @@ export default function RootLayout({
                   </a>
                 </p>
                 <p className="mt-2 text-xs text-muted-foreground/70">
-                  ✨ Sprint 9: Performance & Scale - Optimized for 10,000+ events
+                  ✨ Sprint 10: UX & Data Quality - URL validation active
                 </p>
               </div>
             </div>
