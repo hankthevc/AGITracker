@@ -1016,6 +1016,9 @@ async def list_events(
     skip: int = 0,
     limit: int = 50,
     cursor: str | None = None,  # Sprint 9: Cursor-based pagination
+    # Sprint 10.3: Advanced filters
+    category: str | None = Query(None, regex="^(capabilities|agents|inputs|security)$"),
+    min_significance: float | None = Query(None, ge=0, le=1),
     db: Session = Depends(get_db),
 ):
     """
@@ -1028,6 +1031,8 @@ async def list_events(
     - skip: Pagination offset (legacy, prefer cursor)
     - limit: Page size (max 100)
     - cursor: Cursor for pagination (Sprint 9)
+    - category: Filter by signpost category (Sprint 10.3)
+    - min_significance: Minimum significance score 0-1 (Sprint 10.3)
     
     Returns:
     - results: List of events
@@ -1062,8 +1067,8 @@ async def list_events(
             # No matches possible
             return {"total": 0, "skip": skip, "limit": limit, "results": [], "items": []}
 
-    # Join to links/signposts if we need to filter on signpost_code, alias, or min_confidence
-    if signpost_code or alias or (min_confidence is not None):
+    # Join to links/signposts if we need to filter on signpost_code, alias, min_confidence, or category
+    if signpost_code or alias or (min_confidence is not None) or category:
         query = (
             query.join(EventSignpostLink, EventSignpostLink.event_id == Event.id)
             .join(Signpost, Signpost.id == EventSignpostLink.signpost_id)
@@ -1079,6 +1084,9 @@ async def list_events(
             except Exception:
                 mc = 0.0
             query = query.filter(EventSignpostLink.confidence >= mc)
+        # Sprint 10.3: Category filter
+        if category:
+            query = query.filter(Signpost.category == category)
 
     # Needs review filter
     if needs_review is not None:
@@ -1113,6 +1121,13 @@ async def list_events(
                     Event.id < cursor_event_id
                 )
             )
+        )
+
+    # Sprint 10.3: Significance filter (requires events_analysis table)
+    if min_significance is not None:
+        # Join with analysis table and filter by significance score
+        query = query.join(EventAnalysis, EventAnalysis.event_id == Event.id).filter(
+            EventAnalysis.significance_score >= min_significance
         )
 
     # Fetch limit + 1 to determine if there are more results
