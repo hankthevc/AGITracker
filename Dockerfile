@@ -24,6 +24,10 @@ COPY packages /app/packages
 # Copy application code from services/etl
 COPY services/etl/app ./app
 
+# Copy migrations and alembic config
+COPY infra/migrations ./migrations
+COPY infra/migrations/alembic.ini ./alembic.ini
+
 # Copy startup script
 COPY services/etl/start_server.py ./start_server.py
 RUN chmod +x start_server.py
@@ -34,5 +38,5 @@ ENV PYTHONPATH=/app:/app/packages/scoring/python:$PYTHONPATH
 # Expose port (Railway will override with PORT env var)
 EXPOSE 8000
 
-# Start command - use dedicated Python script
+# Start command - use dedicated Python script that runs migrations first
 CMD ["python", "start_server.py"]
