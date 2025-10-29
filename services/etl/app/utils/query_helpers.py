@@ -25,7 +25,7 @@ def query_active_events(query: Query) -> Query:
         query = db.query(Event)
         active_query = query_active_events(query)
     """
-    return query.filter(not Event.retracted)
+    return query.filter(Event.retracted.is_(False))
 
 
 def query_active_events_raw_filter() -> str:
