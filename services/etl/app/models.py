@@ -387,6 +387,12 @@ class Event(Base):
     rejection_reason = Column(Text, nullable=True)
     flag_reason = Column(Text, nullable=True)
 
+    # Sprint 10: URL validation fields
+    url_validated_at = Column(TIMESTAMP(timezone=True), nullable=True)
+    url_status_code = Column(Integer, nullable=True)
+    url_is_valid = Column(Boolean, nullable=False, server_default="true")
+    url_error = Column(Text, nullable=True)
+
     # Relationships
     signpost_links = relationship("EventSignpostLink", back_populates="event", cascade="all, delete-orphan")
     entities = relationship("EventEntity", back_populates="event", cascade="all, delete-orphan")

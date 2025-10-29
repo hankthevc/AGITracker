@@ -1,156 +1,180 @@
 """
-URL validation for event ingestion.
+URL validation utility for Sprint 10.
 
-Ensures only real, accessible URLs are stored in the database.
-Detects and flags synthetic/fixture URLs to prevent hallucination.
+Validates that source URLs are accessible and returns detailed status information.
 """
-import re
+import requests
+from datetime import datetime, UTC
+from typing import Dict, Optional
 from urllib.parse import urlparse
 
-import httpx
+import structlog
 
-# Known synthetic/fixture domains and patterns
-SYNTHETIC_DOMAINS = {
-    'dev-fixture.local',
-    'localhost',
-    'example.com',
-    'example.org',
-    'test.local',
-    'fixture.test',
-}
-
-# URL patterns that indicate synthetic/fixture data
-SYNTHETIC_PATTERNS = [
-    r'/[a-f0-9]{8,}$',  # Hash-only paths like /a3f2c1d8e9
-    r'/synthetic/',
-    r'/fixture/',
-    r'/test/',
-    r'/fake/',
-    r'/mock/',
-    r'/tech/\d+$',  # Suspicious numeric-only paths like /tech/60
-]
+logger = structlog.get_logger(__name__)
 
 
-def is_synthetic_url(url: str) -> bool:
+def validate_url(url: str, timeout: int = 10) -> Dict:
     """
-    Detect if URL is synthetic/fixture data.
-
-    Checks against known test domains and suspicious patterns.
-
-    Args:
-        url: URL to check
-
-    Returns:
-        True if URL appears to be synthetic/fixture
-    """
-    if not url or not isinstance(url, str):
-        return False
-
-    try:
-        parsed = urlparse(url)
-        domain = parsed.netloc.lower()
-        path = parsed.path.lower()
-
-        # Check against known synthetic domains
-        if domain in SYNTHETIC_DOMAINS:
-            return True
-
-        # Check for wildcard matches (*.test, *.local)
-        if domain.endswith('.test') or domain.endswith('.local'):
-            return True
-
-        # Check against synthetic path patterns
-        for pattern in SYNTHETIC_PATTERNS:
-            if re.search(pattern, path):
-                return True
-
-        # Check for obviously fake hash-based URLs
-        # E.g., https://openai.com/blog/a3f2c1d8e9
-        if re.match(r'^/[^/]+/[a-f0-9]{8,}$', path):
-            return True
-
-        return False
-
-    except Exception:
-        return False
-
-
-def is_valid_url_format(url: str) -> bool:
-    """Check if URL has valid format."""
-    try:
-        result = urlparse(url)
-        return all([result.scheme in ('http', 'https'), result.netloc])
-    except Exception:
-        return False
-
-
-def verify_url_exists(url: str, timeout: int = 5) -> bool:
-    """
-    Verify URL is accessible (HEAD request).
-
-    Args:
-        url: URL to check
-        timeout: Request timeout in seconds
-
-    Returns:
-        True if URL returns 200-399 status, False otherwise
-    """
-    try:
-        response = httpx.head(
-            url,
-            timeout=timeout,
-            follow_redirects=True,
-            headers={"User-Agent": "AGI-Signpost-Tracker/1.0"}
-        )
-        return 200 <= response.status_code < 400
-    except Exception:
-        # Try GET as fallback (some servers don't support HEAD)
-        try:
-            response = httpx.get(
-                url,
-                timeout=timeout,
-                follow_redirects=True,
-                headers={"User-Agent": "AGI-Signpost-Tracker/1.0"}
-            )
-            return 200 <= response.status_code < 400
-        except Exception:
-            return False
-
-
-def validate_and_fix_url(
-    url: str,
-    verify_exists: bool = False,
-    allow_synthetic: bool = False
-) -> tuple[str | None, bool]:
-    """
-    Validate URL and optionally verify it exists.
-
+    Validate a URL is accessible.
+    
+    Uses HEAD request to save bandwidth. Falls back to GET if HEAD fails.
+    
     Args:
         url: URL to validate
-        verify_exists: If True, makes HTTP request to verify URL is accessible
-        allow_synthetic: If True, allows synthetic/fixture URLs (for testing)
-
+        timeout: Request timeout in seconds (default: 10)
+        
     Returns:
-        Tuple of (valid_url or None, is_synthetic)
+        Dict with validation results:
+        {
+            "valid": bool,              # True if status < 400
+            "status_code": int | None,  # HTTP status code
+            "final_url": str | None,    # URL after redirects
+            "redirect_count": int,      # Number of redirects
+            "error": str | None,        # Error message if invalid
+            "checked_at": datetime      # When validation occurred
+        }
     """
-    if not url or not isinstance(url, str):
-        return None, False
+    if not url:
+        return {
+            "valid": False,
+            "status_code": None,
+            "final_url": None,
+            "redirect_count": 0,
+            "error": "Empty or None URL",
+            "checked_at": datetime.now(UTC)
+        }
+    
+    # Parse URL to check validity
+    try:
+        parsed = urlparse(url)
+        if not parsed.scheme or not parsed.netloc:
+            return {
+                "valid": False,
+                "status_code": None,
+                "final_url": None,
+                "redirect_count": 0,
+                "error": "Invalid URL format (missing scheme or domain)",
+                "checked_at": datetime.now(UTC)
+            }
+    except Exception as e:
+        return {
+            "valid": False,
+            "status_code": None,
+            "final_url": None,
+            "redirect_count": 0,
+            "error": f"URL parse error: {str(e)[:100]}",
+            "checked_at": datetime.now(UTC)
+        }
+    
+    # Set headers to identify ourselves
+    headers = {
+        'User-Agent': 'AGI-Tracker-URL-Validator/1.0 (https://agi-tracker.vercel.app)',
+        'Accept': '*/*'
+    }
+    
+    try:
+        # Try HEAD request first (faster, less bandwidth)
+        response = requests.head(
+            url,
+            timeout=timeout,
+            allow_redirects=True,
+            headers=headers
+        )
+        
+        # Some servers don't support HEAD, try GET if HEAD returns 405
+        if response.status_code == 405:
+            logger.info("HEAD not supported, trying GET", url=url)
+            response = requests.get(
+                url,
+                timeout=timeout,
+                allow_redirects=True,
+                headers=headers,
+                stream=True  # Don't download full content
+            )
+            response.close()  # Close connection immediately
+        
+        is_valid = response.status_code < 400
+        
+        return {
+            "valid": is_valid,
+            "status_code": response.status_code,
+            "final_url": response.url,
+            "redirect_count": len(response.history),
+            "error": None if is_valid else f"HTTP {response.status_code}",
+            "checked_at": datetime.now(UTC)
+        }
+        
+    except requests.exceptions.Timeout:
+        logger.warning("URL validation timeout", url=url, timeout=timeout)
+        return {
+            "valid": False,
+            "status_code": None,
+            "final_url": None,
+            "redirect_count": 0,
+            "error": f"Timeout after {timeout}s",
+            "checked_at": datetime.now(UTC)
+        }
+        
+    except requests.exceptions.ConnectionError as e:
+        logger.warning("URL connection error", url=url, error=str(e)[:100])
+        return {
+            "valid": False,
+            "status_code": None,
+            "final_url": None,
+            "redirect_count": 0,
+            "error": f"Connection error: {str(e)[:100]}",
+            "checked_at": datetime.now(UTC)
+        }
+        
+    except requests.exceptions.SSLError as e:
+        logger.warning("URL SSL error", url=url, error=str(e)[:100])
+        return {
+            "valid": False,
+            "status_code": None,
+            "final_url": None,
+            "redirect_count": 0,
+            "error": f"SSL certificate error: {str(e)[:100]}",
+            "checked_at": datetime.now(UTC)
+        }
+        
+    except requests.exceptions.TooManyRedirects:
+        logger.warning("URL redirect loop", url=url)
+        return {
+            "valid": False,
+            "status_code": None,
+            "final_url": None,
+            "redirect_count": 999,
+            "error": "Too many redirects (loop detected)",
+            "checked_at": datetime.now(UTC)
+        }
+        
+    except Exception as e:
+        logger.error("URL validation error", url=url, error=str(e))
+        return {
+            "valid": False,
+            "status_code": None,
+            "final_url": None,
+            "redirect_count": 0,
+            "error": f"Unexpected error: {str(e)[:100]}",
+            "checked_at": datetime.now(UTC)
+        }
 
-    url = url.strip()
 
-    if not is_valid_url_format(url):
-        return None, False
-
-    # Check if URL is synthetic
-    synthetic = is_synthetic_url(url)
-
-    # Reject synthetic URLs unless explicitly allowed
-    if synthetic and not allow_synthetic:
-        return None, True
-
-    # Verify URL exists if requested (skip for synthetic URLs)
-    if verify_exists and not synthetic:
-        if not verify_url_exists(url):
-            return None, False
-
-    return url, synthetic
+def is_url_format_valid(url: Optional[str]) -> bool:
+    """
+    Quick check if URL has valid format (without making HTTP request).
+    
+    Args:
+        url: URL string to check
+        
+    Returns:
+        True if URL format is valid
+    """
+    if not url:
+        return False
+    
+    try:
+        parsed = urlparse(url)
+        return bool(parsed.scheme and parsed.netloc)
+    except Exception:
+        return False
