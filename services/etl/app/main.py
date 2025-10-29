@@ -2825,6 +2825,105 @@ def get_api_key_usage(
 
 
 # =============================================================================
+# SEARCH ENDPOINT - Full-Text Search (Sprint 10.2)
+# =============================================================================
+
+
+@app.get("/v1/search", tags=["search"])
+@cache(expire=300)  # 5 minute cache
+async def search_events(
+    q: str = Query(..., min_length=2, max_length=100, description="Search query"),
+    limit: int = Query(20, le=50, description="Max results"),
+    tier: str | None = Query(None, regex="^[ABCD]$", description="Filter by evidence tier"),
+    db: Session = Depends(get_db)
+):
+    """
+    Full-text search across events using PostgreSQL GIN indexes.
+    
+    Searches event titles and summaries using PostgreSQL's full-text search.
+    Uses GIN indexes created in Sprint 9 for fast queries (<100ms).
+    
+    Args:
+        q: Search query (2-100 characters)
+        limit: Maximum results to return (max 50)
+        tier: Optional evidence tier filter (A/B/C/D)
+    
+    Returns:
+        Search results with event details
+    
+    Example:
+        GET /v1/search?q=GPT-4&limit=10&tier=A
+    """
+    try:
+        # Build full-text search query using PostgreSQL to_tsvector
+        # Use plainto_tsquery for user-friendly query parsing
+        query = db.query(Event).filter(
+            or_(
+                func.to_tsvector('english', Event.title).op('@@')(
+                    func.plainto_tsquery('english', q)
+                ),
+                func.to_tsvector('english', func.coalesce(Event.summary, '')).op('@@')(
+                    func.plainto_tsquery('english', q)
+                )
+            )
+        )
+        
+        # Apply tier filter if specified
+        if tier:
+            query = query.filter(Event.evidence_tier == tier)
+        
+        # Only active events
+        query = query_active_events(query)
+        
+        # Execute query with limit
+        events = query.order_by(desc(Event.published_at)).limit(limit).all()
+        
+        # Serialize results
+        results = []
+        for event in events:
+            # Get signpost links
+            links = (
+                db.query(EventSignpostLink)
+                .filter(EventSignpostLink.event_id == event.id)
+                .all()
+            )
+            signpost_links = []
+            for link in links:
+                signpost = db.query(Signpost).filter(Signpost.id == link.signpost_id).first()
+                if signpost:
+                    signpost_links.append({
+                        "signpost_id": signpost.id,
+                        "signpost_code": signpost.code,
+                        "signpost_name": signpost.name,
+                        "confidence": float(link.confidence) if link.confidence else None,
+                    })
+            
+            results.append({
+                "id": event.id,
+                "title": event.title,
+                "summary": event.summary,
+                "source_url": event.source_url,
+                "publisher": event.publisher,
+                "published_at": event.published_at.isoformat() if event.published_at else None,
+                "evidence_tier": event.evidence_tier,
+                "signpost_links": signpost_links,
+                "url_is_valid": event.url_is_valid,
+            })
+        
+        return {
+            "query": q,
+            "total": len(results),
+            "limit": limit,
+            "tier": tier,
+            "results": results
+        }
+        
+    except Exception as e:
+        logger.error("Search error", query=q, error=str(e))
+        raise HTTPException(status_code=500, detail=f"Search error: {str(e)}")
+
+
+# =============================================================================
 # ADMIN ENDPOINTS - URL Validation (Sprint 10.1)
 # =============================================================================
 

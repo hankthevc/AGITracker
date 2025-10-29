@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import Link from 'next/link'
 import { SentryInitializer } from '@/components/SentryInitializer'
+import { SearchBar } from '@/components/SearchBar'
 import './globals.css'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -42,11 +43,17 @@ export default function RootLayout({
         <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
           <nav className="border-b bg-white/50 backdrop-blur-sm sticky top-0 z-50">
             <div className="container mx-auto px-4 py-4">
-              <div className="flex items-center justify-between">
-                <Link href="/" className="text-2xl font-bold text-primary">
+              <div className="flex items-center justify-between gap-4">
+                <Link href="/" className="text-2xl font-bold text-primary whitespace-nowrap">
                   AGI Signpost Tracker
                 </Link>
-                <div className="flex gap-6">
+                
+                {/* Sprint 10: Search Bar */}
+                <div className="hidden md:block flex-1 max-w-md mx-4">
+                  <SearchBar />
+                </div>
+
+                <div className="flex gap-4 flex-wrap">
                   <Link href="/" className="text-sm font-medium hover:text-primary transition-colors">
                     Home
                   </Link>
