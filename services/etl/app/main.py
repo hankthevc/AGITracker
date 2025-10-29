@@ -1124,8 +1124,9 @@ async def list_events(
         )
 
     # Sprint 10.3: Significance filter (requires events_analysis table)
+    # Only join if filter is actually being used
     if min_significance is not None:
-        # Join with analysis table and filter by significance score
+        # INNER JOIN will only return events that have analysis
         query = query.join(EventAnalysis, EventAnalysis.event_id == Event.id).filter(
             EventAnalysis.significance_score >= min_significance
         )
