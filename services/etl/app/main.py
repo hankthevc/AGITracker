@@ -131,6 +131,37 @@ def debug_cors():
     }
 
 
+@app.get("/")
+async def root():
+    """
+    Root endpoint with API information.
+    
+    Provides links to documentation and key endpoints.
+    """
+    return {
+        "service": "AGI Signpost Tracker API",
+        "version": "1.0.0",
+        "status": "operational",
+        "docs": "/docs",
+        "openapi": "/openapi.json",
+        "health": "/health",
+        "endpoints": {
+            "index": "/v1/index",
+            "signposts": "/v1/signposts",
+            "events": "/v1/events",
+            "predictions": "/v1/predictions",
+            "digests": "/v1/digests"
+        },
+        "authentication": {
+            "public_rate_limit": "60 requests/minute",
+            "authenticated_rate_limit": "300 requests/minute (requires API key)",
+            "admin_endpoints": "Requires admin API key"
+        },
+        "license": "CC BY 4.0",
+        "repository": "https://github.com/hankthevc/AGITracker"
+    }
+
+
 @app.get("/health")
 async def health():
     """Health check endpoint."""
