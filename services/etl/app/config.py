@@ -37,11 +37,11 @@ class Settings(BaseSettings):
     # CORS (comma-separated, no wildcards)
     cors_origins: str = "http://localhost:3000,https://agi-tracker.vercel.app"
 
-    # Caching
-    index_cache_ttl_seconds: int = 120  # 2 minutes
-    signposts_cache_ttl_seconds: int = 300  # 5 minutes
-    evidence_cache_ttl_seconds: int = 180  # 3 minutes
-    feed_cache_ttl_seconds: int = 300  # 5 minutes
+    # Caching (Sprint 9 optimized TTLs)
+    index_cache_ttl_seconds: int = 3600  # 1 hour (stable data)
+    signposts_cache_ttl_seconds: int = 3600  # 1 hour (rarely changes)
+    evidence_cache_ttl_seconds: int = 600  # 10 minutes (event details)
+    feed_cache_ttl_seconds: int = 600  # 10 minutes (event lists)
 
     # Rate Limiting
     rate_limit_per_minute: int = 100  # Requests per minute per IP
