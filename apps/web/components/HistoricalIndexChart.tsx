@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo, useCallback } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -112,10 +112,23 @@ export function HistoricalIndexChart({
     fetchData()
   }, [preset, zoomLevel, showComparison])
   
-  const downloadPNG = () => {
+  // Memoized event handlers
+  const downloadPNG = useCallback(() => {
     // This is a simplified version - would need html2canvas or similar for full implementation
     alert('PNG download feature requires additional canvas library setup')
-  }
+  }, [])
+  
+  const handleZoomChange = useCallback((days: number) => {
+    setZoomLevel(days)
+  }, [])
+  
+  const toggleCategories = useCallback(() => {
+    setShowCategories(prev => !prev)
+  }, [])
+  
+  const toggleComparison = useCallback(() => {
+    setShowComparison(prev => !prev)
+  }, [])
   
   if (isLoading) {
     return (
@@ -154,37 +167,44 @@ export function HistoricalIndexChart({
     [key: string]: string | number // Dynamic keys for presets and categories
   }
   
-  // Prepare chart data
-  const chartData = data.history.map(point => {
-    const item: ChartDataPoint = {
-      date: new Date(point.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      [preset]: point.overall * 100,
-    }
+  // ✅ OPTIMIZATION: Memoize chart data transformation
+  const chartData = useMemo(() => {
+    if (!data) return []
     
-    if (showCategories) {
-      item.capabilities = point.capabilities * 100
-      item.agents = point.agents * 100
-      item.inputs = point.inputs * 100
-      item.security = point.security * 100
-    }
-    
-    // Add comparison presets
-    if (showComparison) {
-      Object.entries(comparisonData).forEach(([p, compData]) => {
-        const compPoint = compData.history.find(h => h.date === point.date)
-        if (compPoint) {
-          item[p] = compPoint.overall * 100
-        }
-      })
-    }
-    
-    return item
-  })
+    return data.history.map(point => {
+      const item: ChartDataPoint = {
+        date: new Date(point.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        [preset]: point.overall * 100,
+      }
+      
+      if (showCategories) {
+        item.capabilities = point.capabilities * 100
+        item.agents = point.agents * 100
+        item.inputs = point.inputs * 100
+        item.security = point.security * 100
+      }
+      
+      // Add comparison presets
+      if (showComparison) {
+        Object.entries(comparisonData).forEach(([p, compData]) => {
+          const compPoint = compData.history.find(h => h.date === point.date)
+          if (compPoint) {
+            item[p] = compPoint.overall * 100
+          }
+        })
+      }
+      
+      return item
+    })
+  }, [data, preset, showCategories, showComparison, comparisonData])
   
-  // Find events for annotations
-  const eventsWithDates = data.history
-    .filter(point => point.events && point.events.length > 0)
-    .slice(-5) // Show only last 5 event dates
+  // ✅ OPTIMIZATION: Memoize events filtering
+  const eventsWithDates = useMemo(() => {
+    if (!data) return []
+    return data.history
+      .filter(point => point.events && point.events.length > 0)
+      .slice(-5) // Show only last 5 event dates
+  }, [data])
   
   return (
     <Card>
@@ -197,8 +217,13 @@ export function HistoricalIndexChart({
             </CardDescription>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={downloadPNG}>
-              <Download className="w-4 h-4 mr-2" />
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={downloadPNG}
+              aria-label="Download chart as PNG image"
+            >
+              <Download className="w-4 h-4 mr-2" aria-hidden="true" />
               PNG
             </Button>
           </div>
@@ -207,31 +232,37 @@ export function HistoricalIndexChart({
       <CardContent>
         {/* Zoom Controls */}
         <div className="flex items-center justify-between mb-4">
-          <div className="flex gap-2">
+          <div className="flex gap-2" role="group" aria-label="Chart time range controls">
             {ZOOM_LEVELS.map(level => (
               <Button
                 key={level.days}
                 variant={zoomLevel === level.days ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => setZoomLevel(level.days)}
+                onClick={() => handleZoomChange(level.days)}
+                aria-label={`Show last ${level.label}`}
+                aria-pressed={zoomLevel === level.days}
               >
                 {level.label}
               </Button>
             ))}
           </div>
           
-          <div className="flex gap-2">
+          <div className="flex gap-2" role="group" aria-label="Chart display options">
             <Button
               variant={showCategories ? 'default' : 'outline'}
               size="sm"
-              onClick={() => setShowCategories(!showCategories)}
+              onClick={toggleCategories}
+              aria-label="Toggle category breakdown view"
+              aria-pressed={showCategories}
             >
               Categories
             </Button>
             <Button
               variant={showComparison ? 'default' : 'outline'}
               size="sm"
-              onClick={() => setShowComparison(!showComparison)}
+              onClick={toggleComparison}
+              aria-label="Toggle comparison with other presets"
+              aria-pressed={showComparison}
             >
               Compare
             </Button>

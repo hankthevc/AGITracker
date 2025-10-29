@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { Search, X, Loader2, Filter, Clock } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -39,12 +39,12 @@ export function SearchBar() {
     }
   }, [])
   
-  // Save search to history
-  const saveToHistory = (searchQuery: string) => {
+  // Save search to history - memoized to prevent recreation
+  const saveToHistory = useCallback((searchQuery: string) => {
     const history = [searchQuery, ...searchHistory.filter(h => h !== searchQuery)].slice(0, 5)
     setSearchHistory(history)
     localStorage.setItem(STORAGE_KEY, JSON.stringify(history))
-  }
+  }, [searchHistory])
 
   // Debounced search
   useEffect(() => {
@@ -120,16 +120,24 @@ export function SearchBar() {
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [isOpen, results, selectedIndex])
   
-  const handleHistoryClick = (historyQuery: string) => {
+  // Memoized event handlers to prevent unnecessary re-renders
+  const handleHistoryClick = useCallback((historyQuery: string) => {
     setQuery(historyQuery)
     setShowHistory(false)
-  }
+  }, [])
   
-  const handleSearch = () => {
+  const handleSearch = useCallback(() => {
     if (query.length >= 2) {
       saveToHistory(query)
     }
-  }
+  }, [query, saveToHistory])
+  
+  const handleClearSearch = useCallback(() => {
+    setQuery("")
+    setResults([])
+    setIsOpen(false)
+    setSelectedIndex(-1)
+  }, [])
 
   const tierColors = {
     A: "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20",
@@ -140,9 +148,12 @@ export function SearchBar() {
 
   return (
     <div ref={searchRef} className="relative w-full max-w-md">
-      <div className="flex gap-2">
+      <div className="flex gap-2" role="search">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search 
+            className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" 
+            aria-hidden="true"
+          />
           <Input
             ref={inputRef}
             value={query}
@@ -150,6 +161,12 @@ export function SearchBar() {
             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
             placeholder="Search events, signposts..."
             className="pl-10 pr-10"
+            aria-label="Search events and signposts"
+            aria-autocomplete="list"
+            aria-controls="search-results"
+            aria-expanded={isOpen}
+            aria-activedescendant={selectedIndex >= 0 ? `result-${selectedIndex}` : undefined}
+            role="combobox"
             onFocus={() => {
               if (query.length >= 2) {
                 setIsOpen(true)
@@ -160,52 +177,54 @@ export function SearchBar() {
           />
           {query && (
             <button
-              onClick={() => {
-                setQuery("")
-                setResults([])
-                setIsOpen(false)
-                setSelectedIndex(-1)
-              }}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              onClick={handleClearSearch}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 rounded"
+              aria-label="Clear search"
             >
               {isLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" aria-label="Loading" />
               ) : (
-                <X className="h-4 w-4" />
+                <X className="h-4 w-4" aria-hidden="true" />
               )}
             </button>
           )}
         </div>
         <Select value={tierFilter} onValueChange={setTierFilter}>
-          <SelectTrigger className="w-24">
-            <Filter className="h-4 w-4 mr-2" />
+          <SelectTrigger className="w-24" aria-label="Filter search results by evidence tier">
+            <Filter className="h-4 w-4 mr-2" aria-hidden="true" />
             <SelectValue />
           </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All</SelectItem>
-            <SelectItem value="A">A</SelectItem>
-            <SelectItem value="B">B</SelectItem>
-            <SelectItem value="C">C</SelectItem>
-            <SelectItem value="D">D</SelectItem>
+          <SelectContent aria-label="Evidence tier filter options">
+            <SelectItem value="all">All Tiers</SelectItem>
+            <SelectItem value="A">Tier A</SelectItem>
+            <SelectItem value="B">Tier B</SelectItem>
+            <SelectItem value="C">Tier C</SelectItem>
+            <SelectItem value="D">Tier D</SelectItem>
           </SelectContent>
         </Select>
       </div>
       
       {/* Search History */}
       {showHistory && searchHistory.length > 0 && (
-        <div className="absolute top-full mt-2 w-full bg-white dark:bg-gray-900 border rounded-lg shadow-lg z-50">
+        <div 
+          className="absolute top-full mt-2 w-full bg-white dark:bg-gray-900 border rounded-lg shadow-lg z-50"
+          role="listbox"
+          aria-label="Recent searches"
+        >
           <div className="p-2 border-b flex items-center gap-2 text-xs text-gray-500">
-            <Clock className="h-3 w-3" />
+            <Clock className="h-3 w-3" aria-hidden="true" />
             Recent searches
           </div>
           {searchHistory.map((historyQuery, idx) => (
             <button
               key={idx}
               onClick={() => handleHistoryClick(historyQuery)}
-              className="w-full text-left p-3 hover:bg-gray-50 dark:hover:bg-gray-800 border-b last:border-b-0 transition-colors"
+              className="w-full text-left p-3 hover:bg-gray-50 dark:hover:bg-gray-800 border-b last:border-b-0 transition-colors focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
+              role="option"
+              aria-label={`Search for ${historyQuery}`}
             >
               <div className="flex items-center gap-2">
-                <Clock className="h-3 w-3 text-gray-400" />
+                <Clock className="h-3 w-3 text-gray-400" aria-hidden="true" />
                 <span className="text-sm">{historyQuery}</span>
               </div>
             </button>
@@ -215,23 +234,32 @@ export function SearchBar() {
 
       {/* Search results dropdown */}
       {isOpen && results.length > 0 && (
-        <div className="absolute top-full mt-2 w-full bg-white dark:bg-gray-900 border rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto">
+        <div 
+          id="search-results"
+          className="absolute top-full mt-2 w-full bg-white dark:bg-gray-900 border rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto"
+          role="listbox"
+          aria-label="Search results"
+        >
           {results.map((result, idx) => (
             <Link
               key={result.id}
+              id={`result-${idx}`}
               href={`/events/${result.id}`}
               onClick={() => {
                 setIsOpen(false)
                 saveToHistory(query)
               }}
-              className={`block p-3 hover:bg-gray-50 dark:hover:bg-gray-800 border-b last:border-b-0 transition-colors ${
+              className={`block p-3 hover:bg-gray-50 dark:hover:bg-gray-800 border-b last:border-b-0 transition-colors focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 ${
                 selectedIndex === idx ? 'bg-blue-50 dark:bg-blue-900/20' : ''
               }`}
+              role="option"
+              aria-selected={selectedIndex === idx}
             >
               <div className="flex items-start gap-2 mb-1">
                 <Badge
                   variant="outline"
                   className={`${tierColors[result.evidence_tier]} text-xs`}
+                  aria-label={`Evidence tier ${result.evidence_tier}`}
                 >
                   {result.evidence_tier}
                 </Badge>
@@ -256,19 +284,24 @@ export function SearchBar() {
                 setIsOpen(false)
                 saveToHistory(query)
               }}
-              className="block p-3 text-center text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium"
+              className="block p-3 text-center text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
+              aria-label="View all search results"
             >
               See all results →
             </Link>
           )}
-          <div className="p-2 text-xs text-gray-500 text-center border-t">
+          <div className="p-2 text-xs text-gray-500 text-center border-t" aria-live="polite">
             Use ↑↓ to navigate • Enter to select • Esc to close
           </div>
         </div>
       )}
 
       {isOpen && query.length >= 2 && results.length === 0 && !isLoading && (
-        <div className="absolute top-full mt-2 w-full bg-white dark:bg-gray-900 border rounded-lg shadow-lg z-50 p-4 text-center text-sm text-gray-600 dark:text-gray-400">
+        <div 
+          className="absolute top-full mt-2 w-full bg-white dark:bg-gray-900 border rounded-lg shadow-lg z-50 p-4 text-center text-sm text-gray-600 dark:text-gray-400"
+          role="status"
+          aria-live="polite"
+        >
           No results found for "{query}"
         </div>
       )}

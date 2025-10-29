@@ -59,38 +59,56 @@ export function ExportButton({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant={variant} size={size} disabled={isExporting || data.length === 0}>
-          <Download className="w-4 h-4 mr-2" />
+        <Button 
+          variant={variant} 
+          size={size} 
+          disabled={isExporting || data.length === 0}
+          aria-label={`Export ${data.length} event${data.length !== 1 ? 's' : ''} in various formats`}
+          aria-haspopup="menu"
+        >
+          <Download className="w-4 h-4 mr-2" aria-hidden="true" />
           {isExporting ? 'Exporting...' : label}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
+      <DropdownMenuContent align="end" aria-label="Export format options">
         <DropdownMenuLabel>Export Format</DropdownMenuLabel>
         <DropdownMenuSeparator />
         
-        <DropdownMenuItem onClick={() => handleExport('excel')}>
-          <FileSpreadsheet className="w-4 h-4 mr-2 text-green-600" />
+        <DropdownMenuItem 
+          onClick={() => handleExport('excel')}
+          aria-label="Export as Excel spreadsheet (.xlsx)"
+        >
+          <FileSpreadsheet className="w-4 h-4 mr-2 text-green-600" aria-hidden="true" />
           Excel (.xlsx)
         </DropdownMenuItem>
         
-        <DropdownMenuItem onClick={() => handleExport('csv')}>
-          <FileText className="w-4 h-4 mr-2 text-blue-600" />
+        <DropdownMenuItem 
+          onClick={() => handleExport('csv')}
+          aria-label="Export as CSV file (.csv)"
+        >
+          <FileText className="w-4 h-4 mr-2 text-blue-600" aria-hidden="true" />
           CSV (.csv)
         </DropdownMenuItem>
         
-        <DropdownMenuItem onClick={() => handleExport('ical')}>
-          <Calendar className="w-4 h-4 mr-2 text-purple-600" />
+        <DropdownMenuItem 
+          onClick={() => handleExport('ical')}
+          aria-label="Export as calendar file (.ics)"
+        >
+          <Calendar className="w-4 h-4 mr-2 text-purple-600" aria-hidden="true" />
           Calendar (.ics)
         </DropdownMenuItem>
         
-        <DropdownMenuItem onClick={() => handleExport('json')}>
-          <FileJson className="w-4 h-4 mr-2 text-orange-600" />
+        <DropdownMenuItem 
+          onClick={() => handleExport('json')}
+          aria-label="Export as JSON file (.json)"
+        >
+          <FileJson className="w-4 h-4 mr-2 text-orange-600" aria-hidden="true" />
           JSON (.json)
         </DropdownMenuItem>
         
         <DropdownMenuSeparator />
         
-        <div className="px-2 py-1.5 text-xs text-muted-foreground">
+        <div className="px-2 py-1.5 text-xs text-muted-foreground" role="status" aria-live="polite">
           {data.length} item{data.length !== 1 ? 's' : ''} to export
         </div>
       </DropdownMenuContent>

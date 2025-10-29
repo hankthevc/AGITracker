@@ -6,6 +6,10 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Loader2, Send, Trash2, Copy, CheckCircle, ExternalLink } from 'lucide-react'
 
+// P1-8: XSS protection for rendered markdown
+// Note: In production, install dompurify: npm install dompurify @types/dompurify
+// For now, we use dangerouslySetInnerHTML sparingly and sanitize on backend
+
 interface Message {
   role: 'user' | 'assistant'
   content: string
@@ -247,6 +251,7 @@ export default function ChatPage() {
                 >
                   {/* Message content */}
                   <div className="prose prose-sm dark:prose-invert max-w-none">
+                    {/* P1-8: Safe rendering - React escapes by default */}
                     <div className="whitespace-pre-wrap">{message.content}</div>
                   </div>
 

@@ -118,31 +118,84 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# CORS middleware - configurable via CORS_ORIGINS env var
+# CORS middleware - configurable via CORS_ORIGINS env var (P1-7: Strict policy)
+cors_origins = [origin.strip() for origin in settings.cors_origins.split(",") if origin.strip()]
+
+# In production, ensure we have explicit origins (no wildcards)
+if settings.environment == "production" and "*" in cors_origins:
+    print("⚠️  WARNING: Wildcard CORS origin in production! Update CORS_ORIGINS env var.")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[origin.strip() for origin in settings.cors_origins.split(",")],
+    allow_origins=cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],  # Explicit methods
+    allow_headers=["X-API-Key", "Content-Type", "X-Request-ID"],  # Explicit headers
+    max_age=600  # Cache preflight for 10 minutes
 )
 
+# P0-1: Request ID middleware - adds X-Request-ID to all requests/responses
+from app.middleware.request_id import RequestIDMiddleware
+app.add_middleware(RequestIDMiddleware)
 
-# Request ID middleware - adds X-Request-ID to all requests/responses
+# P0-4: Security headers middleware
+from app.middleware.security_headers import SecurityHeadersMiddleware
+app.add_middleware(
+    SecurityHeadersMiddleware,
+    enable_hsts=(settings.environment == "production")
+)
+
+# P0-4: HTTPS redirect in production
+if settings.environment == "production":
+    from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
+    app.add_middleware(HTTPSRedirectMiddleware)
+
+
+# P1-5: Global exception handler for consistent error responses
+from fastapi.responses import JSONResponse
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """
+    Global exception handler for unhandled errors.
+    Returns consistent JSON error responses.
+    """
+    import traceback
+    
+    # Get request ID if available
+    request_id = getattr(request.state, "request_id", "unknown")
+    
+    # Log error with full traceback
+    print(f"❌ Unhandled exception [Request ID: {request_id}]:")
+    traceback.print_exc()
+    
+    # Return JSON response
+    return JSONResponse(
+        status_code=500,
+        content={
+            "type": f"{settings.api_base_url}/errors/500" if hasattr(settings, "api_base_url") else "about:blank",
+            "title": "Internal Server Error",
+            "status": 500,
+            "detail": "An unexpected error occurred. Please try again later.",
+            "instance": str(request.url.path),
+            "request_id": request_id
+        }
+    )
+
+
 @app.middleware("http")
-async def add_request_id(request: Request, call_next):
-    """Add X-Request-ID header to requests and responses for tracing."""
+async def add_structlog_context(request: Request, call_next):
+    """Add request context to structlog for all logs in this request."""
     import structlog
 
-    request_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
-    request_id_context.set(request_id)
+    # Get request ID from state (set by RequestIDMiddleware)
+    request_id = getattr(request.state, "request_id", str(uuid.uuid4()))
 
     # Bind request_id to structlog context for all logs in this request
     structlog.contextvars.clear_contextvars()
     structlog.contextvars.bind_contextvars(request_id=request_id)
 
     response = await call_next(request)
-    response.headers["X-Request-ID"] = request_id
     return response
 
 
