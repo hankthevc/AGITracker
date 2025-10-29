@@ -2825,6 +2825,198 @@ def get_api_key_usage(
 
 
 # =============================================================================
+# ADMIN ENDPOINTS - URL Validation (Sprint 10.1)
+# =============================================================================
+
+
+@app.post("/v1/admin/validate-urls", tags=["admin"])
+def trigger_url_validation(
+    x_api_key: str = Header(None),
+    db: Session = Depends(get_db)
+):
+    """
+    Manually trigger URL validation for all events (admin only).
+    
+    This endpoint starts a background Celery task that checks all event URLs
+    for accessibility and updates the validation fields.
+    
+    Returns:
+        Task ID and status
+    
+    Requires: x-api-key header with admin privileges
+    """
+    from app.tasks.validate_urls import validate_event_urls
+    
+    # Verify admin API key
+    if not x_api_key or x_api_key != settings.admin_api_key:
+        raise HTTPException(status_code=403, detail="Invalid or missing admin API key")
+    
+    try:
+        # Trigger async task
+        task = validate_event_urls.delay()
+        
+        return {
+            "status": "started",
+            "task_id": task.id,
+            "message": "URL validation task started. Check /v1/admin/invalid-urls for results."
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error starting URL validation: {str(e)}")
+
+
+@app.post("/v1/admin/validate-url/{event_id}", tags=["admin"])
+def validate_single_url(
+    event_id: int,
+    x_api_key: str = Header(None),
+    db: Session = Depends(get_db)
+):
+    """
+    Validate URL for a single event (admin only).
+    
+    Args:
+        event_id: ID of event to validate
+    
+    Returns:
+        Validation result
+    
+    Requires: x-api-key header with admin privileges
+    """
+    from app.tasks.validate_urls import validate_single_event_url
+    
+    # Verify admin API key
+    if not x_api_key or x_api_key != settings.admin_api_key:
+        raise HTTPException(status_code=403, detail="Invalid or missing admin API key")
+    
+    try:
+        # Check event exists
+        event = db.query(Event).filter(Event.id == event_id).first()
+        if not event:
+            raise HTTPException(status_code=404, detail="Event not found")
+        
+        # Trigger async task
+        task = validate_single_event_url.delay(event_id)
+        
+        return {
+            "status": "started",
+            "task_id": task.id,
+            "event_id": event_id,
+            "message": f"URL validation started for event {event_id}"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error validating URL: {str(e)}")
+
+
+@app.get("/v1/admin/invalid-urls", tags=["admin"])
+def list_invalid_urls(
+    limit: int = Query(100, le=500),
+    x_api_key: str = Header(None),
+    db: Session = Depends(get_db)
+):
+    """
+    List all events with invalid URLs (admin only).
+    
+    Returns events where url_is_valid = FALSE, ordered by most recently validated.
+    Useful for identifying and fixing broken source links.
+    
+    Args:
+        limit: Maximum number of results (default 100, max 500)
+    
+    Returns:
+        List of events with invalid URLs and error details
+    
+    Requires: x-api-key header with admin privileges
+    """
+    # Verify admin API key
+    if not x_api_key or x_api_key != settings.admin_api_key:
+        raise HTTPException(status_code=403, detail="Invalid or missing admin API key")
+    
+    try:
+        # Query events with invalid URLs
+        events = (
+            db.query(Event)
+            .filter(Event.url_is_valid == False)
+            .order_by(desc(Event.url_validated_at))
+            .limit(limit)
+            .all()
+        )
+        
+        return {
+            "total": len(events),
+            "limit": limit,
+            "events": [
+                {
+                    "id": e.id,
+                    "title": e.title,
+                    "source_url": e.source_url,
+                    "status_code": e.url_status_code,
+                    "error": e.url_error,
+                    "validated_at": e.url_validated_at.isoformat() if e.url_validated_at else None,
+                    "published_at": e.published_at.isoformat() if e.published_at else None,
+                    "evidence_tier": e.evidence_tier
+                }
+                for e in events
+            ]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching invalid URLs: {str(e)}")
+
+
+@app.get("/v1/admin/url-stats", tags=["admin"])
+def get_url_validation_stats(
+    x_api_key: str = Header(None),
+    db: Session = Depends(get_db)
+):
+    """
+    Get URL validation statistics (admin only).
+    
+    Returns summary statistics about URL health across all events.
+    
+    Returns:
+        Statistics including total validated, valid count, invalid count, etc.
+    
+    Requires: x-api-key header with admin privileges
+    """
+    # Verify admin API key
+    if not x_api_key or x_api_key != settings.admin_api_key:
+        raise HTTPException(status_code=403, detail="Invalid or missing admin API key")
+    
+    try:
+        # Get total events
+        total_events = db.query(Event).count()
+        
+        # Get validated events
+        validated_count = db.query(Event).filter(Event.url_validated_at.isnot(None)).count()
+        
+        # Get valid/invalid counts
+        valid_count = db.query(Event).filter(Event.url_is_valid == True, Event.url_validated_at.isnot(None)).count()
+        invalid_count = db.query(Event).filter(Event.url_is_valid == False).count()
+        
+        # Get most recent validation time
+        latest_validation = (
+            db.query(Event.url_validated_at)
+            .filter(Event.url_validated_at.isnot(None))
+            .order_by(desc(Event.url_validated_at))
+            .first()
+        )
+        
+        return {
+            "total_events": total_events,
+            "validated": validated_count,
+            "not_validated": total_events - validated_count,
+            "valid": valid_count,
+            "invalid": invalid_count,
+            "validation_rate": f"{validated_count/total_events*100:.1f}%" if total_events > 0 else "0%",
+            "invalid_rate": f"{invalid_count/validated_count*100:.1f}%" if validated_count > 0 else "0%",
+            "latest_validation": latest_validation[0].isoformat() if latest_validation else None,
+            "timestamp": datetime.utcnow().isoformat() + "Z"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching URL stats: {str(e)}")
+
+
+# =============================================================================
 # ADMIN ENDPOINTS - Task Monitoring (Sprint 4.2)
 # =============================================================================
 
