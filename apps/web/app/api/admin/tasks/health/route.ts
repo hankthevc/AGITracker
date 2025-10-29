@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://agi-tracker-production.up.railway.app"
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-production-8535.up.railway.app"
 
 export async function GET(request: NextRequest) {
   try {
