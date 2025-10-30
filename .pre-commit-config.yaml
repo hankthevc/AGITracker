@@ -1,0 +1,110 @@
+# Pre-commit hooks for AGI Signpost Tracker
+# Install: pre-commit install
+# Run manually: pre-commit run --all-files
+
+repos:
+  # Python linting and formatting
+  - repo: local
+    hooks:
+      - id: ruff-format
+        name: Ruff Format (Python)
+        entry: bash -c 'cd services/etl && ruff format app/'
+        language: system
+        types: [python]
+        pass_filenames: false
+        
+      - id: ruff-check
+        name: Ruff Check (Python)
+        entry: bash -c 'cd services/etl && ruff check app/ --fix'
+        language: system
+        types: [python]
+        pass_filenames: false
+  
+  # TypeScript/JavaScript linting and formatting
+  - repo: local
+    hooks:
+      - id: prettier
+        name: Prettier (JS/TS/JSON/YAML/MD)
+        entry: prettier --write
+        language: node
+        types_or: [javascript, jsx, ts, tsx, json, yaml, markdown]
+        additional_dependencies: ['prettier@3.1.0']
+        
+      - id: eslint
+        name: ESLint (TS/JS)
+        entry: bash -c 'cd apps/web && npx eslint --fix'
+        language: node
+        types_or: [typescript, javascript, tsx, jsx]
+        pass_filenames: false
+        additional_dependencies: ['eslint@8.55.0']
+  
+  # Git commit checks
+  - repo: local
+    hooks:
+      - id: no-commit-to-main
+        name: Don't commit directly to main
+        entry: bash -c 'if [ "$(git branch --show-current)" = "main" ]; then echo "❌ Cannot commit directly to main! Create a feature branch."; exit 1; fi'
+        language: system
+        always_run: true
+        pass_filenames: false
+        stages: [commit]
+  
+  # General file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: '\.md$'
+      - id: end-of-file-fixer
+      - id: check-yaml
+        args: ['--unsafe']  # Allow custom YAML tags
+      - id: check-json
+      - id: check-added-large-files
+        args: ['--maxkb=500']
+      - id: check-merge-conflict
+      - id: detect-private-key
+      - id: mixed-line-ending
+
+  # Python-specific checks
+  - repo: https://github.com/pre-commit/pygrep-hooks
+    rev: v1.10.0
+    hooks:
+      - id: python-check-blanket-noqa
+      - id: python-check-blanket-type-ignore
+      - id: python-no-eval
+      - id: python-use-type-annotations
+
+  # Security checks
+  - repo: local
+    hooks:
+      - id: detect-secrets
+        name: Detect secrets and API keys
+        entry: bash -c 'if grep -r -i "api[_-]key\s*=\s*['\''\"]\?sk-" --include="*.py" --include="*.ts" --include="*.js" .; then echo "❌ Hardcoded API key detected!"; exit 1; fi'
+        language: system
+        pass_filenames: false
+
+# Configuration
+default_language_version:
+  python: python3.11
+  node: '20'
+
+# Don't run on certain file types
+exclude: |
+  (?x)^(
+    .*\.egg-info/.*|
+    \.git/.*|
+    \.venv/.*|
+    node_modules/.*|
+    __pycache__/.*|
+    \.next/.*|
+    build/.*|
+    dist/.*|
+    \.pytest_cache/.*|
+    \.mypy_cache/.*
+  )$
+
+# Fail fast - stop on first hook failure
+fail_fast: false
+
+# Skip certain hooks on certain operations
+stages: [commit, push]

@@ -3,8 +3,16 @@ name: CI
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.gitignore'
   pull_request:
     branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.gitignore'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -22,6 +30,17 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
+          cache-dependency-path: 'apps/web/package-lock.json'
+      
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            **/node_modules
+            ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
       
       - name: Install dependencies
         run: npm install
@@ -36,6 +55,16 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: 'services/etl/pyproject.toml'
+      
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('services/etl/pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
       
       - name: Install Python dependencies
         run: |
@@ -57,6 +86,10 @@ jobs:
   unit-tests:
     name: Unit Tests
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.11', '3.12']
+        node-version: ['20']
     services:
       postgres:
         image: pgvector/pgvector:pg16
@@ -88,8 +121,19 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: ${{ matrix.node-version }}
           cache: 'npm'
+          cache-dependency-path: 'apps/web/package-lock.json'
+      
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            **/node_modules
+            ~/.npm
+          key: ${{ runner.os }}-node-${{ matrix.node-version }}-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-${{ matrix.node-version }}-
       
       - name: Install dependencies
         run: npm install
@@ -107,13 +151,23 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+          cache-dependency-path: 'services/etl/pyproject.toml'
+      
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('services/etl/pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-${{ matrix.python-version }}-
       
       - name: Install Python dependencies
         working-directory: services/etl
         run: |
           python -m pip install --upgrade pip
-          pip install -e .[test] || (pip install -e . && pip install pytest pytest-asyncio pytest-cov)
+          pip install -e .[dev] || (pip install -e . && pip install pytest pytest-asyncio pytest-cov)
       
       - name: Run Python unit tests
         working-directory: services/etl

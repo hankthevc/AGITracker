@@ -1,0 +1,120 @@
+# ========================================
+# Docker Ignore File
+# Excludes unnecessary files from Docker build context
+# ========================================
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# CI/CD
+.github
+.pre-commit-config.yaml
+
+# Documentation
+*.md
+!README.md
+docs/
+CONTRIBUTING.md
+LICENSE
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.ruff_cache/
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.npm
+.eslintcache
+*.tgz
+
+# Next.js
+.next/
+out/
+.cache/
+.vercel
+
+# Testing
+coverage/
+*.lcov
+.nyc_output
+playwright-report/
+test-results/
+
+# Environment
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*
+!.env.example
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-*
+.DS_Store
+
+# Logs
+logs/
+*.log
+
+# Temp files
+tmp/
+temp/
+*.tmp
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+infra/migrations/versions/*.pyc
+
+# Docker
+.dockerignore
+Dockerfile*
+docker-compose*.yml
+
+# Project specific
+scripts/
+!scripts/seed.py
+infra/reports/
+infra/seeds/
+playwright/
+e2e/
+

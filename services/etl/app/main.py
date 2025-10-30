@@ -6,7 +6,7 @@ import os
 import sys
 import uuid
 from contextvars import ContextVar
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response
@@ -118,31 +118,84 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# CORS middleware - configurable via CORS_ORIGINS env var
+# CORS middleware - configurable via CORS_ORIGINS env var (P1-7: Strict policy)
+cors_origins = [origin.strip() for origin in settings.cors_origins.split(",") if origin.strip()]
+
+# In production, ensure we have explicit origins (no wildcards)
+if settings.environment == "production" and "*" in cors_origins:
+    print("⚠️  WARNING: Wildcard CORS origin in production! Update CORS_ORIGINS env var.")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[origin.strip() for origin in settings.cors_origins.split(",")],
+    allow_origins=cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],  # Explicit methods
+    allow_headers=["X-API-Key", "Content-Type", "X-Request-ID"],  # Explicit headers
+    max_age=600  # Cache preflight for 10 minutes
 )
 
+# P0-1: Request ID middleware - adds X-Request-ID to all requests/responses
+from app.middleware.request_id import RequestIDMiddleware
+app.add_middleware(RequestIDMiddleware)
 
-# Request ID middleware - adds X-Request-ID to all requests/responses
+# P0-4: Security headers middleware
+from app.middleware.security_headers import SecurityHeadersMiddleware
+app.add_middleware(
+    SecurityHeadersMiddleware,
+    enable_hsts=(settings.environment == "production")
+)
+
+# P0-4: HTTPS redirect in production
+if settings.environment == "production":
+    from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
+    app.add_middleware(HTTPSRedirectMiddleware)
+
+
+# P1-5: Global exception handler for consistent error responses
+from fastapi.responses import JSONResponse
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """
+    Global exception handler for unhandled errors.
+    Returns consistent JSON error responses.
+    """
+    import traceback
+    
+    # Get request ID if available
+    request_id = getattr(request.state, "request_id", "unknown")
+    
+    # Log error with full traceback
+    print(f"❌ Unhandled exception [Request ID: {request_id}]:")
+    traceback.print_exc()
+    
+    # Return JSON response
+    return JSONResponse(
+        status_code=500,
+        content={
+            "type": f"{settings.api_base_url}/errors/500" if hasattr(settings, "api_base_url") else "about:blank",
+            "title": "Internal Server Error",
+            "status": 500,
+            "detail": "An unexpected error occurred. Please try again later.",
+            "instance": str(request.url.path),
+            "request_id": request_id
+        }
+    )
+
+
 @app.middleware("http")
-async def add_request_id(request: Request, call_next):
-    """Add X-Request-ID header to requests and responses for tracing."""
+async def add_structlog_context(request: Request, call_next):
+    """Add request context to structlog for all logs in this request."""
     import structlog
 
-    request_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
-    request_id_context.set(request_id)
+    # Get request ID from state (set by RequestIDMiddleware)
+    request_id = getattr(request.state, "request_id", str(uuid.uuid4()))
 
     # Bind request_id to structlog context for all logs in this request
     structlog.contextvars.clear_contextvars()
     structlog.contextvars.bind_contextvars(request_id=request_id)
 
     response = await call_next(request)
-    response.headers["X-Request-ID"] = request_id
     return response
 
 
@@ -362,6 +415,180 @@ async def get_index(
     response.headers["Cache-Control"] = f"public, max-age={settings.index_cache_ttl_seconds}"
 
     return result
+
+
+@app.get("/v1/index/history")
+@limiter.limit(f"{settings.rate_limit_per_minute}/minute")
+@cache(expire=settings.index_cache_ttl_seconds)
+async def get_index_history(
+    request: Request,
+    preset: str = Query("equal", regex="^(equal|aschenbrenner|ai2027)$"),
+    days: int = Query(90, ge=1, le=365),
+    db: Session = Depends(get_db),
+):
+    """
+    Get historical index data for charting.
+    
+    Query params:
+    - preset: Scoring preset (equal, aschenbrenner, ai2027). Default: equal.
+    - days: Number of days to look back (1-365). Default: 90.
+    
+    Returns:
+    Array of {date, overall, capabilities, agents, inputs, security, events} objects.
+    """
+    # Calculate start date
+    end_date = date.today()
+    start_date = end_date - timedelta(days=days)
+    
+    # Get all snapshots for this preset in the date range
+    snapshots = (
+        db.query(IndexSnapshot)
+        .filter(
+            and_(
+                IndexSnapshot.preset == preset,
+                IndexSnapshot.as_of_date >= start_date,
+                IndexSnapshot.as_of_date <= end_date
+            )
+        )
+        .order_by(IndexSnapshot.as_of_date)
+        .all()
+    )
+    
+    # Build response with events on significant dates
+    history = []
+    for snapshot in snapshots:
+        # Get major events on this date (A/B tier only)
+        major_events = (
+            db.query(Event)
+            .filter(
+                and_(
+                    func.date(Event.published_at) == snapshot.as_of_date,
+                    Event.tier.in_(["A", "B"]),
+                    not_(Event.retracted)
+                )
+            )
+            .limit(3)
+            .all()
+        )
+        
+        history.append({
+            "date": str(snapshot.as_of_date),
+            "overall": float(snapshot.overall) if snapshot.overall else 0.0,
+            "capabilities": float(snapshot.capabilities) if snapshot.capabilities else 0.0,
+            "agents": float(snapshot.agents) if snapshot.agents else 0.0,
+            "inputs": float(snapshot.inputs) if snapshot.inputs else 0.0,
+            "security": float(snapshot.security) if snapshot.security else 0.0,
+            "events": [
+                {
+                    "id": e.id,
+                    "title": e.title,
+                    "tier": e.tier,
+                }
+                for e in major_events
+            ]
+        })
+    
+    return {
+        "preset": preset,
+        "days": days,
+        "start_date": str(start_date),
+        "end_date": str(end_date),
+        "history": history,
+    }
+
+
+@app.get("/v1/index/custom")
+@limiter.limit(f"{settings.rate_limit_per_minute}/minute")
+async def get_custom_index(
+    request: Request,
+    capabilities: float = Query(0.25, ge=0.0, le=1.0),
+    agents: float = Query(0.25, ge=0.0, le=1.0),
+    inputs: float = Query(0.25, ge=0.0, le=1.0),
+    security: float = Query(0.25, ge=0.0, le=1.0),
+    db: Session = Depends(get_db),
+):
+    """
+    Calculate index with custom category weights.
+    
+    Query params:
+    - capabilities: Weight for capabilities (0.0-1.0). Default: 0.25
+    - agents: Weight for agents (0.0-1.0). Default: 0.25
+    - inputs: Weight for inputs (0.0-1.0). Default: 0.25
+    - security: Weight for security (0.0-1.0). Default: 0.25
+    
+    Note: Weights must sum to 1.0 (±0.01 tolerance)
+    
+    Returns:
+    Calculated index using custom weights on latest data.
+    """
+    # Validate weights sum to 1.0
+    total_weight = capabilities + agents + inputs + security
+    if abs(total_weight - 1.0) > 0.01:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Weights must sum to 1.0 (got {total_weight:.4f}). "
+                   "Current: capabilities={capabilities}, agents={agents}, "
+                   "inputs={inputs}, security={security}"
+        )
+    
+    # Get latest snapshot from any preset (we just need category values)
+    snapshot = (
+        db.query(IndexSnapshot)
+        .filter(IndexSnapshot.preset == "equal")
+        .order_by(desc(IndexSnapshot.as_of_date))
+        .first()
+    )
+    
+    if not snapshot:
+        raise HTTPException(
+            status_code=404,
+            detail="No index snapshots found. Please run index computation first."
+        )
+    
+    # Extract category values
+    cap_val = float(snapshot.capabilities) if snapshot.capabilities else 0.0
+    agents_val = float(snapshot.agents) if snapshot.agents else 0.0
+    inputs_val = float(snapshot.inputs) if snapshot.inputs else 0.0
+    security_val = float(snapshot.security) if snapshot.security else 0.0
+    
+    # Calculate weighted average
+    weighted_score = (
+        capabilities * cap_val +
+        agents * agents_val +
+        inputs * inputs_val +
+        security * security_val
+    )
+    
+    # Calculate safety margin (unweighted)
+    safety_margin = security_val - cap_val
+    
+    # Detect insufficient data
+    insufficient_overall = (inputs_val == 0.0 or security_val == 0.0)
+    
+    return {
+        "as_of_date": str(snapshot.as_of_date),
+        "overall": weighted_score,
+        "capabilities": cap_val,
+        "agents": agents_val,
+        "inputs": inputs_val,
+        "security": security_val,
+        "safety_margin": safety_margin,
+        "weights": {
+            "capabilities": capabilities,
+            "agents": agents,
+            "inputs": inputs,
+            "security": security,
+        },
+        "insufficient": {
+            "overall": insufficient_overall,
+            "categories": {
+                "capabilities": cap_val == 0.0,
+                "agents": agents_val == 0.0,
+                "inputs": inputs_val == 0.0,
+                "security": security_val == 0.0,
+            }
+        },
+    }
 
 
 @app.get("/v1/signposts")
@@ -1825,10 +2052,11 @@ async def compare_predictions_vs_actual(
     """
 
     from app.models import EventSignpostLink, ExpertPrediction, Signpost
+    from sqlalchemy.orm import joinedload
 
     try:
-        # Get predictions
-        query = db.query(ExpertPrediction)
+        # ✅ FIX: Use joinedload to prevent N+1 queries
+        query = db.query(ExpertPrediction).options(joinedload(ExpertPrediction.signpost))
         if signpost_id:
             query = query.filter(ExpertPrediction.signpost_id == signpost_id)
         if source:
@@ -1838,7 +2066,7 @@ async def compare_predictions_vs_actual(
 
         result = []
         for pred in predictions:
-            signpost = db.query(Signpost).filter(Signpost.id == pred.signpost_id).first()
+            signpost = pred.signpost  # ✅ Already loaded via joinedload, no extra query!
             if not signpost:
                 continue
 
@@ -3357,4 +3585,512 @@ def get_event_consensus(event_id: str, db: Session = Depends(get_db)):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving consensus: {str(e)}")
+
+
+# ========================================
+# PHASE 4: RAG CHATBOT & SEARCH
+# ========================================
+
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
+
+
+class ChatRequest(BaseModel):
+    """Chat request model."""
+    message: str
+    session_id: Optional[str] = None
+    stream: bool = True
+
+
+@app.post("/v1/chat", tags=["chat"])
+async def chat(request: ChatRequest):
+    """
+    Chat with RAG-powered AI assistant about AGI progress.
+    
+    Phase 4: Conversational retrieval with citations.
+    Streams response using Server-Sent Events (SSE).
+    """
+    from app.services.rag_chatbot import rag_chatbot
+    
+    # Generate session ID if not provided
+    session_id = request.session_id or str(uuid.uuid4())
+    
+    if not request.stream:
+        # Non-streaming response (collect all chunks)
+        chunks = []
+        sources = []
+        
+        async for chunk in rag_chatbot.chat_stream(request.message, session_id):
+            if chunk["type"] == "token":
+                chunks.append(chunk["content"])
+            elif chunk["type"] == "sources":
+                sources = chunk["sources"]
+        
+        return {
+            "session_id": session_id,
+            "message": "".join(chunks),
+            "sources": sources
+        }
+    
+    # Streaming response (SSE)
+    async def event_stream():
+        async for chunk in rag_chatbot.chat_stream(request.message, session_id):
+            yield f"data: {json.dumps(chunk)}\n\n"
+    
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Session-ID": session_id
+        }
+    )
+
+
+@app.get("/v1/chat/suggestions", tags=["chat"])
+def get_chat_suggestions():
+    """
+    Get suggested starter questions for chatbot.
+    
+    Phase 4: Help users get started with relevant questions.
+    """
+    from app.services.rag_chatbot import rag_chatbot
+    
+    return {
+        "suggestions": rag_chatbot.get_suggested_questions()
+    }
+
+
+@app.get("/v1/search/semantic", tags=["search"])
+@cache(expire=300)  # Cache for 5 minutes
+async def semantic_search(
+    query: str = Query(..., min_length=3),
+    limit: int = Query(10, ge=1, le=50),
+    db: Session = Depends(get_db)
+):
+    """
+    Semantic search across events and signposts using vector similarity.
+    
+    Phase 4: Hybrid search combining semantic (pgvector) + keyword matching.
+    """
+    from app.services.embedding_service import embedding_service
+    from sqlalchemy import text
+    
+    # Generate query embedding
+    query_embedding = embedding_service.embed_single(query, use_cache=True)
+    
+    # Search events
+    event_query = text("""
+        SELECT 
+            id, title, summary, source_url, evidence_tier, published_at, publisher,
+            1 - (embedding <=> :query_embedding::vector) as similarity
+        FROM events
+        WHERE embedding IS NOT NULL
+            AND retracted = false
+        ORDER BY embedding <=> :query_embedding::vector
+        LIMIT :limit
+    """)
+    
+    event_results = db.execute(
+        event_query,
+        {"query_embedding": str(query_embedding), "limit": limit}
+    ).fetchall()
+    
+    # Search signposts
+    signpost_query = text("""
+        SELECT 
+            id, code, name, description, category,
+            1 - (embedding <=> :query_embedding::vector) as similarity
+        FROM signposts
+        WHERE embedding IS NOT NULL
+        ORDER BY embedding <=> :query_embedding::vector
+        LIMIT :limit
+    """)
+    
+    signpost_results = db.execute(
+        signpost_query,
+        {"query_embedding": str(query_embedding), "limit": limit // 2}
+    ).fetchall()
+    
+    # Format results
+    events = [
+        {
+            "type": "event",
+            "id": row.id,
+            "title": row.title,
+            "summary": row.summary,
+            "url": row.source_url,
+            "tier": row.evidence_tier,
+            "published_at": row.published_at.isoformat() if row.published_at else None,
+            "publisher": row.publisher,
+            "similarity": float(row.similarity)
+        }
+        for row in event_results
+    ]
+    
+    signposts = [
+        {
+            "type": "signpost",
+            "id": row.id,
+            "code": row.code,
+            "name": row.name,
+            "description": row.description,
+            "category": row.category,
+            "similarity": float(row.similarity)
+        }
+        for row in signpost_results
+    ]
+    
+    # Combine and sort by similarity
+    results = events + signposts
+    results.sort(key=lambda x: x["similarity"], reverse=True)
+    
+    return {
+        "query": query,
+        "total": len(results),
+        "results": results[:limit]
+    }
+
+
+# ========================================
+# PHASE 4: SCENARIO EXPLORER
+# ========================================
+
+class ScenarioRequest(BaseModel):
+    """Scenario request model."""
+    signpost_progress: dict[str, float]  # signpost_code -> progress value (0-100)
+    preset: str = "equal"  # equal, aschenbrenner, ai-2027
+
+
+@app.post("/v1/scenarios/calculate", tags=["scenarios"])
+def calculate_scenario(request: ScenarioRequest, db: Session = Depends(get_db)):
+    """
+    Calculate hypothetical AGI proximity index for a scenario.
+    
+    Phase 4: What-if simulator for exploring impact of progress changes.
+    
+    Example:
+    {
+        "signpost_progress": {
+            "swe_bench_verified_90": 90.0,
+            "osworld_80": 75.0
+        },
+        "preset": "equal"
+    }
+    """
+    # Fetch all signposts
+    signposts = db.query(Signpost).all()
+    
+    # Build category progress from scenario
+    category_progress = {
+        "capabilities": [],
+        "agents": [],
+        "inputs": [],
+        "security": []
+    }
+    
+    for signpost in signposts:
+        # Use scenario value if provided, otherwise use 0
+        progress = request.signpost_progress.get(signpost.code, 0.0) / 100.0  # Convert to 0-1
+        
+        # Add to category
+        category = signpost.category
+        if category in category_progress:
+            category_progress[category].append({
+                "code": signpost.code,
+                "name": signpost.name,
+                "progress": progress,
+                "first_class": signpost.first_class
+            })
+    
+    # Calculate category averages (weighted by first_class)
+    category_scores = {}
+    
+    for category, items in category_progress.items():
+        if not items:
+            category_scores[category] = 0.0
+            continue
+        
+        # Weight first-class signposts 2x
+        total_weight = 0
+        weighted_sum = 0
+        
+        for item in items:
+            weight = 2.0 if item["first_class"] else 1.0
+            weighted_sum += item["progress"] * weight
+            total_weight += weight
+        
+        category_scores[category] = weighted_sum / total_weight if total_weight > 0 else 0.0
+    
+    # Calculate overall index using harmonic mean of capabilities + inputs
+    cap = category_scores.get("capabilities", 0.0)
+    inp = category_scores.get("inputs", 0.0)
+    
+    if cap > 0 and inp > 0:
+        overall = 2 / (1/cap + 1/inp)
+    else:
+        overall = 0.0
+    
+    # Calculate safety margin
+    sec = category_scores.get("security", 0.0)
+    safety_margin = sec - cap
+    
+    return {
+        "overall_index": round(overall * 100, 2),
+        "category_scores": {
+            k: round(v * 100, 2) for k, v in category_scores.items()
+        },
+        "safety_margin": round(safety_margin * 100, 2),
+        "preset": request.preset,
+        "signpost_count": len(request.signpost_progress),
+        "details": {
+            "capabilities_breakdown": [
+                {"code": item["code"], "name": item["name"], "progress": round(item["progress"] * 100, 2)}
+                for item in category_progress.get("capabilities", [])
+                if item["code"] in request.signpost_progress
+            ],
+            "inputs_breakdown": [
+                {"code": item["code"], "name": item["name"], "progress": round(item["progress"] * 100, 2)}
+                for item in category_progress.get("inputs", [])
+                if item["code"] in request.signpost_progress
+            ],
+            "security_breakdown": [
+                {"code": item["code"], "name": item["name"], "progress": round(item["progress"] * 100, 2)}
+                for item in category_progress.get("security", [])
+                if item["code"] in request.signpost_progress
+            ]
+        }
+    }
+
+
+# ========================================
+# PHASE 4: ADVANCED ANALYTICS
+# ========================================
+
+@app.get("/v1/analytics/capability-safety", tags=["analytics"])
+@cache(expire=3600)
+def get_capability_safety_heatmap(db: Session = Depends(get_db)):
+    """
+    Get capability-safety heatmap data.
+    
+    Phase 4: Track the relationship between capabilities and security over time.
+    Returns historical snapshots showing if we're in danger zones.
+    """
+    # Get historical snapshots
+    snapshots = db.query(IndexSnapshot).order_by(IndexSnapshot.as_of_date).limit(365).all()
+    
+    # Format for heatmap
+    data_points = []
+    
+    for snapshot in snapshots:
+        if snapshot.capabilities is not None and snapshot.security is not None:
+            data_points.append({
+                "date": snapshot.as_of_date.isoformat(),
+                "capabilities": float(snapshot.capabilities),
+                "security": float(snapshot.security),
+                "overall": float(snapshot.overall) if snapshot.overall else 0.0,
+                "in_danger_zone": float(snapshot.capabilities) > float(snapshot.security)
+            })
+    
+    # Calculate current position
+    latest = snapshots[-1] if snapshots else None
+    
+    return {
+        "current": {
+            "capabilities": float(latest.capabilities) if latest and latest.capabilities else 0.0,
+            "security": float(latest.security) if latest and latest.security else 0.0,
+            "in_danger_zone": (
+                float(latest.capabilities) > float(latest.security)
+                if latest and latest.capabilities and latest.security
+                else False
+            )
+        } if latest else None,
+        "historical": data_points,
+        "danger_threshold": 0.0  # Capabilities > Security
+    }
+
+
+@app.get("/v1/analytics/velocity", tags=["analytics"])
+@cache(expire=3600)
+def get_velocity_dashboard(
+    days: int = Query(90, ge=7, le=365),
+    db: Session = Depends(get_db)
+):
+    """
+    Get velocity dashboard showing progress per month by category.
+    
+    Phase 4: Track acceleration/deceleration in AGI progress.
+    """
+    # Get snapshots for the period
+    cutoff_date = date.today() - timedelta(days=days)
+    
+    snapshots = (
+        db.query(IndexSnapshot)
+        .filter(IndexSnapshot.as_of_date >= cutoff_date)
+        .order_by(IndexSnapshot.as_of_date)
+        .all()
+    )
+    
+    if len(snapshots) < 2:
+        return {
+            "error": "Not enough data for velocity calculation",
+            "min_snapshots_required": 2,
+            "current_snapshots": len(snapshots)
+        }
+    
+    # Calculate velocity (delta per month)
+    velocities = []
+    
+    for i in range(1, len(snapshots)):
+        prev = snapshots[i - 1]
+        curr = snapshots[i]
+        
+        # Days between snapshots
+        days_diff = (curr.as_of_date - prev.as_of_date).days
+        
+        if days_diff == 0:
+            continue
+        
+        # Normalize to monthly rate
+        monthly_factor = 30.0 / days_diff
+        
+        velocities.append({
+            "date": curr.as_of_date.isoformat(),
+            "capabilities_velocity": (
+                (float(curr.capabilities or 0) - float(prev.capabilities or 0)) * monthly_factor
+            ),
+            "agents_velocity": (
+                (float(curr.agents or 0) - float(prev.agents or 0)) * monthly_factor
+            ),
+            "inputs_velocity": (
+                (float(curr.inputs or 0) - float(prev.inputs or 0)) * monthly_factor
+            ),
+            "security_velocity": (
+                (float(curr.security or 0) - float(prev.security or 0)) * monthly_factor
+            ),
+            "overall_velocity": (
+                (float(curr.overall or 0) - float(prev.overall or 0)) * monthly_factor
+            )
+        })
+    
+    # Calculate average velocities
+    if velocities:
+        avg_velocities = {
+            "capabilities": sum(v["capabilities_velocity"] for v in velocities) / len(velocities),
+            "agents": sum(v["agents_velocity"] for v in velocities) / len(velocities),
+            "inputs": sum(v["inputs_velocity"] for v in velocities) / len(velocities),
+            "security": sum(v["security_velocity"] for v in velocities) / len(velocities),
+            "overall": sum(v["overall_velocity"] for v in velocities) / len(velocities)
+        }
+    else:
+        avg_velocities = {
+            "capabilities": 0.0,
+            "agents": 0.0,
+            "inputs": 0.0,
+            "security": 0.0,
+            "overall": 0.0
+        }
+    
+    return {
+        "period_days": days,
+        "velocity_per_month": velocities,
+        "average_velocities": avg_velocities,
+        "is_accelerating": avg_velocities["overall"] > 0
+    }
+
+
+@app.get("/v1/analytics/forecast-accuracy", tags=["analytics"])
+@cache(expire=3600)
+def get_forecast_accuracy_leaderboard(db: Session = Depends(get_db)):
+    """
+    Get forecast accuracy leaderboard.
+    
+    Phase 4: Which forecasters are most accurate? Brier scores for each source.
+    """
+    from app.models import ExpertPrediction, PredictionAccuracy
+    
+    # Get all predictions with accuracy tracking
+    predictions = (
+        db.query(ExpertPrediction, PredictionAccuracy, Signpost)
+        .join(PredictionAccuracy, ExpertPrediction.id == PredictionAccuracy.prediction_id, isouter=True)
+        .join(Signpost, ExpertPrediction.signpost_id == Signpost.id)
+        .all()
+    )
+    
+    # Group by source
+    source_stats = {}
+    
+    for pred, acc, signpost in predictions:
+        source = pred.source or "Unknown"
+        
+        if source not in source_stats:
+            source_stats[source] = {
+                "source": source,
+                "total_predictions": 0,
+                "evaluated_predictions": 0,
+                "correct_direction": 0,
+                "avg_error": 0.0,
+                "avg_calibration": 0.0
+            }
+        
+        source_stats[source]["total_predictions"] += 1
+        
+        if acc:
+            source_stats[source]["evaluated_predictions"] += 1
+            
+            if acc.directional_correct:
+                source_stats[source]["correct_direction"] += 1
+            
+            if acc.error_magnitude is not None:
+                source_stats[source]["avg_error"] += float(acc.error_magnitude)
+            
+            if acc.calibration_score is not None:
+                source_stats[source]["avg_calibration"] += float(acc.calibration_score)
+    
+    # Calculate averages
+    leaderboard = []
+    
+    for source, stats in source_stats.items():
+        if stats["evaluated_predictions"] > 0:
+            stats["avg_error"] /= stats["evaluated_predictions"]
+            stats["avg_calibration"] /= stats["evaluated_predictions"]
+            stats["directional_accuracy"] = (
+                stats["correct_direction"] / stats["evaluated_predictions"] * 100
+            )
+        else:
+            stats["directional_accuracy"] = 0.0
+        
+        leaderboard.append(stats)
+    
+    # Sort by calibration (lower is better)
+    leaderboard.sort(key=lambda x: x["avg_calibration"], reverse=True)
+    
+    return {
+        "leaderboard": leaderboard,
+        "total_sources": len(leaderboard)
+    }
+
+
+@app.get("/v1/analytics/surprise-scores", tags=["analytics"])
+@cache(expire=3600)
+def get_surprise_scores(
+    limit: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db)
+):
+    """
+    Get surprise score heatmap.
+    
+    Phase 4: Which signposts have moved unexpectedly?
+    Darker = more surprising based on expert predictions.
+    """
+    from app.services.surprise_calculation import calculate_surprise_scores
+    
+    # Calculate surprise scores for recent events
+    surprise_data = calculate_surprise_scores(db, limit=limit)
+    
+    return {
+        "surprise_scores": surprise_data,
+        "description": "Higher scores indicate more unexpected developments relative to expert forecasts"
+    }
 

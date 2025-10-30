@@ -51,15 +51,15 @@ class Signpost(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     code = Column(String(100), unique=True, nullable=False, index=True)
-    roadmap_id = Column(Integer, ForeignKey("roadmaps.id"), nullable=True)
+    roadmap_id = Column(Integer, ForeignKey("roadmaps.id"), nullable=True, index=True)  # Added index
     name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
     category = Column(String(20), nullable=False)
     metric_name = Column(String(100), nullable=True)
     unit = Column(String(50), nullable=True)
     direction = Column(String(5), nullable=False)
-    baseline_value = Column(Numeric, nullable=True)
-    target_value = Column(Numeric, nullable=True)
+    baseline_value = Column(Numeric(12, 4), nullable=True)  # Support large values like 1e26 FLOP
+    target_value = Column(Numeric(12, 4), nullable=True)
     methodology_url = Column(Text, nullable=True)
     first_class = Column(Boolean, default=False)
     short_explainer = Column(Text, nullable=True)
@@ -204,16 +204,23 @@ class IndexSnapshot(Base):
     __tablename__ = "index_snapshots"
 
     id = Column(Integer, primary_key=True, index=True)
-    as_of_date = Column(Date, unique=True, nullable=False)
-    capabilities = Column(Numeric, nullable=True)
-    agents = Column(Numeric, nullable=True)
-    inputs = Column(Numeric, nullable=True)
-    security = Column(Numeric, nullable=True)
-    overall = Column(Numeric, nullable=True)
-    safety_margin = Column(Numeric, nullable=True)
+    as_of_date = Column(Date, nullable=False)  # Removed unique=True, now composite unique with preset
+    capabilities = Column(Numeric(5, 4), nullable=True)  # 0.0000 to 1.0000 for percentages
+    agents = Column(Numeric(5, 4), nullable=True)
+    inputs = Column(Numeric(5, 4), nullable=True)
+    security = Column(Numeric(5, 4), nullable=True)
+    overall = Column(Numeric(5, 4), nullable=True)
+    safety_margin = Column(Numeric(6, 4), nullable=True)  # Can be negative, e.g., -0.5000
     preset = Column(String(50), default="equal")
     details = Column(JSONB, nullable=True)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        Index("idx_index_snapshots_preset_date", "preset", "as_of_date"),
+        # Composite unique constraint on (preset, as_of_date)
+        # Allows multiple presets to have snapshots on the same date
+        {"extend_existing": True}
+    )
 
 
 class ChangelogEntry(Base):
@@ -392,6 +399,9 @@ class Event(Base):
     url_status_code = Column(Integer, nullable=True)
     url_is_valid = Column(Boolean, nullable=False, server_default="true")
     url_error = Column(Text, nullable=True)
+    
+    # Phase 4: Vector embedding for semantic search
+    embedding = Column(Vector(1536), nullable=True)
 
     # Relationships
     signpost_links = relationship("EventSignpostLink", back_populates="event", cascade="all, delete-orphan")
@@ -424,7 +434,7 @@ class EventSignpostLink(Base):
     provisional = Column(Boolean, nullable=False, server_default="true")  # Phase A: provisional status
     rationale = Column(Text, nullable=True)
     observed_at = Column(TIMESTAMP(timezone=True), nullable=True)  # Date claim refers to
-    value = Column(Numeric, nullable=True)  # Extracted numeric value if applicable
+    value = Column(Numeric(12, 4), nullable=True)  # Extracted numeric value with precision
     link_type = Column(Enum("supports", "contradicts", "related", name="link_type"), nullable=True, server_default="supports")
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
     needs_review = Column(Boolean, nullable=False, server_default="false")
@@ -432,14 +442,32 @@ class EventSignpostLink(Base):
     review_status = Column(Enum("pending", "approved", "rejected", "flagged", name="review_status"), nullable=True)
     rejection_reason = Column(Text, nullable=True)
     impact_estimate = Column(Numeric(3, 2), nullable=True)  # 0.00 to 1.00
+    fit_score = Column(Numeric(3, 2), nullable=True)  # 0.00 to 1.00 (if not already present)
+    approved = Column(Boolean, nullable=False, server_default="false", default=False)  # For pending approval queries
 
     # Relationships
     event = relationship("Event", back_populates="signpost_links")
     signpost = relationship("Signpost")
 
     __table_args__ = (
+        # Existing indexes
         Index("idx_event_signpost_signpost_observed", "signpost_id", "observed_at"),
         Index("idx_event_signpost_signpost_created", "signpost_id", "created_at"),
+        # New performance indexes from audit
+        Index("idx_event_signpost_links_signpost_tier", "signpost_id", "tier", "created_at"),
+        # CHECK constraints for 0-1 range validation
+        CheckConstraint(
+            "confidence >= 0.00 AND confidence <= 1.00",
+            name="check_confidence_range"
+        ),
+        CheckConstraint(
+            "impact_estimate IS NULL OR (impact_estimate >= 0.0 AND impact_estimate <= 1.0)",
+            name="check_impact_estimate_range"
+        ),
+        CheckConstraint(
+            "fit_score IS NULL OR (fit_score >= 0.0 AND fit_score <= 1.0)",
+            name="check_fit_score_range"
+        ),
     )
 
 
@@ -650,5 +678,35 @@ class SourceCredibilitySnapshot(Base):
         Index("idx_source_cred_tier", "credibility_tier"),
         # Unique constraint: one snapshot per publisher per day
         {"extend_existing": True}  # For alembic autogenerate compatibility
+    )
+
+
+class AuditLog(Base):
+    """
+    Audit log for admin actions (P1-6).
+    
+    Tracks all administrative actions for security and compliance.
+    """
+
+    __tablename__ = "audit_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    timestamp = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False, index=True)
+    api_key_id = Column(Integer, ForeignKey("api_keys.id"), nullable=True, index=True)
+    action = Column(String(50), nullable=False, index=True)
+    resource_type = Column(String(50), nullable=False)
+    resource_id = Column(Integer, nullable=True)
+    details = Column(JSONB, nullable=True)
+    ip_address = Column(String(45), nullable=True)
+    user_agent = Column(Text, nullable=True)
+    request_id = Column(String(100), nullable=True)
+    success = Column(Boolean, default=True, nullable=False)
+    error_message = Column(Text, nullable=True)
+
+    __table_args__ = (
+        Index("idx_audit_logs_timestamp", "timestamp"),
+        Index("idx_audit_logs_api_key", "api_key_id", "timestamp"),
+        Index("idx_audit_logs_action", "action", "timestamp"),
+        Index("idx_audit_logs_resource", "resource_type", "resource_id"),
     )
 

@@ -1,6 +1,14 @@
 # AGI Signpost Tracker
 
 [![License: CC BY 4.0](https://img.shields.io/badge/License-CC%20BY%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by/4.0/)
+[![CI](https://github.com/hankthevc/AGITracker/workflows/CI/badge.svg)](https://github.com/hankthevc/AGITracker/actions/workflows/ci.yml)
+[![Deploy](https://github.com/hankthevc/AGITracker/workflows/Deploy/badge.svg)](https://github.com/hankthevc/AGITracker/actions/workflows/deploy.yml)
+[![Nightly E2E](https://github.com/hankthevc/AGITracker/workflows/CI%20Nightly%20E2E/badge.svg)](https://github.com/hankthevc/AGITracker/actions/workflows/ci-nightly.yml)
+[![Dependency Updates](https://github.com/hankthevc/AGITracker/workflows/Dependency%20Updates/badge.svg)](https://github.com/hankthevc/AGITracker/actions/workflows/dependencies.yml)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue)](https://www.typescriptlang.org/)
+[![Python](https://img.shields.io/badge/Python-3.11+-blue)](https://www.python.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-14-black)](https://nextjs.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-green)](https://fastapi.tiangolo.com/)
 
 **Evidence-first dashboard tracking proximity to AGI via measurable signposts**
 
@@ -607,15 +615,31 @@ Environment variables: `DATABASE_URL`, `REDIS_URL`, `OPENAI_API_KEY`, `LLM_BUDGE
 - [ ] Golden test set (100 labeled examples)
 - [ ] Full CI/CD pipeline (GitHub Actions E2E integration)
 
-### Phase 3
+### Phase 3 ✅ COMPLETED
 
-- [ ] Timeline view (AI-2027 scenario alignment)
-- [ ] Custom preset builder
-- [ ] Evidence panel with side sheets
+- [x] Timeline view (AI-2027 scenario alignment)
+- [x] Custom preset builder (`/presets/custom`)
+- [x] Signpost deep-dive pages with expert predictions
+- [x] Historical index chart (home page)
+- [x] Advanced search with filters and history
+- [x] Export formats (Excel, CSV, iCal, JSON)
+- [x] Public API rate limiting
+- [x] Admin dashboard for claim review
+
+**New Features**:
+- **Custom Preset Builder**: Create your own category weights and see real-time index calculations
+- **Historical Charts**: Track AGI proximity over time with zoom controls and event annotations
+- **Enhanced Search**: Tier filters, search history (localStorage), and keyboard navigation (↑↓ arrows)
+- **Export Formats**: Download events in Excel, CSV, JSON, or iCal formats
+- **Code Quality**: Comprehensive frontend, backend, and database audits with critical fixes applied
+
+### Phase 4
+
+- [ ] Vector embedding search with pgvector (infrastructure ready)
+- [ ] Evidence panel with side sheets  
 - [ ] Multi-language support
-- [ ] Public API rate limiting
-- [ ] Admin dashboard for claim review
-- [ ] Historical index chart
+- [ ] OOM meter visualization
+- [ ] Security maturity ladder visualization
 
 ## Support
 
