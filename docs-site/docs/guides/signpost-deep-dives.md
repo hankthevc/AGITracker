@@ -51,7 +51,7 @@ Track real-world deployment:
 | `agent_latency_2s` | Agent Latency ≤2s | Response time for 95th percentile |
 | `agent_self_improve` | Self-Improvement Deployed | Agents that modify their own code |
 | `agent_economic_1b` | Economic Value ≥$1B | Verified autonomous task value |
-| `agent_deployment_scale` | Deployment Scale | Agents managing >1M tasks/day |
+| `agent_deployment_scale` | Deployment Scale | Agents managing over 1M tasks/day |
 
 **Why agents matter?**
 - Benchmarks ≠ real-world capability

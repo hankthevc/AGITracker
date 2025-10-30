@@ -295,7 +295,7 @@ For 1,000+ events:
 1. **Filter first**: Apply tier/category filters before zooming
 2. **Use date ranges**: Limit to relevant time period
 3. **Disable overlays**: Turn off velocity/forecasts for faster rendering
-4. **Export large datasets**: Use API for >1,000 events
+4. **Export large datasets**: Use API for more than 1,000 events
 
 ## Troubleshooting
 

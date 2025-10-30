@@ -415,7 +415,7 @@ curl -X POST "http://localhost:8000/v1/admin/presets/import" \
 
 ❌ **Don't**:
 - Cherry-pick favorable preset without disclosure
-- Use extreme weights (one category >70%)
+- Use extreme weights (one category above 70%)
 - Assume one preset is "correct"
 - Change weights mid-analysis (creates confusion)
 - Ignore built-in presets (they represent expert views)

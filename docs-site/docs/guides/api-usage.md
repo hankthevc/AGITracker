@@ -145,7 +145,7 @@ curl "https://agitracker-production-6efa.up.railway.app/v1/signposts?category=ca
 }
 ```
 
-### GET /v1/signposts/by-code/{code}/events
+### GET /v1/signposts/by-code/\{code\}/events
 
 Get events linked to a specific signpost.
 

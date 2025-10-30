@@ -143,7 +143,7 @@ curl http://localhost:8000/v1/admin/api-keys/1/usage \
 
 ### Why Review Is Needed
 
-Events are auto-mapped to signposts via LLM. Low-confidence mappings (<0.7) are flagged for human review to prevent:
+Events are auto-mapped to signposts via LLM. Low-confidence mappings (confidence score below 0.7) are flagged for human review to prevent:
 - False positives (irrelevant event linked)
 - False negatives (relevant event missed)
 - Incorrect signpost (event mapped to wrong milestone)
@@ -476,7 +476,7 @@ curl -X POST http://localhost:8000/v1/admin/tasks/weekly-digest \
 
 ✅ **Do**:
 - Rotate admin API key quarterly
-- Review queue daily (keep <30 items)
+- Review queue daily (keep under 30 items)
 - Monitor source credibility monthly
 - Validate URLs weekly
 - Check health dashboard before deployments

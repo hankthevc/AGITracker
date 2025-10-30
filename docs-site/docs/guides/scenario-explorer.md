@@ -302,7 +302,7 @@ Net result: Overall 45% → 35% (-10pp)
 
 **Cause**: Signpost progress can't exceed 100%
 
-**Fix**: Adjust so no signpost >100%
+**Fix**: Adjust so no signpost exceeds 100%
 
 ### Scenarios Not Saving
 
@@ -316,7 +316,7 @@ Net result: Overall 45% → 35% (-10pp)
 
 **Explanation**: If Inputs or Security is 0%, overall stays "N/A" regardless of other changes.
 
-**Fix**: Ensure both Inputs and Security >0% in scenario
+**Fix**: Ensure both Inputs and Security are above 0% in scenario
 
 ## Best Practices
 

@@ -24,16 +24,6 @@ const sidebars: SidebarsConfig = {
         'getting-started/first-steps',
       ],
     },
-    {
-      type: 'category',
-      label: 'Architecture',
-      items: [
-        'architecture/overview',
-        'architecture/frontend',
-        'architecture/backend',
-        'architecture/database',
-      ],
-    },
   ],
 
   guidesSidebar: [
@@ -54,30 +44,28 @@ const sidebars: SidebarsConfig = {
   ],
 
   apiSidebar: [
-    'api/overview',
-    'api/authentication',
-    'api/endpoints',
-    'api/examples',
     'api/quick-reference',
   ],
 
-  contributingSidebar: [
+  tutorialSidebar: [
     {
       type: 'category',
-      label: 'Contributing',
+      label: 'Tutorial - Basics',
       items: [
-        'contributing/code-standards',
-        'contributing/pull-requests',
-        'contributing/testing',
+        'tutorial-basics/create-a-document',
+        'tutorial-basics/create-a-blog-post',
+        'tutorial-basics/markdown-features',
+        'tutorial-basics/create-a-page',
+        'tutorial-basics/deploy-your-site',
+        'tutorial-basics/congratulations',
       ],
     },
     {
       type: 'category',
-      label: 'Deployment',
+      label: 'Tutorial - Extras',
       items: [
-        'deployment/vercel',
-        'deployment/railway',
-        'deployment/production',
+        'tutorial-extras/manage-docs-versions',
+        'tutorial-extras/translate-your-site',
       ],
     },
   ],
