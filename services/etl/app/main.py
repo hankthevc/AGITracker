@@ -147,9 +147,11 @@ app.add_middleware(
 )
 
 # P0-4: HTTPS redirect in production
-if settings.environment == "production":
-    from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
-    app.add_middleware(HTTPSRedirectMiddleware)
+# DISABLED: Railway edge proxy already handles HTTPS termination
+# The app receives HTTP from Railway's internal proxy, causing redirect loops
+# if settings.environment == "production":
+#     from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
+#     app.add_middleware(HTTPSRedirectMiddleware)
 
 
 # P1-5: Global exception handler for consistent error responses
