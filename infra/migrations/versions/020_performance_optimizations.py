@@ -227,12 +227,13 @@ def upgrade() -> None:
         ON event_signpost_links (signpost_id, tier, created_at DESC);
     """)
     
-    # Common query: fetch pending approval links
-    op.execute("""
-        CREATE INDEX IF NOT EXISTS idx_event_signpost_links_pending 
-        ON event_signpost_links (created_at DESC)
-        WHERE approved = false;
-    """)
+    # REMOVED: Index on approved column - column doesn't exist in production database
+    # # Common query: fetch pending approval links
+    # op.execute("""
+    #     CREATE INDEX IF NOT EXISTS idx_event_signpost_links_pending 
+    #     ON event_signpost_links (created_at DESC)
+    #     WHERE approved = false;
+    # """)
 
 
 def downgrade() -> None:
@@ -241,7 +242,8 @@ def downgrade() -> None:
     """
     
     # Drop partial indexes
-    op.execute("DROP INDEX IF EXISTS idx_event_signpost_links_pending")
+    # REMOVED: Index was never created (see upgrade function)
+    # op.execute("DROP INDEX IF EXISTS idx_event_signpost_links_pending")
     op.execute("DROP INDEX IF EXISTS idx_event_signpost_links_signpost_tier")
     
     # Drop CHECK constraints
