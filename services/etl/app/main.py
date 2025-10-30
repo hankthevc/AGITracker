@@ -205,14 +205,18 @@ async def add_structlog_context(request: Request, call_next):
 # Startup: Initialize cache
 @app.on_event("startup")
 async def startup():
-    """Initialize FastAPI cache with Redis backend."""
+    """Initialize FastAPI cache with Redis backend (or in-memory fallback)."""
     try:
         redis = aioredis.from_url(settings.redis_url, encoding="utf-8", decode_responses=True)
         FastAPICache.init(RedisBackend(redis), prefix="fastapi-cache")
         print(f"✓ FastAPI cache initialized with Redis: {settings.redis_url}")
     except Exception as e:
         print(f"⚠️  Could not connect to Redis for caching: {e}")
-        print("   API will work without caching")
+        print("   Falling back to in-memory cache")
+        # Initialize with in-memory backend as fallback
+        from fastapi_cache.backends.inmemory import InMemoryBackend
+        FastAPICache.init(InMemoryBackend(), prefix="fastapi-cache")
+        print("✓ FastAPI cache initialized with in-memory backend")
 
 
 def generate_etag(content: str, preset: str = "equal") -> str:
