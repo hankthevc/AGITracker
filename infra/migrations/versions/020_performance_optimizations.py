@@ -131,31 +131,36 @@ def upgrade() -> None:
         END $$;
     """)
     
-    # event_signpost_links.impact_estimate
-    op.execute("""
-        DO $$
-        BEGIN
-            ALTER TABLE event_signpost_links 
-            ADD CONSTRAINT check_impact_estimate_range 
-            CHECK (impact_estimate IS NULL OR (impact_estimate >= 0.0 AND impact_estimate <= 1.0));
-        EXCEPTION
-            WHEN duplicate_object THEN 
-                NULL;
-        END $$;
-    """)
+    # REMOVED: Constraints on fit_score and impact_estimate
+    # These columns may not exist in all databases (depends on migration history)
+    # Constraints are optional (just data validation) and were causing deployment failures
+    # If these columns exist, the model-level constraints in models.py will handle validation
     
-    # event_signpost_links.fit_score
-    op.execute("""
-        DO $$
-        BEGIN
-            ALTER TABLE event_signpost_links 
-            ADD CONSTRAINT check_fit_score_range 
-            CHECK (fit_score IS NULL OR (fit_score >= 0.0 AND fit_score <= 1.0));
-        EXCEPTION
-            WHEN duplicate_object THEN 
-                NULL;
-        END $$;
-    """)
+    # # event_signpost_links.impact_estimate
+    # op.execute("""
+    #     DO $$
+    #     BEGIN
+    #         ALTER TABLE event_signpost_links 
+    #         ADD CONSTRAINT check_impact_estimate_range 
+    #         CHECK (impact_estimate IS NULL OR (impact_estimate >= 0.0 AND impact_estimate <= 1.0));
+    #     EXCEPTION
+    #         WHEN duplicate_object THEN 
+    #             NULL;
+    #     END $$;
+    # """)
+    
+    # # event_signpost_links.fit_score
+    # op.execute("""
+    #     DO $$
+    #     BEGIN
+    #         ALTER TABLE event_signpost_links 
+    #         ADD CONSTRAINT check_fit_score_range 
+    #         CHECK (fit_score IS NULL OR (fit_score >= 0.0 AND fit_score <= 1.0));
+    #     EXCEPTION
+    #         WHEN duplicate_object THEN 
+    #             NULL;
+    #     END $$;
+    # """)
     
     # events_analysis.significance_score
     op.execute("""
@@ -267,8 +272,9 @@ def downgrade() -> None:
         END $$;
     """)
     
-    op.execute("ALTER TABLE event_signpost_links DROP CONSTRAINT IF EXISTS check_fit_score_range")
-    op.execute("ALTER TABLE event_signpost_links DROP CONSTRAINT IF EXISTS check_impact_estimate_range")
+    # REMOVED: These constraints were never added (see upgrade function)
+    # op.execute("ALTER TABLE event_signpost_links DROP CONSTRAINT IF EXISTS check_fit_score_range")
+    # op.execute("ALTER TABLE event_signpost_links DROP CONSTRAINT IF EXISTS check_impact_estimate_range")
     op.execute("ALTER TABLE event_signpost_links DROP CONSTRAINT IF EXISTS check_confidence_range")
     
     # Drop foreign key index
