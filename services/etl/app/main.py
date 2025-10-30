@@ -8,6 +8,7 @@ import uuid
 from contextvars import ContextVar
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
+from typing import Optional
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
