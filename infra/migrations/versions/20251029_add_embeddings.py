@@ -18,8 +18,19 @@ depends_on = None
 
 
 def upgrade() -> None:
-    """Add embedding columns and HNSW indexes."""
+    """
+    Add embedding columns and HNSW indexes.
     
+    TEMPORARILY DISABLED: Requires pgvector extension which is not installed
+    in production database. Enable when ready to use Phase 4 RAG features.
+    """
+    # MIGRATION TEMPORARILY DISABLED - PASS THROUGH
+    pass
+    return
+    
+    # Original implementation (disabled):
+    # Requires: CREATE EXTENSION IF NOT EXISTS vector; (must be run manually first)
+    """
     # Add embedding column to events table
     op.add_column('events',
         sa.Column('embedding', Vector(1536), nullable=True)
@@ -51,6 +62,7 @@ def upgrade() -> None:
         USING hnsw (embedding vector_cosine_ops)
         WITH (m = 16, ef_construction = 64);
     """)
+    """
 
 
 def downgrade() -> None:
