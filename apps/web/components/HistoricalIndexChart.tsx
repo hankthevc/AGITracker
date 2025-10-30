@@ -130,44 +130,13 @@ export function HistoricalIndexChart({
     setShowComparison(prev => !prev)
   }, [])
   
-  if (isLoading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Historical Progress</CardTitle>
-        </CardHeader>
-        <CardContent className="h-96 flex items-center justify-center">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-            <p className="text-muted-foreground">Loading historical data...</p>
-          </div>
-        </CardContent>
-      </Card>
-    )
-  }
-  
-  if (error || !data) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Historical Progress</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="p-4 bg-destructive/10 text-destructive rounded-lg">
-            {error || 'No data available'}
-          </div>
-        </CardContent>
-      </Card>
-    )
-  }
-  
   // ✅ FIX: Proper typing instead of 'any'
   interface ChartDataPoint {
     date: string
     [key: string]: string | number // Dynamic keys for presets and categories
   }
   
-  // ✅ OPTIMIZATION: Memoize chart data transformation
+  // ✅ OPTIMIZATION: Memoize chart data transformation (MOVED BEFORE EARLY RETURNS TO FIX HOOKS ERROR)
   const chartData = useMemo(() => {
     if (!data) return []
     
@@ -198,13 +167,44 @@ export function HistoricalIndexChart({
     })
   }, [data, preset, showCategories, showComparison, comparisonData])
   
-  // ✅ OPTIMIZATION: Memoize events filtering
+  // ✅ OPTIMIZATION: Memoize events filtering (MOVED BEFORE EARLY RETURNS TO FIX HOOKS ERROR)
   const eventsWithDates = useMemo(() => {
     if (!data) return []
     return data.history
       .filter(point => point.events && point.events.length > 0)
       .slice(-5) // Show only last 5 event dates
   }, [data])
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Historical Progress</CardTitle>
+        </CardHeader>
+        <CardContent className="h-96 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading historical data...</p>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+  
+  if (error || !data) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Historical Progress</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="p-4 bg-destructive/10 text-destructive rounded-lg">
+            {error || 'No data available'}
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
   
   return (
     <Card>
