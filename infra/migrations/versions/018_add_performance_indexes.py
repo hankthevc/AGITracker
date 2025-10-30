@@ -105,15 +105,12 @@ def upgrade() -> None:
     
     # Composite index for signpost + event lookups
     # Supports: WHERE signpost_id = X AND event_id IN (...)
-    # Note: (signpost_id, event_id) already has unique constraint, but add covering index
+    # Note: (signpost_id, event_id) already has unique constraint from earlier migration
+    # This index provides additional query optimization
     with op.get_context().autocommit_block():
         op.execute("""
             CREATE INDEX IF NOT EXISTS idx_event_signpost_signpost_event 
-            ON event_signpost_links(signpost_id, event_id) 
-            WHERE NOT EXISTS (
-                SELECT 1 FROM pg_indexes 
-                WHERE indexname = 'event_signpost_links_signpost_id_event_id_key'
-            );
+            ON event_signpost_links(signpost_id, event_id);
         """)
     
     # ======================================================================
