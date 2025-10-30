@@ -125,12 +125,9 @@ def upgrade() -> None:
             ON events_analysis(event_id, generated_at DESC);
         """)
     
-    # Index on analysis content for potential full-text search
-    with op.get_context().autocommit_block():
-        op.execute("""
-            CREATE INDEX IF NOT EXISTS idx_events_analysis_content_fts 
-            ON events_analysis USING gin(to_tsvector('english', COALESCE(analysis_content, '')));
-        """)
+    # REMOVED: Index on analysis_content - column doesn't exist
+    # The events_analysis table doesn't have an analysis_content column
+    # If this column is added in a future migration, add this index then
     
     # ======================================================================
     # SOURCES TABLE INDEXES
