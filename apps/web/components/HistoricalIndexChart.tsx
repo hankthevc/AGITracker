@@ -53,13 +53,11 @@ const PRESET_COLORS = {
 
 interface ChartProps {
   preset?: string
-  showCategories?: boolean
   height?: number
 }
 
 export function HistoricalIndexChart({ 
   preset = 'equal', 
-  showCategories = false,
   height = 400
 }: ChartProps) {
   const [data, setData] = useState<HistoryResponse | null>(null)

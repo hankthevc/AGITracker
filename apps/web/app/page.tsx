@@ -167,7 +167,7 @@ function HomeContent() {
       <ThisWeeksMovesStrip />
       
       {/* Historical Progress Chart */}
-      <HistoricalIndexChart preset={preset} showCategories={false} height={350} />
+      <HistoricalIndexChart preset={preset} height={350} />
       
       {/* Recent changelog */}
       <ChangelogPanel />
