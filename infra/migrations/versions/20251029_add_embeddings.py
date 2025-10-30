@@ -23,61 +23,19 @@ def upgrade() -> None:
     
     TEMPORARILY DISABLED: Requires pgvector extension which is not installed
     in production database. Enable when ready to use Phase 4 RAG features.
+    
+    To re-enable:
+    1. Run: CREATE EXTENSION IF NOT EXISTS vector; (in production database)
+    2. Uncomment the implementation below
+    3. Redeploy
     """
     # MIGRATION TEMPORARILY DISABLED - PASS THROUGH
+    # This allows migration chain to complete without pgvector dependency
     pass
-    return
-    
-    # Original implementation (disabled):
-    # Requires: CREATE EXTENSION IF NOT EXISTS vector; (must be run manually first)
-    """
-    # Add embedding column to events table
-    op.add_column('events',
-        sa.Column('embedding', Vector(1536), nullable=True)
-    )
-    
-    # Add embedding column to signposts table (already exists in models.py, this is a no-op if it exists)
-    # But let's be safe and check
-    try:
-        op.add_column('signposts',
-            sa.Column('embedding', Vector(1536), nullable=True)
-        )
-    except Exception:
-        # Column might already exist
-        pass
-    
-    # Create HNSW index for fast nearest neighbor search on events
-    # Using cosine distance (inner product with normalized vectors)
-    op.execute("""
-        CREATE INDEX IF NOT EXISTS idx_events_embedding_hnsw 
-        ON events 
-        USING hnsw (embedding vector_cosine_ops)
-        WITH (m = 16, ef_construction = 64);
-    """)
-    
-    # Create HNSW index for signposts
-    op.execute("""
-        CREATE INDEX IF NOT EXISTS idx_signposts_embedding_hnsw 
-        ON signposts 
-        USING hnsw (embedding vector_cosine_ops)
-        WITH (m = 16, ef_construction = 64);
-    """)
-    """
 
 
 def downgrade() -> None:
-    """Remove embedding columns and indexes."""
-    
-    # Drop indexes
-    op.execute("DROP INDEX IF EXISTS idx_events_embedding_hnsw;")
-    op.execute("DROP INDEX IF EXISTS idx_signposts_embedding_hnsw;")
-    
-    # Drop columns
-    op.drop_column('events', 'embedding')
-    
-    try:
-        op.drop_column('signposts', 'embedding')
-    except Exception:
-        # Column might not exist
-        pass
+    """Remove embedding columns and indexes (DISABLED)."""
+    # Migration disabled - nothing to downgrade
+    pass
 
