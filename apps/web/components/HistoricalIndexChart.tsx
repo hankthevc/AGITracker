@@ -67,6 +67,7 @@ export function HistoricalIndexChart({
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [zoomLevel, setZoomLevel] = useState(90) // Default 3 months
+  const [showCategories, setShowCategories] = useState(false)
   const [showComparison, setShowComparison] = useState(false)
   
   useEffect(() => {

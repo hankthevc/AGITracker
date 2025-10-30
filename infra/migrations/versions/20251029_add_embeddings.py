@@ -1,7 +1,7 @@
 """add embeddings to events and signposts
 
 Revision ID: 20251029_add_embeddings
-Revises: 20251020115051
+Revises: 020_performance_optimizations
 Create Date: 2025-10-29
 
 """
@@ -12,7 +12,7 @@ from pgvector.sqlalchemy import Vector
 
 # revision identifiers, used by Alembic.
 revision = '20251029_add_embeddings'
-down_revision = '20251020115051'
+down_revision = '020_performance_optimizations'
 branch_labels = None
 depends_on = None
 
