@@ -1,7 +1,7 @@
 """add url validation fields for Sprint 10
 
 Revision ID: 019_url_validation
-Revises: 018_add_performance_indexes
+Revises: 018_performance_indexes
 Create Date: 2025-10-29 12:00:00.000000
 
 """
@@ -14,7 +14,7 @@ from sqlalchemy.dialects.postgresql import TIMESTAMP
 
 # revision identifiers, used by Alembic.
 revision: str = '019_url_validation'
-down_revision: Union[str, None] = '018_add_performance_indexes'
+down_revision: Union[str, None] = '018_performance_indexes'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
