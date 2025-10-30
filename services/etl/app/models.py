@@ -445,9 +445,12 @@ class EventSignpostLink(Base):
     reviewed_at = Column(TIMESTAMP(timezone=True), nullable=True)
     review_status = Column(Enum("pending", "approved", "rejected", "flagged", name="review_status"), nullable=True)
     rejection_reason = Column(Text, nullable=True)
-    impact_estimate = Column(Numeric(3, 2), nullable=True)  # 0.00 to 1.00
-    fit_score = Column(Numeric(3, 2), nullable=True)  # 0.00 to 1.00 (if not already present)
-    approved = Column(Boolean, nullable=False, server_default="false", default=False)  # For pending approval queries
+    
+    # TEMPORARILY DISABLED: Columns not in production database
+    # These were added in migration 001 but production DB created from later migration
+    # impact_estimate = Column(Numeric(3, 2), nullable=True)  # 0.00 to 1.00
+    # fit_score = Column(Numeric(3, 2), nullable=True)  # 0.00 to 1.00
+    # approved = Column(Boolean, nullable=False, server_default="false", default=False)
 
     # Relationships
     event = relationship("Event", back_populates="signpost_links")
@@ -464,14 +467,15 @@ class EventSignpostLink(Base):
             "confidence >= 0.00 AND confidence <= 1.00",
             name="check_confidence_range"
         ),
-        CheckConstraint(
-            "impact_estimate IS NULL OR (impact_estimate >= 0.0 AND impact_estimate <= 1.0)",
-            name="check_impact_estimate_range"
-        ),
-        CheckConstraint(
-            "fit_score IS NULL OR (fit_score >= 0.0 AND fit_score <= 1.0)",
-            name="check_fit_score_range"
-        ),
+        # TEMPORARILY DISABLED: Constraints on non-existent columns
+        # CheckConstraint(
+        #     "impact_estimate IS NULL OR (impact_estimate >= 0.0 AND impact_estimate <= 1.0)",
+        #     name="check_impact_estimate_range"
+        # ),
+        # CheckConstraint(
+        #     "fit_score IS NULL OR (fit_score >= 0.0 AND fit_score <= 1.0)",
+        #     name="check_fit_score_range"
+        # ),
     )
 
 
