@@ -64,7 +64,9 @@ class Signpost(Base):
     first_class = Column(Boolean, default=False)
     short_explainer = Column(Text, nullable=True)
     icon_emoji = Column(String(10), nullable=True)
-    embedding = Column(Vector(1536), nullable=True)
+    # TEMPORARILY DISABLED: embedding column (Phase 4 RAG feature)
+    # Requires pgvector extension and migration 20251029_add_embeddings
+    # embedding = Column(Vector(1536), nullable=True)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
 
     # Relationships
@@ -401,7 +403,9 @@ class Event(Base):
     url_error = Column(Text, nullable=True)
     
     # Phase 4: Vector embedding for semantic search
-    embedding = Column(Vector(1536), nullable=True)
+    # TEMPORARILY DISABLED: embedding column (Phase 4 RAG feature)
+    # Requires pgvector extension and migration 20251029_add_embeddings
+    # embedding = Column(Vector(1536), nullable=True)
 
     # Relationships
     signpost_links = relationship("EventSignpostLink", back_populates="event", cascade="all, delete-orphan")
