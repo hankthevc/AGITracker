@@ -24,6 +24,20 @@ def upgrade() -> None:
     """
     Add performance indexes for Sprint 9 optimization.
     
+    TEMPORARILY DISABLED: These indexes reference columns that may not exist
+    in all production databases. Migrations were failing with UndefinedColumn errors.
+    Re-enable after verifying production schema matches models.py
+    """
+    # MIGRATION TEMPORARILY DISABLED - PASS THROUGH
+    pass
+    return  # Skip all index creation for now
+    
+    # Original implementation below (commented out):
+    """
+    Original implementation - DISABLED
+    
+    Add performance indexes for Sprint 9 optimization.
+    
     Strategy:
     - Composite indexes for common query patterns (tier + published_at)
     - Full-text search indexes (GIN) for Sprint 10 preparation

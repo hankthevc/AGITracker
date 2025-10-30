@@ -28,6 +28,20 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     """
     Add performance indexes and constraints identified in Phase 3 audit.
+    
+    TEMPORARILY DISABLED: These indexes/constraints reference columns that may not exist
+    in production database. Failing with UndefinedColumn errors (fit_score, approved, etc.)
+    Re-enable after production schema is verified/updated.
+    """
+    # MIGRATION TEMPORARILY DISABLED - PASS THROUGH
+    pass
+    return  # Skip all index/constraint creation for now
+    
+    # Original implementation below (commented out):
+    """
+    DISABLED - Original implementation
+    
+    Add performance indexes and constraints identified in Phase 3 audit.
     """
     
     # ====================================================================
