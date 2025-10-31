@@ -41,7 +41,7 @@ jobs:
           npm outdated || echo "::warning::Some packages are outdated"
       
       - name: Upload audit results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: npm-audit-results
           path: |
@@ -82,7 +82,7 @@ jobs:
           pip list --outdated || echo "::warning::Some packages are outdated"
       
       - name: Upload audit results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: pip-audit-results
           path: |
