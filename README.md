@@ -648,9 +648,27 @@ Environment variables: `DATABASE_URL`, `REDIS_URL`, `OPENAI_API_KEY`, `LLM_BUDGE
 - **Discussions:** GitHub Discussions
 - **Email:** contact@example.com
 
+## Deployment
+
+**Production Deployment Guide**: [DEPLOYMENT.md](DEPLOYMENT.md)
+
+Complete guide for deploying to production with:
+- **Web App** → Vercel
+- **API** → Railway
+- **Database** → Neon PostgreSQL
+- **Cache/Queue** → Railway Redis
+
+Includes environment variables, verification steps, monitoring setup, and troubleshooting.
+
+**Estimated deployment time**: 45-60 minutes
+
 ## Documentation
 
-- **Quickstart:** [QUICKSTART.md](QUICKSTART.md) for local setup
+- **Quickstart:** [QUICKSTART.md](QUICKSTART.md) - Local development setup
+- **Deployment:** [DEPLOYMENT.md](DEPLOYMENT.md) - Production deployment guide
+- **Contributing:** [CONTRIBUTING.md](CONTRIBUTING.md) - How to contribute
+- **Troubleshooting:** [TROUBLESHOOTING.md](TROUBLESHOOTING.md) - Common issues & solutions
+- **User Guides:** [docs/user-guides/](docs/user-guides/) - Feature documentation
 - **Methodology:** See `/methodology` page in web app for scoring details
 - **Archive:** Historical planning docs in [docs/archive/](docs/archive/)
 

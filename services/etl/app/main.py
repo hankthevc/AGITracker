@@ -109,10 +109,90 @@ def decode_cursor(cursor: str) -> tuple[datetime, int]:
 # =============================================================================
 
 
+# OpenAPI tags metadata for endpoint organization
+tags_metadata = [
+    {
+        "name": "health",
+        "description": "Health check and system status endpoints",
+    },
+    {
+        "name": "index",
+        "description": "Composite AGI proximity index calculations and snapshots",
+    },
+    {
+        "name": "events",
+        "description": "AI news and research events with evidence tiering (A/B/C/D)",
+    },
+    {
+        "name": "signposts",
+        "description": "Measurable AGI milestones and progress tracking",
+    },
+    {
+        "name": "evidence",
+        "description": "Claims, sources, and evidence provenance",
+    },
+    {
+        "name": "predictions",
+        "description": "Expert forecasts and roadmap predictions",
+    },
+    {
+        "name": "admin",
+        "description": "Administrative endpoints (require API key authentication)",
+    },
+]
+
 app = FastAPI(
     title="AGI Signpost Tracker API",
     version="1.0.0",
-    description="Evidence-first dashboard tracking proximity to AGI via measurable signposts",
+    summary="Evidence-first AGI proximity tracking",
+    description="""
+## Evidence-First API for Tracking AGI Proximity
+
+Track progress toward Artificial General Intelligence using measurable signposts from peer-reviewed research and official benchmarks.
+
+### Features
+
+- **Composite Index** - Harmonic mean aggregation across 4 categories (Capabilities, Agents, Inputs, Security)
+- **Evidence Tiering** - A (peer-reviewed), B (official labs), C (press), D (social) with only A/B affecting scores
+- **Events Feed** - Real-time AI developments from arXiv, lab blogs, and leaderboards
+- **Signpost Tracking** - 25+ measurable milestones (SWE-bench, GPQA, OSWorld, compute, etc.)
+- **Expert Predictions** - Track Aschenbrenner, Cotra, AI-2027 scenarios vs actual progress
+- **Historical Data** - Query past snapshots and track progress over time
+
+### Authentication
+
+- **Public endpoints** - No authentication required (read-only access)
+- **Admin endpoints** - Require `X-API-Key` header for write operations
+
+### Rate Limiting
+
+- **100 requests per minute** per IP address
+- **1000 requests per hour** per IP address
+
+Exceeding limits returns `429 Too Many Requests`.
+
+### Data License
+
+All API responses licensed under **CC BY 4.0**. You are free to use, share, and adapt with attribution.
+
+### Links
+
+- **Web Dashboard**: https://agi-tracker.vercel.app
+- **GitHub**: https://github.com/hankthevc/AGITracker
+- **Documentation**: https://github.com/hankthevc/AGITracker/blob/main/README.md
+""",
+    contact={
+        "name": "AGI Tracker Team",
+        "url": "https://github.com/hankthevc/AGITracker",
+        "email": "contact@example.com",
+    },
+    license_info={
+        "name": "CC BY 4.0 (Data) / MIT (Code)",
+        "url": "https://creativecommons.org/licenses/by/4.0/",
+    },
+    openapi_tags=tags_metadata,
+    docs_url="/docs",
+    redoc_url="/redoc",
 )
 
 # Add rate limit state and exception handler
