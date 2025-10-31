@@ -2,7 +2,14 @@
   "mcpServers": {
     "Neon": {
       "command": "npx",
-      "args": ["-y", "mcp-remote@latest", "https://mcp.neon.tech/mcp"]
+      "args": [
+        "-y",
+        "mcp-remote@latest",
+        "https://mcp.neon.tech/mcp"
+      ]
+    },
+    "Sentry": {
+      "url": "https://mcp.sentry.dev/mcp/henry-s7/javascript-nextjs"
     }
   }
 }
