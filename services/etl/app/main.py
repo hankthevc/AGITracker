@@ -3450,6 +3450,48 @@ def get_url_validation_stats(
 # ADMIN ENDPOINTS - Task Monitoring (Sprint 4.2)
 # =============================================================================
 
+@app.post("/v1/admin/trigger-ingestion", tags=["admin"])
+async def trigger_manual_ingestion(
+    source: str = Query("all", description="Which source to ingest: arxiv, blogs, or all"),
+    x_api_key: str = Header(None)
+):
+    """
+    Manually trigger data ingestion (admin only).
+    
+    Args:
+        source: "arxiv", "blogs", or "all"
+    
+    Returns:
+        Status of triggered tasks
+    """
+    if not x_api_key or x_api_key != settings.admin_api_key:
+        raise HTTPException(status_code=403, detail="Invalid or missing API key")
+    
+    from app.tasks.news.ingest_arxiv import ingest_arxiv_task
+    from app.tasks.news.ingest_company_blogs import ingest_company_blogs_task
+    
+    results = {}
+    
+    try:
+        if source in ["arxiv", "all"]:
+            print("📡 Triggering arXiv ingestion...")
+            arxiv_result = ingest_arxiv_task()
+            results["arxiv"] = arxiv_result
+            
+        if source in ["blogs", "all"]:
+            print("📡 Triggering company blogs ingestion...")
+            blogs_result = ingest_company_blogs_task()
+            results["blogs"] = blogs_result
+        
+        return {
+            "success": True,
+            "message": f"Ingestion triggered for: {source}",
+            "results": results
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Ingestion failed: {str(e)}")
+
+
 @app.get("/v1/admin/tasks/health", tags=["admin"])
 def get_task_health(x_api_key: str = Header(None)):
     """
