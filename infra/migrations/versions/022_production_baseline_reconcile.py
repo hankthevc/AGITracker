@@ -72,37 +72,37 @@ def upgrade() -> None:
     
     # Composite index for filtering by tier and ordering by date
     op.execute("""
-        CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_events_tier_published 
+        CREATE INDEX IF NOT EXISTS idx_events_tier_published 
         ON events(evidence_tier, published_at DESC);
     """)
     
     # Composite index for filtering by retraction status and date
     op.execute("""
-        CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_events_retracted_published 
+        CREATE INDEX IF NOT EXISTS idx_events_retracted_published 
         ON events(retracted, published_at DESC);
     """)
     
     # Composite index for filtering by provisional status and date  
     op.execute("""
-        CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_events_provisional_published 
+        CREATE INDEX IF NOT EXISTS idx_events_provisional_published 
         ON events(provisional, published_at DESC);
     """)
     
     # Index for cursor-based pagination
     op.execute("""
-        CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_events_published_id 
+        CREATE INDEX IF NOT EXISTS idx_events_published_id 
         ON events(published_at DESC, id DESC);
     """)
     
     # Full-text search index on title
     op.execute("""
-        CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_events_title_fts 
+        CREATE INDEX IF NOT EXISTS idx_events_title_fts 
         ON events USING gin(to_tsvector('english', title));
     """)
     
     # Full-text search index on summary (with COALESCE for nullable column)
     op.execute("""
-        CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_events_summary_fts 
+        CREATE INDEX IF NOT EXISTS idx_events_summary_fts 
         ON events USING gin(to_tsvector('english', COALESCE(summary, '')));
     """)
     
@@ -112,38 +112,38 @@ def upgrade() -> None:
     
     # event_signpost_links: Composite index on tier + confidence
     op.execute("""
-        CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_event_signpost_tier_confidence 
+        CREATE INDEX IF NOT EXISTS idx_event_signpost_tier_confidence 
         ON event_signpost_links(tier, confidence DESC) 
         WHERE tier IS NOT NULL;
     """)
     
     # event_signpost_links: Index on created_at
     op.execute("""
-        CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_event_signpost_created 
+        CREATE INDEX IF NOT EXISTS idx_event_signpost_created 
         ON event_signpost_links(created_at DESC);
     """)
     
     # event_signpost_links: Composite index for signpost + event lookups
     op.execute("""
-        CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_event_signpost_signpost_event 
+        CREATE INDEX IF NOT EXISTS idx_event_signpost_signpost_event 
         ON event_signpost_links(signpost_id, event_id);
     """)
     
     # events_analysis: Composite index for event analysis lookups
     op.execute("""
-        CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_events_analysis_event_generated 
+        CREATE INDEX IF NOT EXISTS idx_events_analysis_event_generated 
         ON events_analysis(event_id, generated_at DESC);
     """)
     
     # sources: Index on domain
     op.execute("""
-        CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_sources_domain 
+        CREATE INDEX IF NOT EXISTS idx_sources_domain 
         ON sources(domain);
     """)
     
     # signposts: Index on category
     op.execute("""
-        CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_signposts_category 
+        CREATE INDEX IF NOT EXISTS idx_signposts_category 
         ON signposts(category);
     """)
     
@@ -153,7 +153,7 @@ def upgrade() -> None:
     
     # index_snapshots: Composite index on preset + date
     op.execute("""
-        CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_index_snapshots_preset_date 
+        CREATE INDEX IF NOT EXISTS idx_index_snapshots_preset_date 
         ON index_snapshots(preset, as_of_date DESC);
     """)
     
@@ -185,28 +185,28 @@ def upgrade() -> None:
     
     # events: Partial index for active (non-retracted) events
     op.execute("""
-        CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_events_active 
+        CREATE INDEX IF NOT EXISTS idx_events_active 
         ON events(published_at DESC, evidence_tier)
         WHERE retracted = false;
     """)
     
     # events: Partial index for pending review
     op.execute("""
-        CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_events_pending_review 
+        CREATE INDEX IF NOT EXISTS idx_events_pending_review 
         ON events(ingested_at DESC)
         WHERE needs_review = true AND retracted = false;
     """)
     
     # signposts: Index on roadmap_id (foreign key)
     op.execute("""
-        CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_signposts_roadmap_id 
+        CREATE INDEX IF NOT EXISTS idx_signposts_roadmap_id 
         ON signposts(roadmap_id)
         WHERE roadmap_id IS NOT NULL;
     """)
     
     # event_signpost_links: Composite index for filtering
     op.execute("""
-        CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_event_signpost_links_signpost_tier 
+        CREATE INDEX IF NOT EXISTS idx_event_signpost_links_signpost_tier 
         ON event_signpost_links(signpost_id, tier, created_at DESC);
     """)
     
