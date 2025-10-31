@@ -45,6 +45,10 @@ from app.models import (
 )
 from app.utils.query_helpers import query_active_events
 
+# Initialize Sentry monitoring
+from app.observability import setup_sentry
+setup_sentry()
+
 # Import scoring functions (disabled - not currently used in main.py)
 # try:
 #     from core import compute_confidence_bands, compute_index_from_categories
