@@ -29,13 +29,14 @@ def fetch_arxiv_recent(categories: list[str] = None, days_back: int = 7, max_res
 
     for category in categories:
         try:
-            # arXiv API query
-            # http://export.arxiv.org/api/query?search_query=cat:cs.AI&sortBy=lastUpdatedDate&sortOrder=descending&max_results=50
-            url = f"http://export.arxiv.org/api/query?search_query=cat:{category}&sortBy=lastUpdatedDate&sortOrder=descending&max_results={max_results}"
+            # arXiv API query (use HTTPS to avoid 301 redirect)
+            # https://export.arxiv.org/api/query?search_query=cat:cs.AI&sortBy=lastUpdatedDate&sortOrder=descending&max_results=50
+            url = f"https://export.arxiv.org/api/query?search_query=cat:{category}&sortBy=lastUpdatedDate&sortOrder=descending&max_results={max_results}"
 
             response = httpx.get(
                 url,
                 timeout=30,
+                follow_redirects=True,
                 headers={"User-Agent": "AGI-Signpost-Tracker/1.0 (+https://github.com/hankthevc/AGITracker)"}
             )
 

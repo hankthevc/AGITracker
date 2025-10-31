@@ -40,6 +40,7 @@ from celery import shared_task
 from app.config import settings
 from app.database import SessionLocal
 from app.models import Event, EventAnalysis, EventSignpostLink, Signpost
+from app.tasks.healthchecks import ping_healthcheck_url
 from app.utils.llm_budget import check_budget, record_spend
 
 # LLM Configuration
@@ -331,11 +332,32 @@ def generate_event_analysis_task():
         final_budget = check_budget()
         print(f"   💰 Budget: ${final_budget['current_spend_usd']:.2f} / ${final_budget['hard_limit_usd']:.2f}")
 
+        # Ping healthcheck on success (note: uses index_url since analysis is part of daily processing)
+        ping_healthcheck_url(
+            settings.healthcheck_index_url,
+            status="success",
+            metadata={
+                "task": "generate_event_analysis",
+                "analyzed": stats["analyzed"],
+                "errors": stats["errors"],
+                "budget_usd": final_budget["current_spend_usd"],
+                "budget_blocked": stats["budget_blocked"],
+            }
+        )
+
         return stats
 
     except Exception as e:
         db.rollback()
         print(f"❌ Fatal error in event analysis: {e}")
+        
+        # Ping healthcheck on failure
+        ping_healthcheck_url(
+            settings.healthcheck_index_url,
+            status="fail",
+            metadata={"task": "generate_event_analysis", "error": str(e)[:200]}
+        )
+        
         raise
 
     finally:

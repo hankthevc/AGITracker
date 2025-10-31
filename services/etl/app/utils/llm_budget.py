@@ -64,7 +64,21 @@ def check_budget() -> dict:
     today = datetime.now(UTC).strftime("%Y-%m-%d")
     key = f"llm_budget:daily:{today}"
 
-    current_spend = float(r.get(key) or 0.0)
+    try:
+        current_spend = float(r.get(key) or 0.0)
+    except Exception as e:
+        # Redis connection failed during get() - return conservative status
+        print(f"⚠️  Redis error during budget check: {e}")
+        return {
+            "date": today,
+            "current_spend_usd": 0.0,
+            "warning_threshold_usd": WARN_THRESHOLD,
+            "hard_limit_usd": HARD_LIMIT,
+            "warning": False,
+            "blocked": False,
+            "remaining_usd": HARD_LIMIT,
+            "redis_unavailable": True,
+        }
 
     return {
         "date": today,
