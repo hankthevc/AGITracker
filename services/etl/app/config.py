@@ -25,7 +25,14 @@ class Settings(BaseSettings):
     sentry_dsn: str | None = None  # Legacy - use sentry_dsn_api instead
     sentry_dsn_api: str | None = None
     sentry_dsn_web: str | None = None
-    healthchecks_url: str | None = None
+    
+    # Healthchecks.io URLs (one per major task)
+    healthchecks_url: str | None = None  # Legacy - generic URL
+    healthcheck_feeds_url: str | None = None  # Daily news ingestion
+    healthcheck_leaderboards_url: str | None = None  # Benchmark scraping
+    healthcheck_index_url: str | None = None  # Daily index snapshot
+    healthcheck_digest_url: str | None = None  # Weekly digest
+    
     log_level: str = "INFO"
 
     # Environment

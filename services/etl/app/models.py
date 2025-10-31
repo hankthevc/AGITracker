@@ -64,8 +64,10 @@ class Signpost(Base):
     first_class = Column(Boolean, default=False)
     short_explainer = Column(Text, nullable=True)
     icon_emoji = Column(String(10), nullable=True)
-    # TEMPORARILY DISABLED: embedding column (Phase 4 RAG feature)
-    # Requires pgvector extension and migration 20251029_add_embeddings
+    # DEFERRED TO PHASE 6: Vector embedding for semantic search
+    # Status: Migration 022 removed placeholder column (pgvector not ready)
+    # Re-add when: Phase 6 starts with proper pgvector infrastructure
+    # See: infra/migrations/MIGRATION_STRATEGY.md
     # embedding = Column(Vector(1536), nullable=True)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
 
@@ -402,9 +404,10 @@ class Event(Base):
     url_is_valid = Column(Boolean, nullable=False, server_default="true")
     url_error = Column(Text, nullable=True)
     
-    # Phase 4: Vector embedding for semantic search
-    # TEMPORARILY DISABLED: embedding column (Phase 4 RAG feature)
-    # Requires pgvector extension and migration 20251029_add_embeddings
+    # DEFERRED TO PHASE 6: Vector embedding for semantic search
+    # Status: Migration 022 removed placeholder column (pgvector not ready)
+    # Re-add when: Phase 6 starts with proper pgvector infrastructure
+    # See: infra/migrations/MIGRATION_STRATEGY.md
     # embedding = Column(Vector(1536), nullable=True)
 
     # Relationships
@@ -446,8 +449,10 @@ class EventSignpostLink(Base):
     review_status = Column(Enum("pending", "approved", "rejected", "flagged", name="review_status"), nullable=True)
     rejection_reason = Column(Text, nullable=True)
     
-    # TEMPORARILY DISABLED: Columns not in production database
-    # These were added in migration 001 but production DB created from later migration
+    # NEVER IN PRODUCTION: These columns were designed but never deployed
+    # Status: Migration 022 confirms these don't exist in production database
+    # Decision: Use review_status enum instead of approved boolean
+    # If needed in future, create new migration and uncomment:
     # impact_estimate = Column(Numeric(3, 2), nullable=True)  # 0.00 to 1.00
     # fit_score = Column(Numeric(3, 2), nullable=True)  # 0.00 to 1.00
     # approved = Column(Boolean, nullable=False, server_default="false", default=False)
@@ -463,11 +468,13 @@ class EventSignpostLink(Base):
         # New performance indexes from audit
         Index("idx_event_signpost_links_signpost_tier", "signpost_id", "tier", "created_at"),
         # CHECK constraints for 0-1 range validation
+        # NOTE: check_confidence_range added by migration 022
         CheckConstraint(
             "confidence >= 0.00 AND confidence <= 1.00",
             name="check_confidence_range"
         ),
-        # TEMPORARILY DISABLED: Constraints on non-existent columns
+        # REMOVED: Constraints for columns that don't exist (see above)
+        # If impact_estimate/fit_score added in future, uncomment these:
         # CheckConstraint(
         #     "impact_estimate IS NULL OR (impact_estimate >= 0.0 AND impact_estimate <= 1.0)",
         #     name="check_impact_estimate_range"
