@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server"
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://agitracker-production-6efa.up.railway.app"
 
+// Force dynamic rendering since we use request.headers
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: NextRequest) {
   try {
     const apiKey = request.headers.get("x-api-key")
