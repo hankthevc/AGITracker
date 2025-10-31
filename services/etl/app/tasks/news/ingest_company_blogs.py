@@ -18,6 +18,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 from app.config import settings
 from app.database import SessionLocal
 from app.models import Event, IngestRun
+from app.tasks.healthchecks import ping_healthcheck_url
 from app.utils.fetcher import compute_dedup_hash
 
 ALLOWED_PUBLISHERS = {
@@ -331,6 +332,18 @@ def ingest_company_blogs_task():
         print("\n✅ Company blogs ingestion complete!")
         print(f"   Inserted: {stats['inserted']}, Updated: {stats['updated']}, Skipped: {stats['skipped']}, Errors: {stats['errors']}")
 
+        # Ping healthcheck on success
+        ping_healthcheck_url(
+            settings.healthcheck_feeds_url,
+            status="success",
+            metadata={
+                "connector": "ingest_company_blogs",
+                "new_events": stats["inserted"],
+                "skipped": stats["skipped"],
+                "errors": stats["errors"],
+            }
+        )
+
         return stats
 
     except Exception as e:
@@ -341,6 +354,14 @@ def ingest_company_blogs_task():
         run.error = str(e)
         db.commit()
         print(f"❌ Fatal error in company blogs ingestion: {e}")
+        
+        # Ping healthcheck on failure
+        ping_healthcheck_url(
+            settings.healthcheck_feeds_url,
+            status="fail",
+            metadata={"connector": "ingest_company_blogs", "error": str(e)[:200]}
+        )
+        
         raise
 
     finally:

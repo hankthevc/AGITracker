@@ -3502,6 +3502,51 @@ def get_task_health(x_api_key: str = Header(None)):
         raise HTTPException(status_code=500, detail=f"Error fetching task health: {str(e)}")
 
 
+@app.get("/v1/admin/llm-budget", tags=["admin"])
+def get_llm_budget_status(x_api_key: str = Header(None)):
+    """
+    Get current LLM budget usage and limits.
+    
+    Returns:
+        - date: Current date (YYYY-MM-DD)
+        - current_spend_usd: Today's LLM spend in USD
+        - warning_threshold_usd: Warning threshold ($20)
+        - hard_limit_usd: Hard limit ($50)
+        - remaining_usd: Remaining budget before hard limit
+        - status: OK | WARNING | BLOCKED
+        - warning: True if at/above warning threshold
+        - blocked: True if at/above hard limit
+        - message: Human-readable status message
+    
+    Requires: x-api-key header
+    """
+    from app.utils.llm_budget import check_budget, get_budget_status
+    
+    # Verify API key for admin endpoints
+    if not x_api_key or x_api_key != settings.admin_api_key:
+        raise HTTPException(status_code=403, detail="Invalid or missing API key")
+    
+    try:
+        # Get detailed budget info
+        budget = check_budget()
+        status_info = get_budget_status()
+        
+        return {
+            "date": budget["date"],
+            "current_spend_usd": budget["current_spend_usd"],
+            "warning_threshold_usd": budget["warning_threshold_usd"],
+            "hard_limit_usd": budget["hard_limit_usd"],
+            "remaining_usd": budget["remaining_usd"],
+            "status": status_info["status"],
+            "warning": budget["warning"],
+            "blocked": budget["blocked"],
+            "message": status_info["message"],
+            "redis_unavailable": budget.get("redis_unavailable", False),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching LLM budget: {str(e)}")
+
+
 # =============================================================================
 # PREDICTIONS & SURPRISES - Intelligence Features (Sprint 5.3)
 # =============================================================================

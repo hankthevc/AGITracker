@@ -15,6 +15,7 @@ from celery import shared_task
 from app.config import settings
 from app.database import SessionLocal
 from app.models import Event, IngestRun
+from app.tasks.healthchecks import ping_healthcheck_url
 from app.utils.fetcher import (
     compute_content_hash,
     compute_dedup_hash,
@@ -48,8 +49,9 @@ def fetch_live_arxiv(max_results: int = 50) -> list[dict]:
     # Sprint 7.1: Respect arXiv rate limits (3 second delay)
     time.sleep(3.0)
     
+    # Use HTTPS to avoid 301 redirect
     base = (
-        "http://export.arxiv.org/api/query?"
+        "https://export.arxiv.org/api/query?"
         "search_query=cat:cs.AI+OR+cat:cs.CL+OR+cat:cs.LG+OR+cat:cs.CV"
         "&sortBy=submittedDate&sortOrder=descending"
         f"&max_results={max_results}"
@@ -236,6 +238,18 @@ def ingest_arxiv_task():
         print("\n✅ arXiv ingestion complete!")
         print(f"   Inserted: {stats['inserted']}, Updated: {stats['updated']}, Skipped: {stats['skipped']}, Errors: {stats['errors']}")
 
+        # Ping healthcheck on success
+        ping_healthcheck_url(
+            settings.healthcheck_feeds_url,
+            status="success",
+            metadata={
+                "connector": "ingest_arxiv",
+                "new_events": stats["inserted"],
+                "skipped": stats["skipped"],
+                "errors": stats["errors"],
+            }
+        )
+
         return stats
 
     except Exception as e:
@@ -245,6 +259,14 @@ def ingest_arxiv_task():
         run.error = str(e)
         db.commit()
         print(f"❌ Fatal error in arXiv ingestion: {e}")
+        
+        # Ping healthcheck on failure
+        ping_healthcheck_url(
+            settings.healthcheck_feeds_url,
+            status="fail",
+            metadata={"connector": "ingest_arxiv", "error": str(e)[:200]}
+        )
+        
         raise
 
     finally:
