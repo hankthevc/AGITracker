@@ -1239,9 +1239,12 @@ async def changelog(request: Request, skip: int = 0, limit: int = 50, db: Sessio
 
 
 def verify_api_key(x_api_key: str = Header(...)):
-    """Verify API key for admin endpoints."""
-    if x_api_key != settings.admin_api_key:
-        raise HTTPException(status_code=403, detail="Invalid API key")
+    """Verify API key for admin endpoints (timing-safe comparison)."""
+    from secrets import compare_digest
+    
+    # Use constant-time comparison to prevent timing attacks
+    if not compare_digest(x_api_key, settings.admin_api_key):
+        raise HTTPException(status_code=403, detail="Forbidden")
     return True
 
 

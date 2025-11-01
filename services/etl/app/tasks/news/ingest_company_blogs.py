@@ -225,10 +225,15 @@ def create_or_update_event(db, event_data: dict) -> tuple[Event, bool]:
     Idempotently create or update an event using dedup_hash or URL for deduplication.
 
     Phase A: Prioritize dedup_hash for robust deduplication.
+    
+    Security: Handles race conditions via UNIQUE constraint on dedup_hash.
+    If two workers try to insert simultaneously, one gets IntegrityError and retries.
 
     Returns:
         Tuple of (event, is_new) where is_new is True if event was just created
     """
+    from sqlalchemy.exc import IntegrityError
+    
     dedup_hash = event_data.get("dedup_hash")
     source_url = event_data["source_url"]
 
@@ -248,11 +253,24 @@ def create_or_update_event(db, event_data: dict) -> tuple[Event, bool]:
                 setattr(existing, key, value)
         return existing, False
     else:
-        # Create new event
-        new_event = Event(**event_data)
-        db.add(new_event)
-        db.flush()
-        return new_event, True
+        try:
+            # Create new event
+            new_event = Event(**event_data)
+            db.add(new_event)
+            db.flush()
+            return new_event, True
+        except IntegrityError:
+            # Race condition: Another worker inserted between check and insert
+            # UNIQUE constraint on dedup_hash or source_url caught it
+            db.rollback()
+            existing = db.query(Event).filter(Event.dedup_hash == dedup_hash).first()
+            if not existing:
+                existing = db.query(Event).filter(Event.source_url == source_url).first()
+            if existing:
+                return existing, False
+            else:
+                # Shouldn't happen, but re-raise if we still can't find it
+                raise
 
 
 @shared_task(name="ingest_company_blogs")

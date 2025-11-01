@@ -98,18 +98,28 @@ export default function EventsPage() {
     link.click();
   };
 
+  // Escape CSV formula injection (Excel code execution via =+-@)
+  const escapeCsvFormula = (val: string): string => {
+    const str = String(val || '')
+    // If starts with dangerous character, prefix with single quote
+    if (/^[=+\-@]/.test(str)) {
+      return `'${str}`
+    }
+    return str
+  }
+
   // Export to CSV
   const exportCSV = () => {
     const headers = ["ID", "Title", "Publisher", "Date", "Tier", "Signposts", "Significance", "URL"];
     const rows = filteredEvents.map((e) => [
       e.id,
-      `"${e.title.replace(/"/g, '""')}"`,
-      e.publisher,
+      `"${escapeCsvFormula(e.title).replace(/"/g, '""')}"`,
+      escapeCsvFormula(e.publisher),
       e.published_at.split("T")[0],
       e.evidence_tier,
       e.signpost_links?.length || 0,
       e.analysis?.significance_score?.toFixed(2) || "N/A",
-      e.source_url,
+      escapeCsvFormula(e.source_url),
     ]);
 
     const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");

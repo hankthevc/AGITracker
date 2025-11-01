@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { RetractionBanner } from "@/components/events/RetractionBanner";
+import { sanitizeUrl } from "@/lib/urlSanitizer";
 
 export interface EventAnalysis {
   summary: string;
@@ -137,7 +138,7 @@ export function EventCard({ event, compact = false }: EventCardProps) {
             </CardDescription>
           </div>
           <a
-            href={event.source_url}
+            href={sanitizeUrl(event.source_url)}
             target="_blank"
             rel="noopener noreferrer"
             className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
