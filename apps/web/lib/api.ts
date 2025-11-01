@@ -91,7 +91,7 @@ export const apiClient = {
       'Content-Type': 'application/json',
     }
     if (token) {
-      headers['Authorization'] = `Bearer ${token}`
+      headers['X-API-Key'] = token  // SECURITY FIX: Use X-API-Key (backend expects this, not Bearer)
     }
     const response = await fetch(`${baseUrl}/v1/admin/events/${id}/approve`, {
       method: 'POST',
@@ -109,7 +109,7 @@ export const apiClient = {
       'Content-Type': 'application/json',
     }
     if (token) {
-      headers['Authorization'] = `Bearer ${token}`
+      headers['X-API-Key'] = token  // SECURITY FIX: Use X-API-Key (backend expects this, not Bearer)
     }
     const response = await fetch(`${baseUrl}/v1/admin/events/${id}/reject`, {
       method: 'POST',

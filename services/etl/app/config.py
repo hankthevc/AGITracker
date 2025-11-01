@@ -38,8 +38,8 @@ class Settings(BaseSettings):
     # Environment
     environment: str = "development"
 
-    # Admin API Key
-    admin_api_key: str = "change-me-in-production"
+    # Admin API Key (REQUIRED - no default for security)
+    admin_api_key: str
 
     # CORS (comma-separated, no wildcards)
     cors_origins: str = "http://localhost:3000,https://agi-tracker.vercel.app"

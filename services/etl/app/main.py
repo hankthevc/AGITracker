@@ -49,6 +49,13 @@ from app.utils.query_helpers import query_active_events
 from app.observability import setup_sentry
 setup_sentry()
 
+# SECURITY: Validate admin API key is set (no default allowed)
+if not settings.admin_api_key or settings.admin_api_key == "change-me-in-production":
+    raise ValueError(
+        "ADMIN_API_KEY environment variable must be set to a secure random value. "
+        "Generate one with: openssl rand -base64 32"
+    )
+
 # Import scoring functions (disabled - not currently used in main.py)
 # try:
 #     from core import compute_confidence_bands, compute_index_from_categories
@@ -213,9 +220,9 @@ if settings.environment == "production" and "*" in cors_origins:
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
-    allow_credentials=True,
+    allow_credentials=False,  # SECURITY: Disabled to prevent credential leakage
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],  # Explicit methods
-    allow_headers=["X-API-Key", "Content-Type", "X-Request-ID"],  # Explicit headers
+    allow_headers=["X-API-Key", "Authorization", "Content-Type", "X-Request-ID"],  # Support both auth schemes
     max_age=600  # Cache preflight for 10 minutes
 )
 
@@ -311,18 +318,6 @@ def generate_etag(content: str, preset: str = "equal") -> str:
     """
     hash_input = f"{content}:{preset}"
     return hashlib.md5(hash_input.encode()).hexdigest()
-
-
-@app.get("/debug/cors")
-def debug_cors():
-    """Debug endpoint to see CORS configuration."""
-    import os
-    return {
-        "cors_origins_from_settings": settings.cors_origins,
-        "cors_origins_parsed": [origin.strip() for origin in settings.cors_origins.split(",")],
-        "cors_origins_env_var": os.getenv("CORS_ORIGINS", "NOT_SET"),
-        "all_env_vars_starting_with_cors": {k: v for k, v in os.environ.items() if "CORS" in k.upper()},
-    }
 
 
 @app.get("/")
