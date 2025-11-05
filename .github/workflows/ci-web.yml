@@ -1,0 +1,57 @@
+name: CI - Web
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/web/**'
+      - 'packages/**'
+      - '.github/workflows/ci-web.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/web/**'
+      - 'packages/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-and-typecheck:
+    name: Lint & TypeCheck
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'apps/web/package-lock.json'
+      
+      - name: Install dependencies
+        run: |
+          cd apps/web
+          npm ci
+      
+      - name: Lint
+        run: |
+          cd apps/web
+          npm run lint
+      
+      - name: Type check
+        run: |
+          cd apps/web
+          npm run typecheck
+      
+      - name: Build
+        run: |
+          cd apps/web
+          npm run build
+        env:
+          NEXT_PUBLIC_API_URL: https://agitracker-production-6efa.up.railway.app
+

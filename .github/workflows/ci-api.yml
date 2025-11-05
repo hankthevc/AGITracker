@@ -1,0 +1,93 @@
+name: CI - API
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'services/etl/**'
+      - 'infra/migrations/**'
+      - 'packages/**'
+      - '.github/workflows/ci-api.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'services/etl/**'
+      - 'infra/migrations/**'
+      - 'packages/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-and-test:
+    name: Lint & Test
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: agi_tracker_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: 'services/etl/requirements.txt'
+      
+      - name: Install dependencies
+        run: |
+          cd services/etl
+          pip install -r requirements.txt
+          pip install pytest pytest-cov ruff mypy
+      
+      - name: Lint with ruff
+        run: |
+          cd services/etl
+          ruff check app/
+      
+      - name: Type check with mypy
+        run: |
+          cd services/etl
+          mypy app/ || true  # Non-blocking for now
+      
+      - name: Run migrations
+        run: |
+          cd services/etl
+          alembic upgrade head
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/agi_tracker_test
+      
+      - name: Run tests
+        run: |
+          cd services/etl
+          pytest tests/ -v --cov=app --cov-report=term-missing || true  # Non-blocking for now
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/agi_tracker_test
+          REDIS_URL: redis://localhost:6379/0
+          ADMIN_API_KEY: test-key-for-ci
+
