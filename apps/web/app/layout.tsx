@@ -5,6 +5,7 @@ import { SentryInitializer } from '@/components/SentryInitializer'
 import { Navigation } from '@/components/Navigation'
 import { KeyboardShortcutsProvider } from '@/components/KeyboardShortcutsProvider'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { SafeLink } from '@/lib/SafeLink'
 import './globals.css'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -71,14 +72,14 @@ export default function RootLayout({
                       </Link>
                     </li>
                     <li>
-                      <a href={`${process.env.NEXT_PUBLIC_API_URL}/docs`} className="hover:text-primary transition-colors" target="_blank" rel="noopener">
+                      <SafeLink href={`${process.env.NEXT_PUBLIC_API_URL}/docs`} className="hover:text-primary transition-colors">
                         API Docs
-                      </a>
+                      </SafeLink>
                     </li>
                     <li>
-                      <a href="https://github.com/hankthevc/AGITracker" className="hover:text-primary transition-colors" target="_blank" rel="noopener">
+                      <SafeLink href="https://github.com/hankthevc/AGITracker" className="hover:text-primary transition-colors">
                         GitHub
-                      </a>
+                      </SafeLink>
                     </li>
                     <li>
                       <Link href="/changelog" className="hover:text-primary transition-colors">
