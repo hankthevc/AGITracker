@@ -67,6 +67,9 @@ if not settings.admin_api_key or settings.admin_api_key == "change-me-in-product
 # Import rate limiter from auth module (single source of truth)
 from app.auth import limiter, api_key_or_ip
 
+# Import admin router (consolidated admin endpoints)
+from app.routers import admin
+
 # Context variable for request tracing
 request_id_context: ContextVar[str] = ContextVar("request_id", default="")
 
@@ -234,6 +237,9 @@ app.add_middleware(RequestIDMiddleware)
 
 # P0-4: Security headers middleware
 from app.middleware.security_headers import SecurityHeadersMiddleware
+# Include admin router (consolidated admin endpoints)
+app.include_router(admin.router)
+
 app.add_middleware(
     SecurityHeadersMiddleware,
     enable_hsts=(settings.environment == "production")
