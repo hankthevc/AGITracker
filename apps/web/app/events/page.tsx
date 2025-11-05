@@ -122,7 +122,7 @@ export default function EventsPage() {
       e.source_url, // URLs don't need formula escaping, just quote escaping
     ]);
 
-    const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const csv = rowsToCsv(headers, rows);
     const dataBlob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(dataBlob);
     const link = document.createElement("a");
