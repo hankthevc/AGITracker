@@ -4,7 +4,6 @@
     "dockerfilePath": "Dockerfile"
   },
   "deploy": {
-    "startCommand": "sh -c 'cd /app/migrations && alembic upgrade head && cd /app && (celery -A app.celery_app beat --loglevel=info &) && uvicorn app.main:app --host 0.0.0.0 --port $PORT'",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10
   }

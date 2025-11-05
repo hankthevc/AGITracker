@@ -5,11 +5,12 @@ FROM python:3.11-slim
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies including supervisor for process management
 RUN apt-get update && apt-get install -y \
     gcc \
     postgresql-client \
     libpq-dev \
+    supervisor \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy dependency files first (for layer caching)
@@ -28,9 +29,8 @@ COPY services/etl/app ./app
 COPY infra/migrations ./migrations
 COPY infra/migrations/alembic.ini ./alembic.ini
 
-# Copy startup script
-COPY services/etl/start_server.py ./start_server.py
-RUN chmod +x start_server.py
+# Copy supervisor configuration
+COPY services/etl/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 # Set Python path to include app directory and packages
 ENV PYTHONPATH=/app:/app/packages/scoring/python:$PYTHONPATH
@@ -38,5 +38,5 @@ ENV PYTHONPATH=/app:/app/packages/scoring/python:$PYTHONPATH
 # Expose port (Railway will override with PORT env var)
 EXPOSE 8000
 
-# Start command - use dedicated Python script that runs migrations first
-CMD ["python", "start_server.py"]
+# Start command - use supervisor to manage all processes
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
