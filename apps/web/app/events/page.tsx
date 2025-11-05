@@ -119,7 +119,7 @@ export default function EventsPage() {
       e.evidence_tier,
       e.signpost_links?.length || 0,
       e.analysis?.significance_score?.toFixed(2) || "N/A",
-      escapeCsvFormula(e.source_url),
+      e.source_url, // URLs don't need formula escaping, just quote escaping
     ]);
 
     const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
