@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import { EventCard, EventData } from "@/components/events/EventCard";
+import { rowsToCsv } from "@/lib/csv";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -98,28 +99,18 @@ export default function EventsPage() {
     link.click();
   };
 
-  // Escape CSV formula injection (Excel code execution via =+-@)
-  const escapeCsvFormula = (val: string): string => {
-    const str = String(val || '')
-    // If starts with dangerous character, prefix with single quote
-    if (/^[=+\-@]/.test(str)) {
-      return `'${str}`
-    }
-    return str
-  }
-
-  // Export to CSV
+  // Export to CSV using centralized sanitizer (imported at top)
   const exportCSV = () => {
     const headers = ["ID", "Title", "Publisher", "Date", "Tier", "Signposts", "Significance", "URL"];
     const rows = filteredEvents.map((e) => [
       e.id,
-      `"${escapeCsvFormula(e.title).replace(/"/g, '""')}"`,
-      escapeCsvFormula(e.publisher),
+      e.title,  // rowsToCsv handles sanitization
+      e.publisher,
       e.published_at.split("T")[0],
       e.evidence_tier,
       e.signpost_links?.length || 0,
       e.analysis?.significance_score?.toFixed(2) || "N/A",
-      e.source_url, // URLs don't need formula escaping, just quote escaping
+      e.source_url,
     ]);
 
     const csv = rowsToCsv(headers, rows);
