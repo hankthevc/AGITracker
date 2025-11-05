@@ -382,7 +382,7 @@ engine = create_engine(
 
 **10x data (2,870 events)**:
 - ✅ **Indexes**: Will handle (designed for 100K+)
-- ⚠️ **N+1 queries**: Will slow down (needs eager loading fix)
+- ✅ **N+1 queries**: Fixed (eager loading implemented)
 - ✅ **Deduplication**: UNIQUE constraints prevent duplicates
 
 **10x traffic (1,000 req/day)**:
@@ -395,7 +395,7 @@ engine = create_engine(
 - ⚠️ **Monitoring**: Need Prometheus for detailed metrics
 - ⚠️ **API split**: Consider separate public/admin services
 
-**Bottleneck**: N+1 queries on events list (fix: eager loading)
+**Bottleneck**: Connection pool at ~1K requests/day (next bottleneck after N+1 fix)
 
 ---
 
