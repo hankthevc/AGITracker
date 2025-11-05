@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { RetractionBanner } from "@/components/events/RetractionBanner";
-import { sanitizeUrl } from "@/lib/sanitizeUrl";
+import { SafeLink } from "@/lib/SafeLink";
 
 export interface EventAnalysis {
   summary: string;
