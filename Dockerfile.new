@@ -68,9 +68,9 @@ USER appuser
 # Expose port (Railway will override with PORT env var)
 EXPOSE 8000
 
-# Health check (use /healthz for dependency testing)
+# Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
-  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz').read()"
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health').read()"
 
 # Start supervisor (manages migrations, API, Celery Beat)
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]

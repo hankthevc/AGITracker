@@ -82,10 +82,19 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/agi_tracker_test
       
-      - name: Run tests
+      - name: Run security tests (BLOCKING)
         run: |
           cd services/etl
-          pytest tests/ -v --cov=app --cov-report=term-missing || true  # Non-blocking for now
+          pytest tests/test_security.py -v
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/agi_tracker_test
+          REDIS_URL: redis://localhost:6379/0
+          ADMIN_API_KEY: test-key-for-ci
+      
+      - name: Run other tests (non-blocking for now)
+        run: |
+          cd services/etl
+          pytest tests/ -v --cov=app --cov-report=term-missing -k "not test_security" || true
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/agi_tracker_test
           REDIS_URL: redis://localhost:6379/0

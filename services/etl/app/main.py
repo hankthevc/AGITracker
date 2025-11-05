@@ -356,8 +356,63 @@ async def root():
 
 @app.get("/health")
 async def health():
-    """Health check endpoint."""
+    """
+    Basic health check endpoint (fast, simple).
+    
+    Returns basic service status without testing dependencies.
+    Use /healthz for comprehensive health checks.
+    """
     return {"status": "ok", "service": "agi-tracker-api", "version": "1.0.0"}
+
+
+@app.get("/healthz")
+async def healthz(db: Session = Depends(get_db)):
+    """
+    Comprehensive health check with dependency testing.
+    
+    Tests:
+    - Database connectivity (SELECT 1)
+    - Redis connectivity (PING via cache backend)
+    - Returns 503 if any dependency fails
+    
+    Used by:
+    - Docker HEALTHCHECK
+    - Monitoring systems (Sentry, external monitors)
+    - Pre-deployment verification
+    """
+    from fastapi.responses import JSONResponse
+    from sqlalchemy import text
+    
+    health_status = {
+        "status": "healthy",
+        "service": "agi-tracker-api",
+        "version": "1.0.0",
+        "checks": {}
+    }
+    
+    # Test database connectivity
+    try:
+        db.execute(text("SELECT 1"))
+        health_status["checks"]["database"] = "ok"
+    except Exception as e:
+        health_status["status"] = "unhealthy"
+        health_status["checks"]["database"] = f"error: {str(e)[:100]}"
+    
+    # Test Redis connectivity
+    try:
+        redis_backend = FastAPICache.get_backend()
+        if redis_backend and hasattr(redis_backend, 'redis'):
+            await redis_backend.redis.ping()
+            health_status["checks"]["redis"] = "ok"
+        else:
+            health_status["checks"]["redis"] = "not_configured"
+    except Exception as e:
+        health_status["status"] = "unhealthy"
+        health_status["checks"]["redis"] = f"error: {str(e)[:100]}"
+    
+    # Return 503 if unhealthy (tells load balancers/monitors to route away)
+    status_code = 200 if health_status["status"] == "healthy" else 503
+    return JSONResponse(status_code=status_code, content=health_status)
 
 
 @app.get("/health/full")

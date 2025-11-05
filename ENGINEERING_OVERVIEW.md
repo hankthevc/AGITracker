@@ -344,7 +344,7 @@ ON events(published_at DESC, evidence_tier)
 WHERE retracted = FALSE;
 ```
 
-**2. N+1 Query Issue** (identified, fix pending):
+**2. N+1 Query Issue** (✅ FIXED):
 ```python
 # BEFORE (N+1):
 events = db.query(Event).limit(100).all()
@@ -352,7 +352,7 @@ for event in events:
     links = db.query(EventSignpostLink).filter_by(event_id=event.id).all()
     # → 101 queries for 100 events
 
-# AFTER (eager loading) - PLANNED:
+# AFTER (eager loading) - IMPLEMENTED:
 from sqlalchemy.orm import selectinload
 events = db.query(Event).options(
     selectinload(Event.signpost_links)
@@ -382,7 +382,7 @@ engine = create_engine(
 
 **10x data (2,870 events)**:
 - ✅ **Indexes**: Will handle (designed for 100K+)
-- ⚠️ **N+1 queries**: Will slow down (needs eager loading fix)
+- ✅ **N+1 queries**: Fixed (eager loading implemented)
 - ✅ **Deduplication**: UNIQUE constraints prevent duplicates
 
 **10x traffic (1,000 req/day)**:
@@ -395,7 +395,7 @@ engine = create_engine(
 - ⚠️ **Monitoring**: Need Prometheus for detailed metrics
 - ⚠️ **API split**: Consider separate public/admin services
 
-**Bottleneck**: N+1 queries on events list (fix: eager loading)
+**Bottleneck**: Connection pool at ~1K requests/day (next bottleneck after N+1 fix)
 
 ---
 
