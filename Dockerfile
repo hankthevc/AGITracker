@@ -17,7 +17,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Copy dependency files first (layer caching)
 COPY services/etl/pyproject.toml services/etl/setup.py ./
-COPY services/etl/requirements.txt ./requirements.txt 2>/dev/null || true
 
 # Install Python dependencies in a virtual environment
 RUN python -m venv /opt/venv
