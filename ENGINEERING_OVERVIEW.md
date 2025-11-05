@@ -541,7 +541,19 @@ op.execute("CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_name ON table(column)")
 - UNIQUE constraints on `dedup_hash` and `content_hash`
 - Prevents race condition duplicates
 
-**Future migrations**: Will use CONCURRENTLY (GPT-5 recommendation)
+**Migration 024** (performance):
+- 4 composite indexes for hot query paths
+- Fast creation (no CONCURRENTLY) - safe for small DB
+
+**Migration 025** (security):
+- audit_logs table for admin action tracking
+- Forensic capability for compliance
+
+**Migration 026** (production safety):
+- Re-creates indexes with CONCURRENTLY using autocommit_block
+- Zero-downtime index creation (no table locks)
+- Production-safe for databases of any size
+- Proper pattern for all future index migrations
 
 ---
 
