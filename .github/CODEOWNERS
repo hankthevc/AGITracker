@@ -1,0 +1,30 @@
+# Code Owners - Auto-request reviews for specific paths
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owner for everything
+* @hankthevc
+
+# Frontend
+/apps/web/ @hankthevc
+# TODO: Add frontend specialist when team grows
+
+# Backend & ETL
+/services/etl/ @hankthevc
+# TODO: Add backend specialist when team grows
+
+# Infrastructure
+/infra/ @hankthevc
+/Dockerfile @hankthevc
+/docker-compose*.yml @hankthevc
+/.github/workflows/ @hankthevc
+# TODO: Add DevOps specialist when team grows
+
+# Security-sensitive
+/.github/SECURITY.md @hankthevc
+/docs/SECURITY_AUDIT.md @hankthevc
+# TODO: Add security reviewer for production
+
+# Database migrations (require extra review)
+/infra/migrations/versions/ @hankthevc
+# TODO: Require 2+ approvals for migrations in production
+

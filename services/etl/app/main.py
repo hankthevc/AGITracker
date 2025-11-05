@@ -20,7 +20,7 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 from sqlalchemy import and_, desc, func, or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload, joinedload
 
 # Add scoring package to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "packages" / "scoring" / "python"))
@@ -1360,7 +1360,14 @@ async def list_events(
     """
     limit = min(limit, 100)
 
-    query = query_active_events(db.query(Event))
+    # PERFORMANCE: Eager load signpost_links to prevent N+1 queries
+    # Without this: 100 events = 100+ separate queries for links
+    # With selectinload: 100 events = 2 queries total
+    query = query_active_events(
+        db.query(Event).options(
+            selectinload(Event.signpost_links).joinedload(EventSignpostLink.signpost)
+        )
+    )
 
     # Filter out synthetic events by default (can be overridden with include_synthetic param)
     # Evidence tier (aliases: outlet_cred, source_tier)
@@ -1462,22 +1469,17 @@ async def list_events(
     seen_keys = set()
     results = []
     for event in events:
-        # Get linked signposts
-        links = (
-            db.query(EventSignpostLink)
-            .filter(EventSignpostLink.event_id == event.id)
-            .all()
-        )
+        # PERFORMANCE FIX: Use eager-loaded relationships instead of separate queries
+        # Old code did N+1 queries here - now data is already loaded
         signpost_links = []
-        for link in links:
-            signpost = db.query(Signpost).filter(Signpost.id == link.signpost_id).first()
-            if signpost:
+        for link in event.signpost_links:  # Already loaded via selectinload
+            if link.signpost:  # Already loaded via joinedload
                 signpost_links.append({
-                    "signpost_id": signpost.id,
-                    "signpost_code": signpost.code,
-                    "signpost_name": signpost.name,
+                    "signpost_id": link.signpost.id,
+                    "signpost_code": link.signpost.code,
+                    "signpost_name": link.signpost.name,
                     # alias for web UI
-                    "signpost_title": signpost.name,
+                    "signpost_title": link.signpost.name,
                     "confidence": float(link.confidence) if link.confidence else None,
                     "value": float(link.value) if link.value else None,
                 })
