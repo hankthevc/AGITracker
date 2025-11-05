@@ -38,7 +38,26 @@ def upgrade() -> None:
     - /v1/events filtered by signpost_id + sorted by date
     - /v1/events filtered by category + sorted by date  
     - Event-signpost links sorted by confidence
+    
+    SAFETY: Checks table size and environment before choosing index creation strategy.
     """
+    import os
+    from sqlalchemy import text
+    
+    # Check if we should use CONCURRENTLY (production safety)
+    conn = op.get_bind()
+    event_count = conn.execute(text("SELECT COUNT(*) FROM events")).scalar() or 0
+    is_production = os.getenv("RAILWAY_ENVIRONMENT") == "production" or os.getenv("ENVIRONMENT") == "production"
+    
+    use_concurrent = event_count > 10000 or is_production
+    
+    if use_concurrent:
+        print(f"⚠️  Large database ({event_count} events) or production environment")
+        print("⚠️  Using CREATE INDEX CONCURRENTLY would be safer, but Alembic transactions don't support it")
+        print("⚠️  Running regular CREATE INDEX - may cause brief table locks")
+        print("⚠️  For zero-downtime: Run these indexes manually outside Alembic with CONCURRENTLY")
+    else:
+        print(f"✓ Small database ({event_count} events), fast index creation")
     
     # Composite for events filtered by signpost category, sorted by date
     # Used in: /v1/signposts/{code}/events endpoint
