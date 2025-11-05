@@ -11,8 +11,28 @@ from slowapi.util import get_remote_address
 
 from app.config import settings
 
-# Rate limiter for admin endpoints
+# SINGLE SOURCE OF TRUTH: Global rate limiter instance
+# Used by both public and admin endpoints
 limiter = Limiter(key_func=get_remote_address)
+
+
+def api_key_or_ip(request: Request) -> str:
+    """
+    Rate limiting key function that prioritizes API key over IP.
+    
+    For admin endpoints: Rate limit by API key (more accurate for authenticated users)
+    Fallback to IP for public endpoints or when key is missing.
+    
+    This prevents:
+    - Single user behind NAT saturating limits
+    - API key sharing bypassing limits
+    """
+    api_key = request.headers.get("x-api-key")
+    if api_key:
+        # Use last 8 chars of API key as identifier (don't expose full key in logs)
+        return f"key:{api_key[-8:]}"
+    # Fall back to IP for public endpoints
+    return f"ip:{get_remote_address(request)}"
 
 
 def verify_api_key(x_api_key: str = Header(...)) -> str:

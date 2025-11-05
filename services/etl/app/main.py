@@ -16,9 +16,8 @@ from fastapi_cache import FastAPICache
 from fastapi_cache.backends.redis import RedisBackend
 from fastapi_cache.decorator import cache
 from redis import asyncio as aioredis
-from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
 from sqlalchemy import and_, desc, func, or_
 from sqlalchemy.orm import Session, selectinload, joinedload
 
@@ -65,8 +64,8 @@ if not settings.admin_api_key or settings.admin_api_key == "change-me-in-product
 #         compute_index_from_categories,
 #     )
 
-# Initialize rate limiter
-limiter = Limiter(key_func=get_remote_address)
+# Import rate limiter from auth module (single source of truth)
+from app.auth import limiter, api_key_or_ip
 
 # Context variable for request tracing
 request_id_context: ContextVar[str] = ContextVar("request_id", default="")
