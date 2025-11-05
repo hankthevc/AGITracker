@@ -50,3 +50,6 @@ playwright/.cache/
 
 # Sentry Config File
 .env.sentry-build-plugin
+
+# Local/AI tooling
+.cursor/
