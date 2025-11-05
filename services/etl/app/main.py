@@ -76,7 +76,7 @@ request_id_context: ContextVar[str] = ContextVar("request_id", default="")
 # CURSOR PAGINATION HELPERS (Sprint 9)
 # =============================================================================
 
-def encode_cursor(published_at: datetime, event_id: int) -> str:
+def encode_cursor(published_at: datetime | None, event_id: int) -> str:
     """
     Encode cursor for pagination.
     
@@ -84,13 +84,16 @@ def encode_cursor(published_at: datetime, event_id: int) -> str:
     This provides a stable, opaque cursor for clients.
     
     Args:
-        published_at: Event publication timestamp
+        published_at: Event publication timestamp (None for events with missing dates)
         event_id: Event database ID
         
     Returns:
         Base64-encoded cursor string
     """
-    cursor_data = f"{published_at.isoformat()}|{event_id}"
+    # BUGFIX: Handle NULL published_at gracefully (Sentry issue #807ac95a)
+    # Use epoch if None to avoid .isoformat() crash
+    timestamp_str = published_at.isoformat() if published_at else "1970-01-01T00:00:00"
+    cursor_data = f"{timestamp_str}|{event_id}"
     return base64.b64encode(cursor_data.encode()).decode()
 
 
