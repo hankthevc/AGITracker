@@ -91,7 +91,7 @@ export function EvidenceCard({
               className="text-primary hover:underline truncate block"
             >
               {source.domain}
-            </a>
+            </SafeLink>
           </div>
           <div>
             <div className="text-muted-foreground">Observed</div>

@@ -2,6 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 import { getApiBaseUrl } from '@/lib/apiBase'
+import { SafeLink } from '@/lib/SafeLink'
 
 const API_URL = getApiBaseUrl()
 
@@ -277,14 +278,12 @@ function KeyResources({ papers, announcements }: { papers: any[], announcements:
                 <Card key={idx}>
                   <CardHeader>
                     <CardTitle className="text-lg">
-                      <a 
-                        href={paper.url} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
+                      <SafeLink 
+                        href={paper.url}
                         className="text-primary hover:underline"
                       >
                         {paper.title} →
-                      </a>
+                      </SafeLink>
                     </CardTitle>
                     <CardDescription>{paper.date}</CardDescription>
                   </CardHeader>
@@ -305,14 +304,12 @@ function KeyResources({ papers, announcements }: { papers: any[], announcements:
                 <Card key={idx} className="bg-blue-50 border-blue-200">
                   <CardHeader>
                     <CardTitle className="text-lg">
-                      <a 
-                        href={announcement.url} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
+                      <SafeLink 
+                        href={announcement.url}
                         className="text-primary hover:underline"
                       >
                         {announcement.title} →
-                      </a>
+                      </SafeLink>
                     </CardTitle>
                     <CardDescription>{announcement.date}</CardDescription>
                   </CardHeader>
