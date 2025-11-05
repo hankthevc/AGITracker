@@ -6,6 +6,7 @@ import { apiClient } from '@/lib/api'
 import { formatDate } from '@/lib/utils'
 import Link from 'next/link'
 import useSWR from 'swr'
+import { SafeLink } from '@/lib/SafeLink'
 
 interface EventDetail {
   id: number
@@ -121,14 +122,12 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
             <CardTitle className="text-base">Source</CardTitle>
           </CardHeader>
           <CardContent>
-            <a
+            <SafeLink
               href={event.source_url}
-              target="_blank"
-              rel="noopener noreferrer"
               className="text-primary hover:underline break-all"
             >
               {event.source_url} ↗
-            </a>
+            </SafeLink>
             {event.source_type && (
               <p className="text-sm text-muted-foreground mt-1">
                 Source type: <span className="font-medium">{event.source_type}</span>

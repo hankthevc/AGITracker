@@ -86,10 +86,8 @@ export function EvidenceCard({
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
             <div className="text-muted-foreground">Source</div>
-            <a
+            <SafeLink
               href={source.url}
-              target="_blank"
-              rel="noopener noreferrer"
               className="text-primary hover:underline truncate block"
             >
               {source.domain}
