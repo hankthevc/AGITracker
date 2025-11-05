@@ -137,14 +137,12 @@ export function EventCard({ event, compact = false }: EventCardProps) {
               {event.publisher} • {formatDate(event.published_at)}
             </CardDescription>
           </div>
-          <a
-            href={sanitizeUrl(event.source_url)}
-            target="_blank"
-            rel="noopener noreferrer"
+          <SafeLink
+            href={event.source_url}
             className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
           >
             <ExternalLink className="h-5 w-5" />
-          </a>
+          </SafeLink>
         </div>
       </CardHeader>
 
