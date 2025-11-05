@@ -1,7 +1,56 @@
 const { withSentryConfig } = require('@sentry/nextjs')
 
 /** @type {import('next').NextConfig} */
-const nextConfig = {}
+
+// Security headers (GPT-5 Pro audit recommendation)
+const securityHeaders = [
+  {
+    key: 'X-Content-Type-Options',
+    value: 'nosniff',
+  },
+  {
+    key: 'X-Frame-Options',
+    value: 'SAMEORIGIN',
+  },
+  {
+    key: 'Referrer-Policy',
+    value: 'origin-when-cross-origin',
+  },
+  {
+    key: 'Strict-Transport-Security',
+    value: 'max-age=63072000; includeSubDomains; preload',
+  },
+  {
+    key: 'Permissions-Policy',
+    value: 'camera=(), microphone=(), geolocation=()',
+  },
+  {
+    key: 'Content-Security-Policy',
+    value: [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-eval' 'unsafe-inline'",  // Next.js requires unsafe-inline for dev
+      "style-src 'self' 'unsafe-inline'",  // Tailwind requires unsafe-inline
+      "img-src 'self' data: https:",
+      "font-src 'self' data:",
+      "connect-src 'self' https://agitracker-production-6efa.up.railway.app https://*.sentry.io",
+      "frame-ancestors 'self'",
+      "base-uri 'self'",
+      "form-action 'self'",
+    ].join('; '),
+  },
+]
+
+const nextConfig = {
+  // Apply security headers to all routes
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: securityHeaders,
+      },
+    ]
+  },
+}
 
 module.exports = withSentryConfig(nextConfig, {
   // For all available options, see:
