@@ -103,9 +103,9 @@ export default function RootLayout({
                       </Link>
                     </li>
                     <li>
-                      <a href="https://creativecommons.org/licenses/by/4.0/" className="hover:text-primary transition-colors" target="_blank" rel="noopener">
+                      <SafeLink href="https://creativecommons.org/licenses/by/4.0/" className="hover:text-primary transition-colors">
                         CC BY 4.0 License
-                      </a>
+                      </SafeLink>
                     </li>
                   </ul>
                 </div>
@@ -119,9 +119,9 @@ export default function RootLayout({
                   </a>
                   {' • '}
                   Licensed under{' '}
-                  <a href="https://creativecommons.org/licenses/by/4.0/" className="text-primary hover:underline" target="_blank" rel="noopener">
+                  <SafeLink href="https://creativecommons.org/licenses/by/4.0/" className="text-primary hover:underline">
                     CC BY 4.0
-                  </a>
+                  </SafeLink>
                 </p>
                 <p className="mt-2 text-xs text-muted-foreground/70">
                   ✨ Sprint 10: UX & Data Quality - URL validation active
