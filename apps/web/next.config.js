@@ -4,18 +4,15 @@ const withBundleAnalyzer = require('@next/bundle-analyzer')({
 })
 
 // ✅ FIX: Security headers (Content Security Policy, etc.)
-// SECURITY: Stricter CSP in production, relaxed in dev (Next.js/Tailwind requirements)
-const isDev = process.env.NODE_ENV !== 'production'
-
 const securityHeaders = [
   {
     key: 'Content-Security-Policy',
     value: `
       default-src 'self';
-      script-src 'self' ${isDev ? "'unsafe-eval' 'unsafe-inline'" : ""} https://vercel.live;
-      style-src 'self' ${isDev ? "'unsafe-inline'" : ""};
+      script-src 'self' 'unsafe-eval' 'unsafe-inline' https://vercel.live;
+      style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
       img-src 'self' blob: data: https:;
-      font-src 'self';
+      font-src 'self' data: https://fonts.gstatic.com;
       connect-src 'self' ${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'} https://vercel.live;
       object-src 'none';
       base-uri 'self';
