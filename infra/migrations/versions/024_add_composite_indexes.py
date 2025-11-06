@@ -25,7 +25,7 @@ import sqlalchemy as sa
 
 # revision identifiers
 revision: str = '024_composite_indexes'
-down_revision: Union[str, None] = '023_dedup_hash_unique'
+down_revision: Union[str, None] = '023_unique_dedup'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -58,15 +58,6 @@ def upgrade() -> None:
         print("⚠️  For zero-downtime: Run these indexes manually outside Alembic with CONCURRENTLY")
     else:
         print(f"✓ Small database ({event_count} events), fast index creation")
-    
-    # Add content_hash unique index (from alternative 023 branch)
-    # This provides fallback deduplication mechanism
-    op.execute("""
-        CREATE UNIQUE INDEX IF NOT EXISTS idx_events_content_hash_unique 
-        ON events(content_hash)
-        WHERE content_hash IS NOT NULL;
-    """)
-    print("✓ Added content_hash unique index")
     
     # Composite for events filtered by signpost category, sorted by date
     # Used in: /v1/signposts/{code}/events endpoint
@@ -107,5 +98,4 @@ def downgrade() -> None:
     op.execute("DROP INDEX IF EXISTS idx_event_links_event_confidence")
     op.execute("DROP INDEX IF EXISTS idx_event_links_signpost_confidence")
     op.execute("DROP INDEX IF EXISTS idx_events_category_date")
-    op.execute("DROP INDEX IF EXISTS idx_events_content_hash_unique")
 

@@ -38,19 +38,6 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     """Add rich metadata fields to signposts table."""
     
-    # First, update category constraint to support new categories
-    op.execute("ALTER TABLE signposts DROP CONSTRAINT IF EXISTS check_signpost_category")
-    op.execute("""
-        ALTER TABLE signposts ADD CONSTRAINT check_signpost_category
-        CHECK (category IN ('capabilities','agents','inputs','security',
-                           'economic','research','geopolitical','safety_incidents'))
-    """)
-    print(f"✓ Updated category constraint with 4 new categories")
-    
-    # Add UNIQUE constraint on signpost code (prevent duplicates)
-    op.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_signposts_code ON signposts(code)")
-    print(f"✓ Added unique constraint on signpost code")
-    
     # Strategic context
     op.execute("ALTER TABLE signposts ADD COLUMN IF NOT EXISTS why_matters TEXT")
     op.execute("ALTER TABLE signposts ADD COLUMN IF NOT EXISTS strategic_importance TEXT")
@@ -88,7 +75,6 @@ def upgrade() -> None:
     
     # Expert forecasts (OpenAI Preparedness)
     op.execute("ALTER TABLE signposts ADD COLUMN IF NOT EXISTS openai_prep_timeline DATE")
-    op.execute("ALTER TABLE signposts ADD COLUMN IF NOT EXISTS openai_prep_confidence NUMERIC CHECK (openai_prep_confidence >= 0 AND openai_prep_confidence <= 1)")
     op.execute("ALTER TABLE signposts ADD COLUMN IF NOT EXISTS openai_prep_risk_level TEXT")
     
     # Citations and sources
@@ -122,7 +108,7 @@ def downgrade() -> None:
         'ai2027_timeline', 'ai2027_confidence', 'ai2027_rationale',
         'cotra_timeline', 'cotra_confidence',
         'epoch_timeline', 'epoch_confidence',
-        'openai_prep_timeline', 'openai_prep_confidence', 'openai_prep_risk_level',
+        'openai_prep_timeline', 'openai_prep_risk_level',
         'primary_paper_title', 'primary_paper_url', 'primary_paper_authors', 'primary_paper_year',
         'prerequisite_codes', 'related_signpost_codes',
         'display_order', 'is_negative_indicator'
