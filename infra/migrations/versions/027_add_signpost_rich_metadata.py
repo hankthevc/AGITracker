@@ -38,6 +38,19 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     """Add rich metadata fields to signposts table."""
     
+    # First, update category constraint to support new categories
+    op.execute("ALTER TABLE signposts DROP CONSTRAINT IF EXISTS check_signpost_category")
+    op.execute("""
+        ALTER TABLE signposts ADD CONSTRAINT check_signpost_category
+        CHECK (category IN ('capabilities','agents','inputs','security',
+                           'economic','research','geopolitical','safety_incidents'))
+    """)
+    print(f"✓ Updated category constraint with 4 new categories")
+    
+    # Add UNIQUE constraint on signpost code (prevent duplicates)
+    op.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_signposts_code ON signposts(code)")
+    print(f"✓ Added unique constraint on signpost code")
+    
     # Strategic context
     op.execute("ALTER TABLE signposts ADD COLUMN IF NOT EXISTS why_matters TEXT")
     op.execute("ALTER TABLE signposts ADD COLUMN IF NOT EXISTS strategic_importance TEXT")
