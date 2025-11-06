@@ -64,6 +64,58 @@ class Signpost(Base):
     first_class = Column(Boolean, default=False)
     short_explainer = Column(Text, nullable=True)
     icon_emoji = Column(String(10), nullable=True)
+    
+    # Rich metadata (Migration 027)
+    why_matters = Column(Text, nullable=True)
+    strategic_importance = Column(Text, nullable=True)
+    measurement_methodology = Column(Text, nullable=True)
+    measurement_source = Column(Text, nullable=True)
+    measurement_frequency = Column(Text, nullable=True)
+    verification_tier = Column(String(10), nullable=True)
+    
+    # Current SOTA tracking
+    current_sota_value = Column(Numeric(12, 4), nullable=True)
+    current_sota_model = Column(String(255), nullable=True)
+    current_sota_date = Column(Date, nullable=True)
+    current_sota_source = Column(Text, nullable=True)
+    
+    # Expert forecasts - Aschenbrenner
+    aschenbrenner_timeline = Column(Date, nullable=True)
+    aschenbrenner_confidence = Column(Numeric(3, 2), nullable=True)
+    aschenbrenner_quote = Column(Text, nullable=True)
+    aschenbrenner_rationale = Column(Text, nullable=True)
+    
+    # Expert forecasts - AI 2027
+    ai2027_timeline = Column(Date, nullable=True)
+    ai2027_confidence = Column(Numeric(3, 2), nullable=True)
+    ai2027_rationale = Column(Text, nullable=True)
+    
+    # Expert forecasts - Cotra
+    cotra_timeline = Column(Date, nullable=True)
+    cotra_confidence = Column(Numeric(3, 2), nullable=True)
+    
+    # Expert forecasts - Epoch AI
+    epoch_timeline = Column(Date, nullable=True)
+    epoch_confidence = Column(Numeric(3, 2), nullable=True)
+    
+    # Expert forecasts - OpenAI Preparedness
+    openai_prep_timeline = Column(Date, nullable=True)
+    openai_prep_risk_level = Column(String(50), nullable=True)
+    
+    # Citations
+    primary_paper_title = Column(Text, nullable=True)
+    primary_paper_url = Column(Text, nullable=True)
+    primary_paper_authors = Column(Text, nullable=True)
+    primary_paper_year = Column(Integer, nullable=True)
+    
+    # Relationships
+    prerequisite_codes = Column(Text, nullable=True)
+    related_signpost_codes = Column(Text, nullable=True)
+    
+    # Display
+    display_order = Column(Integer, nullable=True)
+    is_negative_indicator = Column(Boolean, default=False)
+    
     # DEFERRED TO PHASE 6: Vector embedding for semantic search
     # Status: Migration 022 removed placeholder column (pgvector not ready)
     # Re-add when: Phase 6 starts with proper pgvector infrastructure
@@ -77,10 +129,11 @@ class Signpost(Base):
     predictions = relationship("RoadmapPrediction", back_populates="signpost")
     content = relationship("SignpostContent", back_populates="signpost", uselist=False)
     pace_analyses = relationship("PaceAnalysis", back_populates="signpost")
+    signpost_links = relationship("EventSignpostLink", back_populates="signpost")
 
     __table_args__ = (
         CheckConstraint(
-            "category IN ('capabilities', 'agents', 'inputs', 'security')",
+            "category IN ('capabilities', 'agents', 'inputs', 'security', 'economic', 'research', 'geopolitical', 'safety_incidents')",
             name="check_signpost_category"
         ),
         CheckConstraint(
