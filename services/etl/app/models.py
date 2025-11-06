@@ -100,6 +100,7 @@ class Signpost(Base):
     
     # Expert forecasts - OpenAI Preparedness
     openai_prep_timeline = Column(Date, nullable=True)
+    openai_prep_confidence = Column(Numeric(3, 2), nullable=True)
     openai_prep_risk_level = Column(String(50), nullable=True)
     
     # Citations

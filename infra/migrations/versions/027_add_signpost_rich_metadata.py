@@ -88,6 +88,7 @@ def upgrade() -> None:
     
     # Expert forecasts (OpenAI Preparedness)
     op.execute("ALTER TABLE signposts ADD COLUMN IF NOT EXISTS openai_prep_timeline DATE")
+    op.execute("ALTER TABLE signposts ADD COLUMN IF NOT EXISTS openai_prep_confidence NUMERIC CHECK (openai_prep_confidence >= 0 AND openai_prep_confidence <= 1)")
     op.execute("ALTER TABLE signposts ADD COLUMN IF NOT EXISTS openai_prep_risk_level TEXT")
     
     # Citations and sources
@@ -121,7 +122,7 @@ def downgrade() -> None:
         'ai2027_timeline', 'ai2027_confidence', 'ai2027_rationale',
         'cotra_timeline', 'cotra_confidence',
         'epoch_timeline', 'epoch_confidence',
-        'openai_prep_timeline', 'openai_prep_risk_level',
+        'openai_prep_timeline', 'openai_prep_confidence', 'openai_prep_risk_level',
         'primary_paper_title', 'primary_paper_url', 'primary_paper_authors', 'primary_paper_year',
         'prerequisite_codes', 'related_signpost_codes',
         'display_order', 'is_negative_indicator'
