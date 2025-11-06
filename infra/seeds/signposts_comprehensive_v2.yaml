@@ -576,7 +576,7 @@ inputs:
   first_class: false
   epoch_confidence: 0.7
   display_order: 10
-  direction: ==
+  direction: ">="
 - code: h100_supply_unconstrained
   name: H100/B100 Supply Unconstrained
   category: inputs
