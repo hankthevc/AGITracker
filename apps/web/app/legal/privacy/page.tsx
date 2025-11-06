@@ -1,5 +1,6 @@
 import { Metadata } from "next"
 import Link from "next/link"
+import { SafeLink } from "@/lib/SafeLink"
 
 export const metadata: Metadata = {
   title: "Privacy Policy | AGI Signpost Tracker",
@@ -140,15 +141,15 @@ export default function PrivacyPage() {
           <ul className="list-disc pl-6 mb-4">
             <li>
               <strong>Vercel:</strong> Website hosting (see{" "}
-              <a href="https://vercel.com/legal/privacy-policy" className="text-blue-600 hover:underline" target="_blank" rel="noopener">
+              <SafeLink href="https://vercel.com/legal/privacy-policy" className="text-blue-600 hover:underline">
                 Vercel Privacy Policy
-              </a>)
+              </SafeLink>)
             </li>
             <li>
               <strong>Railway:</strong> API hosting (see{" "}
-              <a href="https://railway.app/legal/privacy" className="text-blue-600 hover:underline" target="_blank" rel="noopener">
+              <SafeLink href="https://railway.app/legal/privacy" className="text-blue-600 hover:underline">
                 Railway Privacy Policy
-              </a>)
+              </SafeLink>)
             </li>
             <li>
               <strong>OpenAI:</strong> LLM analysis of research papers (no personal data sent)
@@ -205,9 +206,9 @@ export default function PrivacyPage() {
           </p>
           <ul className="list-none pl-0 mb-4">
             <li><strong>GitHub:</strong>{" "}
-              <a href="https://github.com/hankthevc/AGITracker/issues" className="text-blue-600 hover:underline" target="_blank" rel="noopener">
+              <SafeLink href="https://github.com/hankthevc/AGITracker/issues" className="text-blue-600 hover:underline">
                 Open an issue
-              </a>
+              </SafeLink>
             </li>
             <li><strong>Website:</strong>{" "}
               <Link href="/" className="text-blue-600 hover:underline">
@@ -221,9 +222,9 @@ export default function PrivacyPage() {
           <h2 className="text-2xl font-semibold mb-4">Open Data License</h2>
           <p>
             All research data and analysis provided by the AGI Signpost Tracker is licensed under{" "}
-            <a href="https://creativecommons.org/licenses/by/4.0/" className="text-blue-600 hover:underline" target="_blank" rel="noopener">
+            <SafeLink href="https://creativecommons.org/licenses/by/4.0/" className="text-blue-600 hover:underline">
               Creative Commons Attribution 4.0 (CC BY 4.0)
-            </a>.
+            </SafeLink>.
           </p>
           <p>
             You are free to share and adapt our data for any purpose, including commercial use, 

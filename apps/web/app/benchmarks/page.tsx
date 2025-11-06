@@ -1,6 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
+import { SafeLink } from '@/lib/SafeLink'
 
 /**
  * Check if HLE data should show smoothing indicator.
@@ -135,14 +136,12 @@ export default function BenchmarksPage() {
                   data-testid="hle-quality-note"
                 >
                   <span className="font-semibold">⚠️ Data Quality:</span> {benchmark.qualityNote}{' '}
-                  <a 
+                  <SafeLink 
                     href="https://scale.com/leaderboard/hle" 
-                    target="_blank"
-                    rel="noopener noreferrer"
                     className="underline hover:text-yellow-900"
                   >
                     Learn more
-                  </a>
+                  </SafeLink>
                 </div>
               )}
               

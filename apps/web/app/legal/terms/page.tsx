@@ -1,5 +1,6 @@
 import { Metadata } from "next"
 import Link from "next/link"
+import { SafeLink } from "@/lib/SafeLink"
 
 export const metadata: Metadata = {
   title: "Terms of Service | AGI Signpost Tracker",
@@ -43,9 +44,9 @@ export default function TermsPage() {
           </ul>
           <p>
             All data is sourced from publicly available research and is provided under the{" "}
-            <a href="https://creativecommons.org/licenses/by/4.0/" className="text-blue-600 hover:underline" target="_blank" rel="noopener">
+            <SafeLink href="https://creativecommons.org/licenses/by/4.0/" className="text-blue-600 hover:underline">
               CC BY 4.0 license
-            </a>.
+            </SafeLink>.
           </p>
         </section>
 
@@ -108,9 +109,9 @@ export default function TermsPage() {
           <h3 className="text-xl font-semibold mb-3 mt-6">5.1 Open Data License</h3>
           <p>
             All data provided by the Service is licensed under{" "}
-            <a href="https://creativecommons.org/licenses/by/4.0/" className="text-blue-600 hover:underline" target="_blank" rel="noopener">
+            <SafeLink href="https://creativecommons.org/licenses/by/4.0/" className="text-blue-600 hover:underline">
               Creative Commons Attribution 4.0 (CC BY 4.0)
-            </a>.
+            </SafeLink>.
           </p>
           <p>
             You must provide attribution when using our data:
@@ -169,9 +170,9 @@ export default function TermsPage() {
           <h3 className="text-xl font-semibold mb-3 mt-6">8.1 Service Content</h3>
           <p>
             The Service's source code is open-source under the MIT license (see{" "}
-            <a href="https://github.com/hankthevc/AGITracker" className="text-blue-600 hover:underline" target="_blank" rel="noopener">
+            <SafeLink href="https://github.com/hankthevc/AGITracker" className="text-blue-600 hover:underline">
               GitHub repository
-            </a>).
+            </SafeLink>).
           </p>
           <p>
             The AGI Signpost Tracker name, logo, and branding are property of the project maintainers.
@@ -225,9 +226,9 @@ export default function TermsPage() {
           </p>
           <ul className="list-none pl-0 mb-4">
             <li><strong>GitHub:</strong>{" "}
-              <a href="https://github.com/hankthevc/AGITracker/issues" className="text-blue-600 hover:underline" target="_blank" rel="noopener">
+              <SafeLink href="https://github.com/hankthevc/AGITracker/issues" className="text-blue-600 hover:underline">
                 Open an issue
-              </a>
+              </SafeLink>
             </li>
             <li><strong>Website:</strong>{" "}
               <Link href="/" className="text-blue-600 hover:underline">
