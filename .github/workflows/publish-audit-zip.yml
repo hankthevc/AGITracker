@@ -1,0 +1,86 @@
+name: Publish audit snapshot (ZIP artifact)
+
+on:
+  push:
+    branches: [ main ]
+    # ignore this workflow to avoid loops
+    paths-ignore:
+      - '.github/workflows/publish-audit-zip.yml'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot-zip:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source (shallow OK)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Build sanitized snapshot
+        run: |
+          set -euo pipefail
+          mkdir -p audit-snapshot
+          # ==== Include only the code I need to audit ====
+          # Migrations
+          mkdir -p audit-snapshot/infra/migrations/versions
+          cp -r infra/migrations/versions/*.py audit-snapshot/infra/migrations/versions/ 2>/dev/null || true
+          # Web security components & pages likely to have external links
+          mkdir -p audit-snapshot/apps/web/lib
+          cp -r apps/web/lib/*.ts* audit-snapshot/apps/web/lib/ 2>/dev/null || true
+          mkdir -p audit-snapshot/apps/web
+          cp apps/web/next.config.js audit-snapshot/apps/web/ 2>/dev/null || true
+          mkdir -p audit-snapshot/apps/web/app
+          cp -r apps/web/app/legal audit-snapshot/apps/web/app/ 2>/dev/null || true
+          cp -r apps/web/app/benchmarks audit-snapshot/apps/web/app/ 2>/dev/null || true
+          cp -r apps/web/app/methodology audit-snapshot/apps/web/app/ 2>/dev/null || true
+          cp -r apps/web/app/layout.tsx audit-snapshot/apps/web/app/ 2>/dev/null || true
+          # Seeds + validator + backend tests
+          mkdir -p audit-snapshot/scripts
+          cp scripts/seed_comprehensive_signposts.py audit-snapshot/scripts/ 2>/dev/null || true
+          mkdir -p audit-snapshot/services/etl/app/validation
+          cp -r services/etl/app/validation/*.py audit-snapshot/services/etl/app/validation/ 2>/dev/null || true
+          mkdir -p audit-snapshot/services/etl/tests
+          cp -r services/etl/tests/*.py audit-snapshot/services/etl/tests/ 2>/dev/null || true
+          # Admin router & auth/audit for wiring checks
+          mkdir -p audit-snapshot/services/etl/app/routers
+          cp -r services/etl/app/routers/admin.py audit-snapshot/services/etl/app/routers/ 2>/dev/null || true
+          mkdir -p audit-snapshot/services/etl/app
+          cp -r services/etl/app/auth.py audit-snapshot/services/etl/app/ 2>/dev/null || true
+          mkdir -p audit-snapshot/services/etl/app/utils
+          cp -r services/etl/app/utils/audit.py audit-snapshot/services/etl/app/utils/ 2>/dev/null || true
+          # CI workflows (so we can see what's blocking)
+          mkdir -p audit-snapshot/.github/workflows
+          cp .github/workflows/*.yml audit-snapshot/.github/workflows/ 2>/dev/null || true
+          # Docs / proof
+          mkdir -p audit-snapshot/docs/ops
+          cp -r docs/ops/*.md audit-snapshot/docs/ops/ 2>/dev/null || true
+          cp README.md ENGINEERING_OVERVIEW.md CHANGELOG.md audit-snapshot/ 2>/dev/null || true
+          # ==== Exclude secrets & junk ====
+          rm -rf audit-snapshot/**/node_modules \
+                 audit-snapshot/**/.next \
+                 audit-snapshot/**/__pycache__ \
+                 audit-snapshot/**/.env* \
+                 audit-snapshot/**/.cursor \
+                 audit-snapshot/**/dist \
+                 audit-snapshot/**/build
+          # Manifest for quick diffing
+          find audit-snapshot -type f | LC_ALL=C sort > audit-snapshot/MANIFEST.txt
+
+      - name: Create ZIP
+        run: |
+          set -euo pipefail
+          cd audit-snapshot
+          zip -qr ../agitracker_audit_snapshot_${{ github.sha }}.zip .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: agitracker-audit-snapshot-${{ github.sha }}
+          path: agitracker_audit_snapshot_${{ github.sha }}.zip
+          if-no-files-found: error
+          retention-days: 14
+
