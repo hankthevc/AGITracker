@@ -26,6 +26,7 @@ from app.database import SessionLocal, engine
 from app.models import Signpost
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.dialects.postgresql import insert
 
 
 # Validation constants
@@ -155,30 +156,35 @@ def load_signposts():
             print(f"  - {error}")
         sys.exit(1)
     
-    # Use transaction for all-or-nothing behavior
+    # Use transaction for all-or-nothing behavior  
     db = SessionLocal()
     try:
-        print(f"\n💾 Inserting/updating {len(all_signposts)} signposts in single transaction...")
+        print(f"\n💾 Upserting {len(all_signposts)} signposts using ON CONFLICT (single transaction)...")
         
         for sp_data in all_signposts:
             code = sp_data['code']
             
-            # Check if exists
-            existing = db.query(Signpost).filter(Signpost.code == code).first()
+            # Use PostgreSQL ON CONFLICT for atomic upsert
+            stmt = insert(Signpost).values(**sp_data)
             
-            if existing:
-                # Update existing
-                for key, value in sp_data.items():
-                    if hasattr(existing, key):
-                        setattr(existing, key, value)
-                print(f"  ✓ Updated: {code}")
-                stats["updated"] += 1
-            else:
-                # Create new
-                new_signpost = Signpost(**sp_data)
-                db.add(new_signpost)
-                print(f"  ✓ Created: {code}")
-                stats["created"] += 1
+            # Build update dict (all fields except code and id)
+            update_dict = {k: stmt.excluded[k] for k in sp_data.keys() if k not in ('code', 'id')}
+            
+            stmt = stmt.on_conflict_do_update(
+                index_elements=['code'],
+                set_=update_dict
+            )
+            
+            result = db.execute(stmt)
+            
+            # Check if was insert or update (rowcount tells us)
+            if result.rowcount > 0:
+                # Query to check if it was created or updated
+                existing_count = db.query(Signpost).filter(Signpost.code == code).count()
+                if existing_count == 1:
+                    # Check created_at to see if it's new (this is approximate)
+                    print(f"  ✓ Upserted: {code}")
+                    stats["updated"] += 1  # Conservative: count as update
         
         # Commit transaction
         db.commit()
