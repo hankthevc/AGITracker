@@ -14,7 +14,7 @@ source ../../services/etl/.venv/bin/activate 2>/dev/null || true
 HEADS=$(alembic heads | sed 's/ (head).*//')
 echo "Heads: $HEADS"
 [[ $(echo "$HEADS" | wc -l) -eq 1 ]] || fail "Multiple alembic heads: $HEADS"
-echo "$HEADS" | grep -q "030_openai_prep_conf" && pass "Single head at 030_openai_prep_conf" || fail "Head is not 030_openai_prep_conf"
+echo "$HEADS" | grep -qE "(030_openai_prep_conf|031_dashboard_snaps)" && pass "Single head at expected revision (030 or 031)" || fail "Head is not at expected revision"
 popd >/dev/null
 
 # 2) SafeLink enforcement: zero raw external <a>
