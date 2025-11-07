@@ -1,140 +1,69 @@
-name: Publish audit snapshot to public mirror
+name: Publish audit snapshot
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
+    paths-ignore:
+      - 'docs/archived/**'
+      - '.github/workflows/publish-audit-snapshot.yml'
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
-  publish-snapshot:
+  snapshot:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout private repo
+      - name: Checkout (full history not required)
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Full history for context
+          fetch-depth: 0
 
-      - name: Build audit snapshot (sanitized)
+      - name: Prepare sanitized snapshot
         run: |
-          rm -rf snapshot
-          mkdir -p snapshot
-          
-          # Migrations (full directory)
-          mkdir -p snapshot/infra/migrations/versions
-          cp -r infra/migrations/versions/*.py snapshot/infra/migrations/versions/
-          cp infra/migrations/alembic.ini snapshot/infra/migrations/ 2>/dev/null || true
-          
-          # Frontend security files
-          mkdir -p snapshot/apps/web/lib
-          cp apps/web/next.config.js snapshot/apps/web/
-          cp apps/web/.eslintrc.* snapshot/apps/web/
-          cp -r apps/web/lib/*.tsx snapshot/apps/web/lib/ 2>/dev/null || true
-          cp -r apps/web/lib/*.ts snapshot/apps/web/lib/ 2>/dev/null || true
-          
-          # Frontend __tests__
-          mkdir -p snapshot/apps/web/lib/__tests__
-          cp -r apps/web/lib/__tests__/*.tsx snapshot/apps/web/lib/__tests__/ 2>/dev/null || true
-          cp -r apps/web/lib/__tests__/*.ts snapshot/apps/web/lib/__tests__/ 2>/dev/null || true
-          
-          # Legal pages (for SafeLink verification)
-          mkdir -p snapshot/apps/web/app/legal
-          cp -r apps/web/app/legal snapshot/apps/web/app/ 2>/dev/null || true
-          
-          # Benchmarks page
-          mkdir -p snapshot/apps/web/app/benchmarks
-          cp -r apps/web/app/benchmarks snapshot/apps/web/app/ 2>/dev/null || true
-          
-          # Methodology page
-          mkdir -p snapshot/apps/web/app/methodology
-          cp -r apps/web/app/methodology snapshot/apps/web/app/ 2>/dev/null || true
-          
-          # Layout (header/footer)
-          cp apps/web/app/layout.tsx snapshot/apps/web/app/ 2>/dev/null || true
-          
-          # Seed loader + validator
-          mkdir -p snapshot/scripts
-          cp scripts/seed_comprehensive_signposts.py snapshot/scripts/ 2>/dev/null || true
-          
-          mkdir -p snapshot/services/etl/app/validation
-          cp -r services/etl/app/validation/*.py snapshot/services/etl/app/validation/ 2>/dev/null || true
-          
-          # Backend tests
-          mkdir -p snapshot/services/etl/tests
-          cp -r services/etl/tests/*.py snapshot/services/etl/tests/ 2>/dev/null || true
-          
-          # Backend auth/audit utilities
-          mkdir -p snapshot/services/etl/app/utils
-          cp services/etl/app/utils/audit.py snapshot/services/etl/app/utils/ 2>/dev/null || true
-          
-          mkdir -p snapshot/services/etl/app/routers
-          cp services/etl/app/routers/admin.py snapshot/services/etl/app/routers/ 2>/dev/null || true
-          
-          # Models (for schema reference)
-          mkdir -p snapshot/services/etl/app
-          cp services/etl/app/models.py snapshot/services/etl/app/ 2>/dev/null || true
-          
-          # CI/CD workflows
-          mkdir -p snapshot/.github/workflows
-          cp .github/workflows/*.yml snapshot/.github/workflows/ 2>/dev/null || true
-          
-          # Documentation
-          mkdir -p snapshot/docs/ops
-          cp -r docs/ops/*.md snapshot/docs/ops/ 2>/dev/null || true
-          
-          # Top-level docs
-          cp README.md snapshot/ 2>/dev/null || true
-          cp ENGINEERING_OVERVIEW.md snapshot/ 2>/dev/null || true
-          cp GPT5_AUDIT_RESPONSE.md snapshot/ 2>/dev/null || true
-          cp MIGRATION_POLICY_FIX.md snapshot/ 2>/dev/null || true
-          cp FINAL_GPT5_VERIFICATION.md snapshot/ 2>/dev/null || true
-          cp SECURITY_HARDENING_STATUS.md snapshot/ 2>/dev/null || true
-          
-          # Add README for mirror
-          cat > snapshot/README.md << 'EOF'
-          # AGI Tracker - Audit Mirror
-          
-          This is a **public audit snapshot** of the AGI Tracker codebase.
-          
-          **Purpose**: Enable GPT-5 Pro and security auditors to verify:
-          - Migration integrity and safety
-          - Security enforcement (SafeLink, CSP, audit logging)
-          - Test coverage and CI configuration
-          
-          **Contents**: Sanitized subset of private repo:
-          - All database migrations
-          - Security-related frontend code (SafeLink, CSP config)
-          - Test suites (SafeLink, seeds, audit)
-          - Backend security utilities (auth, audit)
-          - CI/CD workflows
-          - Documentation
-          
-          **Updated**: Automatically on every push to main branch
-          
-          **Full Source**: Private repository (contact maintainer for access)
-          
-          **License**: Same as full repo (MIT code, CC BY 4.0 data)
-          EOF
+          set -euo pipefail
+          mkdir -p audit-snapshot
+          # Include only the code we want to expose publicly
+          rsync -a --delete \
+            apps/ audit-snapshot/apps/ \
+            services/ audit-snapshot/services/ \
+            infra/ audit-snapshot/infra/ \
+            .github/workflows/ audit-snapshot/.github/workflows/ \
+            README.md ENGINEERING_OVERVIEW.md QUICKSTART.md \
+            DEPLOYMENT.md CONTRIBUTING.md ROADMAP.md CHANGELOG.md TROUBLESHOOTING.md \
+            audit-snapshot/
 
-      - name: Checkout public mirror repo
-        uses: actions/checkout@v4
-        with:
-          repository: hankthevc/AGITracker-audit-mirror
-          token: ${{ secrets.GH_MIRROR_TOKEN }}
-          path: mirror
+          # Exclude secrets & junk
+          rm -rf audit-snapshot/**/node_modules \
+                 audit-snapshot/**/.next \
+                 audit-snapshot/**/__pycache__ \
+                 audit-snapshot/**/.env* \
+                 audit-snapshot/**/.cursor \
+                 audit-snapshot/**/dist \
+                 audit-snapshot/**/build
 
-      - name: Sync snapshot to mirror
+          # Lightweight manifest so GPT-5 can sanity-check quickly
+          find audit-snapshot -type f | LC_ALL=C sort > audit-snapshot/MANIFEST.txt
+
+      - name: Initialize mirror repo
+        working-directory: audit-snapshot
         run: |
-          rsync -a --delete snapshot/ mirror/
-          cd mirror
-          git config user.email "actions@github.com"
-          git config user.name "GitHub Actions Bot"
-          git add -A
-          git diff --staged --quiet || git commit -m "Audit snapshot from private repo @ ${{ github.sha }}"
-          git push origin main || echo "No changes to push"
+          set -euo pipefail
+          git init -b main
+          git config user.name "audit-bot"
+          git config user.email "audit-bot@users.noreply.github.com"
+          git add .
+          git commit -m "Audit snapshot: $GITHUB_SHA ($(date -u +'%Y-%m-%dT%H:%M:%SZ'))"
 
-      - name: Summary
+      - name: Push to public mirror
+        env:
+          MIRROR_TOKEN: ${{ secrets.GH_MIRROR_TOKEN }}
+          MIRROR_REPO: hankthevc/AGITracker-audit-mirror
+        working-directory: audit-snapshot
         run: |
-          echo "✅ Audit snapshot published to public mirror"
-          echo "🔗 https://github.com/hankthevc/AGITracker-audit-mirror"
-          echo "📊 Commit: ${{ github.sha }}"
-
+          set -euo pipefail
+          # Avoid printing token in logs
+          git remote add origin "https://x-access-token:${MIRROR_TOKEN}@github.com/${MIRROR_REPO}.git"
+          # Force push to ensure clean state
+          git push -f origin main
