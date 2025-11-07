@@ -117,8 +117,8 @@ def validate_signpost(sp_data, code):
 def main():
     """Main validation entry point."""
     
-    # Find seed file
-    yaml_path = Path(__file__).parent.parent.parent.parent / "infra" / "seeds" / "signposts_comprehensive_v2.yaml"
+    # Find seed file (from services/etl/app/validation/ go up 4 levels to repo root)
+    yaml_path = Path(__file__).parent.parent.parent.parent.parent / "infra" / "seeds" / "signposts_comprehensive_v2.yaml"
     
     if not yaml_path.exists():
         print(f"❌ Seed file not found: {yaml_path}")
