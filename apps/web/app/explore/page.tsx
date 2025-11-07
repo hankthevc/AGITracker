@@ -201,7 +201,7 @@ export default function ExplorePage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredSignposts.map((signpost) => {
           const categoryInfo = CATEGORY_INFO[signpost.category as keyof typeof CATEGORY_INFO]
-          const progress = signpost.current_sota_value !== null
+          const progress = signpost.current_sota_value !== null && signpost.current_sota_value !== undefined
             ? ((signpost.current_sota_value - signpost.baseline_value) / (signpost.target_value - signpost.baseline_value)) * 100
             : 0
           
