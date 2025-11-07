@@ -26,6 +26,9 @@ export function Navigation() {
             <Link href="/" className="text-sm font-medium hover:text-primary transition-colors">
               Home
             </Link>
+            <Link href="/explore" className="text-sm font-medium hover:text-primary transition-colors">
+              🔭 Explore
+            </Link>
             <Link href="/insights" className="text-sm font-medium hover:text-primary transition-colors">
               🔍 Insights
             </Link>
@@ -79,6 +82,13 @@ export function Navigation() {
               className="block py-2 text-sm font-medium hover:text-primary transition-colors"
             >
               Home
+            </Link>
+            <Link
+              href="/explore"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block py-2 text-sm font-medium hover:text-primary transition-colors"
+            >
+              🔭 Explore All Signposts
             </Link>
             <Link
               href="/insights"
