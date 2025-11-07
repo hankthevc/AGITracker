@@ -27,12 +27,14 @@ from app.schemas.dashboard import (
     AnalysisSection,
     MetricKey
 )
+from fastapi_cache.decorator import cache
 
 router = APIRouter(prefix="/v1/dashboard", tags=["dashboard"])
 
 
 @router.get("/summary", response_model=HomepageSnapshot)
 @limiter.limit("60/minute", key_func=api_key_or_ip)
+@cache(expire=300)  # Cache for 5 minutes
 async def get_dashboard_summary(
     request: Request,
     db: Session = Depends(get_db)
@@ -153,6 +155,7 @@ async def get_dashboard_summary(
 
 @router.get("/timeseries", response_model=Timeseries)
 @limiter.limit("60/minute", key_func=api_key_or_ip)
+@cache(expire=120)  # Cache for 2 minutes
 async def get_timeseries(
     request: Request,
     metric: MetricKey = Query(..., description="Metric to retrieve"),
@@ -202,6 +205,7 @@ async def get_timeseries(
 
 @router.get("/news/recent", response_model=list[NewsItem])
 @limiter.limit("60/minute", key_func=api_key_or_ip)
+@cache(expire=300)  # Cache for 5 minutes
 async def get_recent_news(
     request: Request,
     limit: int = Query(50, ge=1, le=100),
