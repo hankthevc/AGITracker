@@ -31,6 +31,9 @@ jobs:
           # Web security components & pages likely to have external links
           mkdir -p audit-snapshot/apps/web/lib
           cp -r apps/web/lib/*.ts* audit-snapshot/apps/web/lib/ 2>/dev/null || true
+          # Frontend tests
+          mkdir -p audit-snapshot/apps/web/lib/__tests__
+          cp -r apps/web/lib/__tests__/*.ts* audit-snapshot/apps/web/lib/__tests__/ 2>/dev/null || true
           mkdir -p audit-snapshot/apps/web
           cp apps/web/next.config.js audit-snapshot/apps/web/ 2>/dev/null || true
           mkdir -p audit-snapshot/apps/web/app
@@ -38,6 +41,15 @@ jobs:
           cp -r apps/web/app/benchmarks audit-snapshot/apps/web/app/ 2>/dev/null || true
           cp -r apps/web/app/methodology audit-snapshot/apps/web/app/ 2>/dev/null || true
           cp -r apps/web/app/layout.tsx audit-snapshot/apps/web/app/ 2>/dev/null || true
+          # FiveThirtyEight pages
+          cp -r apps/web/app/dashboard audit-snapshot/apps/web/app/ 2>/dev/null || true
+          cp -r apps/web/app/charts audit-snapshot/apps/web/app/ 2>/dev/null || true
+          cp -r apps/web/app/explore audit-snapshot/apps/web/app/ 2>/dev/null || true
+          # FiveThirtyEight components
+          mkdir -p audit-snapshot/apps/web/components/kpi
+          cp -r apps/web/components/kpi audit-snapshot/apps/web/components/ 2>/dev/null || true
+          mkdir -p audit-snapshot/apps/web/components/charts
+          cp -r apps/web/components/charts audit-snapshot/apps/web/components/ 2>/dev/null || true
           # Seeds + validator + backend tests
           mkdir -p audit-snapshot/scripts
           cp scripts/seed_comprehensive_signposts.py audit-snapshot/scripts/ 2>/dev/null || true
@@ -48,8 +60,12 @@ jobs:
           # Admin router & auth/audit for wiring checks
           mkdir -p audit-snapshot/services/etl/app/routers
           cp -r services/etl/app/routers/admin.py audit-snapshot/services/etl/app/routers/ 2>/dev/null || true
+          cp -r services/etl/app/routers/dashboard.py audit-snapshot/services/etl/app/routers/ 2>/dev/null || true
           mkdir -p audit-snapshot/services/etl/app
           cp -r services/etl/app/auth.py audit-snapshot/services/etl/app/ 2>/dev/null || true
+          # Dashboard schemas
+          mkdir -p audit-snapshot/services/etl/app/schemas
+          cp -r services/etl/app/schemas/dashboard.py audit-snapshot/services/etl/app/schemas/ 2>/dev/null || true
           mkdir -p audit-snapshot/services/etl/app/utils
           cp -r services/etl/app/utils/audit.py audit-snapshot/services/etl/app/utils/ 2>/dev/null || true
           # CI workflows (so we can see what's blocking)

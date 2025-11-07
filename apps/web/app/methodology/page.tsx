@@ -270,14 +270,12 @@ export default function MethodologyPage() {
           </ul>
           <p className="text-sm text-muted-foreground mt-4">
             All raw data and scoring logic is open-source at{' '}
-            <a 
+            <SafeLink 
               href="https://github.com/hankthevc/AGITracker" 
               className="text-primary hover:underline"
-              target="_blank"
-              rel="noopener noreferrer"
             >
               github.com/hankthevc/AGITracker
-            </a>
+            </SafeLink>
           </p>
         </CardContent>
       </Card>
