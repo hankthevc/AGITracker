@@ -44,7 +44,7 @@ export default function ExplorePage() {
   
   const { data: signposts, isLoading, error } = useSWR<Signpost[]>(
     '/v1/signposts',
-    apiClient.fetcher
+    () => apiClient.getSignposts()
   )
   
   const filteredSignposts = useMemo(() => {
