@@ -24,27 +24,33 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p audit-snapshot
-          # Include only the code we want to expose publicly
-          rsync -a --delete \
-            apps/ audit-snapshot/apps/ \
-            services/ audit-snapshot/services/ \
-            infra/ audit-snapshot/infra/ \
-            .github/workflows/ audit-snapshot/.github/workflows/ \
-            README.md ENGINEERING_OVERVIEW.md QUICKSTART.md \
-            DEPLOYMENT.md CONTRIBUTING.md ROADMAP.md CHANGELOG.md TROUBLESHOOTING.md \
-            audit-snapshot/
+          
+          # Copy directories that exist (gracefully handle missing ones)
+          [ -d "apps" ] && rsync -a apps/ audit-snapshot/apps/ || echo "apps/ not found"
+          [ -d "services" ] && rsync -a services/ audit-snapshot/services/ || echo "services/ not found"
+          [ -d "infra" ] && rsync -a infra/ audit-snapshot/infra/ || echo "infra/ not found"
+          [ -d ".github/workflows" ] && rsync -a .github/workflows/ audit-snapshot/.github/workflows/ || echo "workflows not found"
+          [ -d "docs" ] && rsync -a docs/ audit-snapshot/docs/ || echo "docs/ not found"
+          
+          # Copy top-level docs that exist
+          for doc in README.md ENGINEERING_OVERVIEW.md QUICKSTART.md DEPLOYMENT.md CONTRIBUTING.md ROADMAP.md CHANGELOG.md TROUBLESHOOTING.md GPT5_AUDIT_RESPONSE.md MIGRATION_POLICY_FIX.md FINAL_GPT5_VERIFICATION.md COMPLETE_AUDIT_VERIFIED.md; do
+            [ -f "$doc" ] && cp "$doc" audit-snapshot/ || echo "$doc not found (skipping)"
+          done
 
-          # Exclude secrets & junk
+          # Exclude secrets & build artifacts
           rm -rf audit-snapshot/**/node_modules \
                  audit-snapshot/**/.next \
                  audit-snapshot/**/__pycache__ \
                  audit-snapshot/**/.env* \
                  audit-snapshot/**/.cursor \
                  audit-snapshot/**/dist \
-                 audit-snapshot/**/build
+                 audit-snapshot/**/build \
+                 audit-snapshot/**/*.pyc
 
-          # Lightweight manifest so GPT-5 can sanity-check quickly
+          # Create manifest for GPT-5
           find audit-snapshot -type f | LC_ALL=C sort > audit-snapshot/MANIFEST.txt
+          
+          echo "✅ Snapshot prepared: $(find audit-snapshot -type f | wc -l) files"
 
       - name: Initialize mirror repo
         working-directory: audit-snapshot
