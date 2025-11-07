@@ -745,7 +745,7 @@ async def get_custom_index(
 @cache(expire=settings.signposts_cache_ttl_seconds)
 async def list_signposts(
     request: Request,
-    category: str | None = Query(None, regex="^(capabilities|agents|inputs|security)$"),
+    category: str | None = Query(None, regex="^(capabilities|agents|inputs|security|economic|research|geopolitical|safety_incidents)$"),
     first_class: bool | None = None,
     roadmap: str | None = None,
     db: Session = Depends(get_db),
