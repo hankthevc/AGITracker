@@ -70,6 +70,15 @@ const nextConfig = {
   images: {
     formats: ['image/avif', 'image/webp'],
   },
+  // API Proxy: Eliminates CORS by making API calls same-origin
+  async rewrites() {
+    return [
+      {
+        source: '/v1/:path*',
+        destination: 'https://agitracker-production-6efa.up.railway.app/v1/:path*',
+      },
+    ]
+  },
   // ✅ FIX: Add security headers
   async headers() {
     return [
