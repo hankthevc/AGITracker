@@ -73,3 +73,46 @@ def log_admin_action(
         print(f"⚠️  Audit logging failed: {e}")
         # Don't raise - log error and continue
 
+
+def log_failed_auth(request: Request, redacted_key: str) -> None:
+    """
+    Log failed authentication attempts for security monitoring.
+    
+    Args:
+        request: FastAPI Request object
+        redacted_key: Redacted API key (first 8 chars + "...")
+    
+    Creates a new database session to ensure logging doesn't depend on
+    the request's session state.
+    """
+    try:
+        from app.database import SessionLocal
+        from slowapi.util import get_remote_address
+        from sqlalchemy import text
+        
+        db = SessionLocal()
+        
+        db.execute(text("""
+            INSERT INTO audit_logs 
+            (timestamp, action, resource_type, api_key_hash, ip_address, 
+             user_agent, request_path, success, error_message)
+            VALUES 
+            (:timestamp, :action, :resource_type, :api_key_hash, :ip_address,
+             :user_agent, :request_path, :success, :error_message)
+        """), {
+            "timestamp": datetime.now(UTC),
+            "action": "auth_failed",
+            "resource_type": "authentication",
+            "api_key_hash": redacted_key,
+            "ip_address": get_remote_address(request),
+            "user_agent": request.headers.get("user-agent", "unknown"),
+            "request_path": str(request.url.path) if request.url else None,
+            "success": False,
+            "error_message": "Invalid or missing API key"
+        })
+        
+        db.commit()
+        db.close()
+    except Exception as e:
+        # Never block on logging - just print to stderr
+        print(f"⚠️  Failed to log auth failure: {e}")

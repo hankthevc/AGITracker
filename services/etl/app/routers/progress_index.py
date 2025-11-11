@@ -91,22 +91,37 @@ async def get_progress_history(
     Future: Backfill will populate historical data.
     """
     
-    # For now, return stub data since we just created the table
-    # Phase 1 will add Celery task to populate snapshots
+    # Query snapshots if available, fallback to live computation
+    from app.models import ProgressIndexSnapshot
+    from sqlalchemy import desc
     
     start_date = date.today() - timedelta(days=days)
     
-    # TODO: Query from progress_index_snapshots table once populated
-    # For now, return current value only
-    current = compute_progress_index(db)
+    # Query from progress_index_snapshots table
+    snapshots = db.query(ProgressIndexSnapshot).filter(
+        ProgressIndexSnapshot.snapshot_date >= start_date
+    ).order_by(desc(ProgressIndexSnapshot.snapshot_date)).all()
     
-    history = [
-        {
-            'date': date.today().isoformat(),
-            'value': current['value'],
-            'components': current['components']
-        }
-    ]
+    if snapshots:
+        # Use stored snapshots
+        history = [
+            {
+                'date': snap.snapshot_date.isoformat(),
+                'value': float(snap.value),
+                'components': snap.components
+            }
+            for snap in snapshots
+        ]
+    else:
+        # Fallback: return current value only (snapshots not populated yet)
+        current = compute_progress_index(db)
+        history = [
+            {
+                'date': date.today().isoformat(),
+                'value': current['value'],
+                'components': current['components']
+            }
+        ]
     
     response.headers["Cache-Control"] = "public, max-age=300"
     

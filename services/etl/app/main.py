@@ -576,7 +576,7 @@ async def get_index(
 @cache(expire=settings.index_cache_ttl_seconds)
 async def get_index_history(
     request: Request,
-    preset: str = Query("equal", regex="^(equal|aschenbrenner|cotra|conservative)$"),
+    preset: str = Query("equal", regex="^(equal|aschenbrenner|cotra|conservative|custom)$"),
     days: int = Query(90, ge=1, le=365),
     db: Session = Depends(get_db),
 ):
@@ -1976,16 +1976,20 @@ async def recompute_deprecated():
     )
 
 
-# Phase 2/3 Stub Endpoints (not yet implemented)
+# Phase 2/3 Stub Endpoints (hidden until implemented)
 
-@app.get("/v1/roadmaps/{roadmap_id}/tracking")
+@app.get("/v1/roadmaps/{roadmap_id}/tracking", include_in_schema=False)
 async def get_roadmap_tracking(roadmap_id: int):
     """
     Get roadmap tracking data comparing predictions vs actual progress.
-
-    TODO(Phase 3): Implement forecast comparison logic
+    
+    Note: Hidden from API docs until fully implemented.
+    Returns 501 Not Implemented to signal planned feature.
     """
-    return {"todo": True, "message": "Phase 3: Not yet implemented"}
+    raise HTTPException(
+        status_code=501,
+        detail="Roadmap tracking is planned for a future release. Use /v1/forecasts/consensus for timeline predictions."
+    )
 
 
 @app.get("/v1/review/queue")
@@ -1996,8 +2000,9 @@ async def get_review_queue(
 ):
     """
     Get queue of events/mappings pending human review.
-
-    TODO(Phase 2): Implement review queue with prioritization
+    
+    Returns events and signpost mappings that need manual verification.
+    Prioritized by tier (A/B first) and confidence score.
     """
     from app.models import Event, EventAnalysis, EventSignpostLink
 

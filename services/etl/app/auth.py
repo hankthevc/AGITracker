@@ -35,7 +35,7 @@ def api_key_or_ip(request: Request) -> str:
     return f"ip:{get_remote_address(request)}"
 
 
-def verify_api_key(x_api_key: str = Header(...)) -> str:
+def verify_api_key(x_api_key: str = Header(...), request: Request = None) -> str:
     """
     Verify admin API key using constant-time comparison.
     
@@ -43,9 +43,11 @@ def verify_api_key(x_api_key: str = Header(...)) -> str:
     - Uses secrets.compare_digest() to prevent timing attacks
     - Returns consistent error message (no key length leakage)
     - Should be combined with rate limiting on routes
+    - Logs failed attempts with redacted key (first 8 chars only)
     
     Args:
         x_api_key: API key from X-API-Key header
+        request: Optional Request object for audit logging
         
     Returns:
         The validated API key (for logging/audit purposes)
@@ -55,8 +57,16 @@ def verify_api_key(x_api_key: str = Header(...)) -> str:
     """
     # Constant-time comparison prevents timing attacks
     if not compare_digest(x_api_key, settings.admin_api_key):
-        # TODO: Add audit logging here
-        # log_failed_auth(request, x_api_key[:8] + "...")
+        # Audit log failed attempts (redacted)
+        try:
+            from app.utils.audit import log_failed_auth
+            if request:
+                redacted_key = (x_api_key or "")[:8] + "..."
+                log_failed_auth(request, redacted_key)
+        except Exception:
+            # Never block on logging failures
+            pass
+        
         raise HTTPException(status_code=403, detail="Forbidden")
     
     return x_api_key

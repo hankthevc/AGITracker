@@ -21,11 +21,10 @@ else
 fi
 popd >/dev/null
 
-# 2) SafeLink enforcement: zero raw external <a> (repo-wide, excluding allowed paths)
-RAW_ANCHORS=$(grep -rn '<a\s*href=["'"'"']https?://' . \
+# 2) SafeLink enforcement: zero raw external <a> (apps/ and services/ only to avoid docs-site build artifacts)
+RAW_ANCHORS=$(grep -rn '<a\s*href=["'"'"']https?://' apps services \
   --include="*.tsx" --include="*.jsx" --include="*.ts" --include="*.js" \
-  --exclude-dir=node_modules --exclude-dir=.next --exclude-dir=dist \
-  --exclude="SafeLink.tsx" --exclude-dir=__tests__ \
+  --exclude-dir=__tests__ \
   2>/dev/null | grep -v SafeLink || true)
 if [[ -z "$RAW_ANCHORS" ]]; then
   pass "No raw external <a> anchors (repo-wide search)"
