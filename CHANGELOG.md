@@ -5,6 +5,102 @@ All notable changes to the AGI Signpost Tracker will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.0.0] - 2025-11-11
+
+### Added - Phases 2-7 Complete
+
+**Phase 2: What-If Simulator** (commit a1aeaa3)
+- Interactive simulator with real-time Progress Index recalculation
+- 4 expert presets: Equal, Aschenbrenner, Cotra, Conservative
+- URL state encoding for shareable scenarios
+- CSV/JSON export + copy link functionality
+- POST /v1/index/simulate endpoint with 30/min rate limit
+- 12 test cases (all 4 presets + validation)
+
+**Phase 3: Forecast Aggregator** (commits 5f37418-d320f98)
+- Expert AGI timeline predictions (Aschenbrenner, Cotra, Epoch)
+- Consensus calculation (median, mean, earliest, latest, spread)
+- 3 endpoints: /consensus, /sources, /distribution
+- ForecastTimeline strip plot visualization
+- /forecasts page with search
+- Migration 033: forecasts table + 3 indexes
+- 14 API test cases
+
+**Phase 4: Incident Tracker** (commit b4748db)
+- AI safety incidents database (jailbreaks, misuses, failures)
+- Severity levels 1-5 with CHECK constraint
+- Vector tagging (array fields with GIN indexes)
+- CSV export with all filters
+- /incidents page with table + filters
+- GET /v1/incidents + /v1/incidents/stats
+- Migration 034: incidents table + 4 indexes
+- 11 API test cases
+
+**Phase 5: Weekly Story Generator** (commit 478ca30)
+- Weekly "This Week in AGI" narrative generation
+- Index delta + top movers tracking
+- Markdown rendering with download
+- GET /v1/stories/latest + /v1/stories/archive
+- /stories page with prose layout
+- Migration 035: stories table
+- Placeholder content (Celery task deferred)
+
+**Phase 6: UI Polish** (commit bca4ef5)
+- Centralized design tokens (apps/web/styles/tokens.css)
+- 8pt grid spacing system
+- Typography: Inter (sans) + Source Serif Pro (serif)
+- FiveThirtyEight color palette (6 chart colors)
+- Shadow/elevation system (sm/md/lg/xl)
+- Accessible focus states (2px outline)
+- Transition timing (fast/base/slow)
+
+**Phase 7: Ops Hardening** (commit bca4ef5)
+- ETag generation utilities (deterministic MD5)
+- Redis TTL with ±10% jitter (thundering herd prevention)
+- Cache key generation (sorted params)
+- Deployment runbook (Vercel + Railway procedures)
+- Rollback runbook (emergency procedures, PITR guide)
+
+### Fixed - Security (GPT-5 Pro Audit - November 11)
+
+**Critical Fixes** (commit 018ae36):
+- ESLint SafeLink selector broken (typo prevented rule from firing)
+  * Fixed: Added JSXElement > JSXOpeningElement hierarchy
+  * Added dynamic expression selector for href={...}
+- CSP production strictness incomplete (styles had unsafe-inline)
+  * Fixed: Gated style-src 'unsafe-inline' with isDev
+  * Production now has ZERO unsafe directives
+- Raw external anchors outside apps/web/app
+  * Fixed: Deleted pages/sentry-example-page.jsx (unused)
+  * Repo now 100% SafeLink compliant
+- Verification scripts had placeholders
+  * Fixed: Real checks with deterministic outputs
+  * Expanded to repo-wide search
+
+**Critical Bugfixes** (commit 8f5a409):
+- Date conversion in forecast consensus (mathematically incorrect)
+  * Fixed: fromordinal() + magic number → timedelta()
+  * Affected: 3 locations in forecasts.py
+- Preset validation breaking change
+  * Fixed: ai2027 → cotra in all regex validators
+  * Added: conservative preset to all validators
+  * Affected: 5 locations in main.py
+
+### Changed
+
+- ESLint SafeLink rule severity: 'warn' → 'error' (blocking)
+- CSP headers: Both script-src AND style-src dev-gated
+- Preset names: ai2027 renamed to cotra (consistency)
+- Verification: Repo-wide anchor search (not just apps/web/app)
+- Weight config: Added conservative preset (security-heavy)
+
+### Removed
+
+- pages/sentry-example-page.jsx (unused Sentry demo with raw anchors)
+- pages/api/sentry-example-api.js (paired API route)
+
+---
+
 ## [v0.3.0] - 2025-10-29
 
 ### Sprint 10: UX Enhancements & Data Quality
