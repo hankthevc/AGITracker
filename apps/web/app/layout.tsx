@@ -1,13 +1,12 @@
 import type { Metadata } from 'next'
 import { Inter, Source_Serif_4, JetBrains_Mono } from 'next/font/google'
-import Link from 'next/link'
 import { SentryInitializer } from '@/components/SentryInitializer'
-import { Navigation } from '@/components/Navigation'
 import { KeyboardShortcutsProvider } from '@/components/KeyboardShortcutsProvider'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
-import { SafeLink } from '@/lib/SafeLink'
+import { AppShell } from '@/components/AppShell'
 import './globals.css'
 import '../styles/tokens.css'
+import '../styles/charts.css'
 
 const sans = Inter({ subsets: ['latin'], variable: '--font-sans', display: 'swap' })
 const serif = Source_Serif_4({ subsets: ['latin'], variable: '--font-serif', weight: ['400', '600', '700'], display: 'swap' })
@@ -44,99 +43,14 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${sans.variable} ${serif.variable} ${mono.variable}`} suppressHydrationWarning>
-      <body className={sans.className}>
+      <body>
         <SentryInitializer />
         <ErrorBoundary>
           <KeyboardShortcutsProvider>
-            <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
-              <Navigation />
-              <main className="container mx-auto px-4 py-8">
-                {children}
-              </main>
-          <footer className="border-t bg-white/50 mt-16">
-            <div className="container mx-auto px-4 py-8">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-6">
-                <div>
-                  <h3 className="font-semibold text-sm mb-3">About</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Evidence-first dashboard tracking proximity to AGI via measurable signposts.
-                  </p>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    © 2025 AGI Signpost Tracker
-                  </p>
-                </div>
-                
-                <div>
-                  <h3 className="font-semibold text-sm mb-3">Resources</h3>
-                  <ul className="space-y-2 text-sm text-muted-foreground">
-                    <li>
-                      <Link href="/methodology" className="hover:text-primary transition-colors">
-                        Methodology
-                      </Link>
-                    </li>
-                    <li>
-                      <SafeLink href={`${process.env.NEXT_PUBLIC_API_URL}/docs`} className="hover:text-primary transition-colors">
-                        API Docs
-                      </SafeLink>
-                    </li>
-                    <li>
-                      <SafeLink href="https://github.com/hankthevc/AGITracker" className="hover:text-primary transition-colors">
-                        GitHub
-                      </SafeLink>
-                    </li>
-                    <li>
-                      <Link href="/changelog" className="hover:text-primary transition-colors">
-                        Changelog
-                      </Link>
-                    </li>
-                  </ul>
-                </div>
-                
-                <div>
-                  <h3 className="font-semibold text-sm mb-3">Legal</h3>
-                  <ul className="space-y-2 text-sm text-muted-foreground">
-                    <li>
-                      <Link href="/legal/privacy" className="hover:text-primary transition-colors">
-                        Privacy Policy
-                      </Link>
-                    </li>
-                    <li>
-                      <Link href="/legal/terms" className="hover:text-primary transition-colors">
-                        Terms of Service
-                      </Link>
-                    </li>
-                    <li>
-                      <SafeLink href="https://creativecommons.org/licenses/by/4.0/" className="hover:text-primary transition-colors">
-                        CC BY 4.0 License
-                      </SafeLink>
-                    </li>
-                  </ul>
-                </div>
-              </div>
-              
-              <div className="pt-6 border-t text-center text-sm text-muted-foreground">
-                <p>
-                  All data available via{' '}
-                  <a href="/v1/feed.json" className="text-primary hover:underline">
-                    JSON feeds
-                  </a>
-                  {' • '}
-                  Licensed under{' '}
-                  <SafeLink href="https://creativecommons.org/licenses/by/4.0/" className="text-primary hover:underline">
-                    CC BY 4.0
-                  </SafeLink>
-                </p>
-                <p className="mt-2 text-xs text-muted-foreground/70">
-                  ✨ Sprint 10: UX & Data Quality - URL validation active
-                </p>
-              </div>
-            </div>
-          </footer>
-        </div>
+            <AppShell>{children}</AppShell>
           </KeyboardShortcutsProvider>
         </ErrorBoundary>
       </body>
     </html>
   )
 }
-
