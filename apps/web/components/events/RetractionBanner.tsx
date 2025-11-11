@@ -56,9 +56,10 @@ export function RetractionBanner({
               rel="noopener noreferrer"
               className="text-sm inline-flex items-center gap-1 text-red-700 dark:text-red-400 hover:underline"
             >
-            View retraction evidence
-            <ExternalLink className="h-3 w-3" />
-          </a>
+              View retraction evidence
+              <ExternalLink className="h-3 w-3" />
+            </a>
+          </>
         )}
         <p className="text-xs text-muted-foreground mt-2">
           This event is excluded from all gauge calculations and index computations.
