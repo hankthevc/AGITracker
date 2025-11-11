@@ -42,7 +42,7 @@ class Settings(BaseSettings):
     admin_api_key: str
 
     # CORS (comma-separated, no wildcards)
-    cors_origins: str = "http://localhost:3000,https://agi-tracker.vercel.app"
+    cors_origins: str = "http://localhost:3000,https://agi-tracker.vercel.app,https://agi-tracker-web.vercel.app"
 
     # Caching (Sprint 9 optimized TTLs)
     index_cache_ttl_seconds: int = 3600  # 1 hour (stable data)
