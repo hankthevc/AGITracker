@@ -11,11 +11,17 @@
     "inputs": 0.4,
     "security": 0.1
   },
-  "ai2027": {
+  "cotra": {
     "capabilities": 0.3,
     "agents": 0.35,
     "inputs": 0.25,
     "security": 0.1
+  },
+  "conservative": {
+    "capabilities": 0.15,
+    "agents": 0.15,
+    "inputs": 0.3,
+    "security": 0.4
   }
 }
 
