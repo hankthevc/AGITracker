@@ -53,3 +53,5 @@ playwright/.cache/
 
 # Local/AI tooling
 .cursor/
+*.zip
+*.bundle

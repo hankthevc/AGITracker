@@ -44,6 +44,7 @@ FIVETHIRTYEIGHT_PROGRESS.md
 FOR_BEN_SIMPLE_BRIEF.md
 FOR_GPT5_FINAL_REVIEW.md
 GITHUB_AUDIT_SETUP.md
+GPT5_AUDIT_FINAL_INSTRUCTIONS.md
 GPT5_AUDIT_INSTRUCTIONS.md
 GPT5_AUDIT_RESPONSE.md
 GPT5_READY_FOR_FINAL_AUDIT.md
@@ -66,6 +67,7 @@ VERIFIED_READY_FOR_GPT5.md
 WHATS_NEW.md
 WORK_COMPLETED_STATUS.md
 agitracker_audit_bundle_5f37418.bundle
+agitracker_audit_final_37dd986.zip
 agitracker_audit_snapshot_d320f98.zip
 agitracker_final_verified.zip
 agitracker_gpt5_audit_5f37418.zip
