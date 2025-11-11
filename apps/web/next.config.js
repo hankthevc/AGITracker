@@ -6,6 +6,7 @@ const withBundleAnalyzer = require('@next/bundle-analyzer')({
 // SECURITY: CSP configuration for Next.js
 // NOTE: Next.js requires 'unsafe-inline' for styles (React hydration, CSS-in-JS)
 // For stricter CSP, use Next.js nonce-based CSP (requires middleware)
+// CRITICAL: Production CSP must NOT include unsafe-eval or unsafe-inline for scripts
 const isDev = process.env.NODE_ENV !== 'production'
 
 const securityHeaders = [
@@ -13,7 +14,7 @@ const securityHeaders = [
     key: 'Content-Security-Policy',
     value: `
       default-src 'self';
-      script-src 'self' ${isDev ? "'unsafe-eval'" : ''} 'unsafe-inline' https://vercel.live;
+      script-src 'self' ${isDev ? "'unsafe-eval' 'unsafe-inline'" : ''} https://vercel.live;
       style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
       img-src 'self' blob: data: https:;
       font-src 'self' data: https://fonts.gstatic.com;
