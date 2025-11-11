@@ -66,6 +66,7 @@ VERIFIED_READY_FOR_GPT5.md
 WHATS_NEW.md
 WORK_COMPLETED_STATUS.md
 agitracker_audit_bundle_5f37418.bundle
+agitracker_audit_snapshot_d320f98.zip
 agitracker_final_verified.zip
 agitracker_gpt5_audit_5f37418.zip
 agitracker_latest.zip
@@ -107,6 +108,9 @@ apps/web/app/forecasts/error.tsx
 apps/web/app/forecasts/loading.tsx
 apps/web/app/forecasts/page.tsx
 apps/web/app/globals.css
+apps/web/app/incidents/error.tsx
+apps/web/app/incidents/loading.tsx
+apps/web/app/incidents/page.tsx
 apps/web/app/insights/page.tsx
 apps/web/app/insights/surprises/page.tsx
 apps/web/app/layout.tsx
@@ -126,6 +130,9 @@ apps/web/app/signposts/[code]/page.tsx
 apps/web/app/simulate/error.tsx
 apps/web/app/simulate/loading.tsx
 apps/web/app/simulate/page.tsx
+apps/web/app/stories/error.tsx
+apps/web/app/stories/loading.tsx
+apps/web/app/stories/page.tsx
 apps/web/app/timeline/TimelineChart.tsx
 apps/web/app/timeline/loading.tsx
 apps/web/app/timeline/page.tsx
@@ -209,6 +216,7 @@ apps/web/playwright.config.ts
 apps/web/postcss.config.js
 apps/web/services/etl/fixtures/news/company_blogs.json
 apps/web/services/etl/fixtures/news/press.json
+apps/web/styles/tokens.css
 apps/web/tailwind.config.ts
 apps/web/tsconfig.json
 apps/web/tsconfig.tsbuildinfo
@@ -409,6 +417,9 @@ docs/ops/HEALTH_CHECK_2024-11-07.md
 docs/ops/MIRROR_SETUP_CHECKLIST.md
 docs/ops/RUN_LOG_PHASES_2_7.md
 docs/ops/STATE_REPORT.md
+docs/ops/STATE_REPORT_FINAL.md
+docs/runbooks/DEPLOYMENT.md
+docs/runbooks/ROLLBACK.md
 docs/security-architecture-review.md
 docs/specs/FIVETHIRTYEIGHT_HOMEPAGE.md
 docs/specs/ai_economy_tracker.md
@@ -472,6 +483,8 @@ infra/migrations/versions/030_add_openai_prep_confidence.py
 infra/migrations/versions/031_add_dashboard_snapshots.py
 infra/migrations/versions/032_add_progress_index_snapshots.py
 infra/migrations/versions/033_add_forecasts_table.py
+infra/migrations/versions/034_add_incidents_table.py
+infra/migrations/versions/035_add_stories_table.py
 infra/migrations/versions/20251020115049_phase0_foundations.py
 infra/migrations/versions/20251020115050_events_analysis.py
 infra/migrations/versions/20251020115051_phase23_stubs.py
@@ -577,7 +590,9 @@ services/etl/app/observability.py
 services/etl/app/routers/admin.py
 services/etl/app/routers/dashboard.py
 services/etl/app/routers/forecasts.py
+services/etl/app/routers/incidents.py
 services/etl/app/routers/progress_index.py
+services/etl/app/routers/stories.py
 services/etl/app/schemas/dashboard.py
 services/etl/app/services/__init__.py
 services/etl/app/services/ai_insights.py
@@ -626,6 +641,7 @@ services/etl/app/utils/audit.py
 services/etl/app/utils/audit_logger.py
 services/etl/app/utils/b_tier_corroboration.py
 services/etl/app/utils/cache.py
+services/etl/app/utils/cache_helpers.py
 services/etl/app/utils/cache_invalidation.py
 services/etl/app/utils/connector_envelope.py
 services/etl/app/utils/event_mapper.py
@@ -668,6 +684,7 @@ services/etl/tests/test_forecasts_api.py
 services/etl/tests/test_gpqa_parser.py
 services/etl/tests/test_hle_monitor_only.py
 services/etl/tests/test_hle_parser.py
+services/etl/tests/test_incidents_api.py
 services/etl/tests/test_llm_budget.py
 services/etl/tests/test_llm_prompts.py
 services/etl/tests/test_mapper_accuracy.py
