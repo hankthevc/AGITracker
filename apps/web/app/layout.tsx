@@ -7,7 +7,7 @@ import { KeyboardShortcutsProvider } from '@/components/KeyboardShortcutsProvide
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { SafeLink } from '@/lib/SafeLink'
 import './globals.css'
-import './styles/tokens.css'
+import '../styles/tokens.css'
 
 const sans = Inter({ subsets: ['latin'], variable: '--font-sans', display: 'swap' })
 const serif = Source_Serif_4({ subsets: ['latin'], variable: '--font-serif', weight: ['400', '600', '700'], display: 'swap' })
