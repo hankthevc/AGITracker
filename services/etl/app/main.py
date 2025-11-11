@@ -68,7 +68,7 @@ if not settings.admin_api_key or settings.admin_api_key == "change-me-in-product
 from app.auth import limiter, api_key_or_ip
 
 # Import admin router (consolidated admin endpoints)
-from app.routers import admin, dashboard, progress_index
+from app.routers import admin, dashboard, progress_index, forecasts
 
 # Context variable for request tracing
 request_id_context: ContextVar[str] = ContextVar("request_id", default="")
@@ -241,6 +241,7 @@ from app.middleware.security_headers import SecurityHeadersMiddleware
 app.include_router(admin.router)
 app.include_router(dashboard.router)
 app.include_router(progress_index.router)
+app.include_router(forecasts.router)
 
 app.add_middleware(
     SecurityHeadersMiddleware,
@@ -458,7 +459,7 @@ async def get_index(
     request: Request,
     response: Response,
     date_param: str | None = Query(None, alias="date"),
-    preset: str = Query("equal", regex="^(equal|aschenbrenner|ai2027|custom)$"),
+    preset: str = Query("equal", regex="^(equal|aschenbrenner|cotra|conservative|custom)$"),
     db: Session = Depends(get_db),
 ):
     """
@@ -466,7 +467,7 @@ async def get_index(
 
     Query params:
     - date: Optional date (YYYY-MM-DD) for historical snapshot. Defaults to latest.
-    - preset: Scoring preset (equal, aschenbrenner, ai2027). Default: equal.
+    - preset: Scoring preset (equal, aschenbrenner, cotra, conservative). Default: equal.
     """
     # Parse date or use latest
     if date_param:
@@ -573,7 +574,7 @@ async def get_index(
 @cache(expire=settings.index_cache_ttl_seconds)
 async def get_index_history(
     request: Request,
-    preset: str = Query("equal", regex="^(equal|aschenbrenner|ai2027)$"),
+    preset: str = Query("equal", regex="^(equal|aschenbrenner|cotra|conservative)$"),
     days: int = Query(90, ge=1, le=365),
     db: Session = Depends(get_db),
 ):
@@ -581,7 +582,7 @@ async def get_index_history(
     Get historical index data for charting.
     
     Query params:
-    - preset: Scoring preset (equal, aschenbrenner, ai2027). Default: equal.
+    - preset: Scoring preset (equal, aschenbrenner, cotra, conservative). Default: equal.
     - days: Number of days to look back (1-365). Default: 90.
     
     Returns:
@@ -4003,7 +4004,7 @@ async def semantic_search(
 class ScenarioRequest(BaseModel):
     """Scenario request model."""
     signpost_progress: dict[str, float]  # signpost_code -> progress value (0-100)
-    preset: str = "equal"  # equal, aschenbrenner, ai-2027
+    preset: str = "equal"  # equal, aschenbrenner, cotra, conservative
 
 
 @app.post("/v1/scenarios/calculate", tags=["scenarios"])
