@@ -1,32 +1,30 @@
 /**
- * Centralized API base URL resolver with intelligent fallbacks.
+ * Centralized API base URL resolver.
  * 
- * Resolution order:
- * 1. NEXT_PUBLIC_API_BASE_URL environment variable
- * 2. (Browser only) Auto-detect from window.location, port 8000 if on :3000
- * 3. Fallback to http://localhost:8000
+ * With Next.js rewrite proxy in production (/v1/* → Railway API),
+ * we use relative URLs in production and absolute URLs in development.
+ * 
+ * Resolution:
+ * - Production: Empty string (use relative /v1/* - proxied by Next.js)
+ * - Development: http://localhost:8000 (direct to local API)
  */
 
 export function getApiBaseUrl(): string {
-  // 1. Check environment variable
-  if (process.env.NEXT_PUBLIC_API_BASE_URL) {
-    return process.env.NEXT_PUBLIC_API_BASE_URL.replace(/\/$/, '') // Remove trailing slash
-  }
-  
-  // 2. Browser auto-detection (only works client-side)
+  // In browser: detect if we're on dev server (localhost:3000)
   if (typeof window !== 'undefined') {
-    const { protocol, hostname, port } = window.location
+    const { hostname, port } = window.location
     
-    // If we're on the Next.js dev server (:3000), assume API is on :8000
-    if (port === '3000') {
-      return `${protocol}//${hostname}:8000`
+    // Development: Next.js dev server on :3000, API on :8000
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return port === '3000' ? 'http://localhost:8000' : ''
     }
     
-    // Otherwise, assume API is on same origin
-    return `${protocol}//${hostname}${port ? `:${port}` : ''}`
+    // Production: use relative URLs (Next.js rewrites to Railway)
+    return ''
   }
   
-  // 3. Fallback for SSR or unknown
-  return 'http://localhost:8000'
+  // SSR: check if we're in development
+  const isDev = process.env.NODE_ENV === 'development'
+  return isDev ? 'http://localhost:8000' : ''
 }
 
