@@ -181,6 +181,7 @@ export default function AdminReviewPage() {
                     <div>
                       <p className="text-xs text-muted-foreground mb-1">Source:</p>
                       {/* eslint-disable-next-line no-restricted-syntax */}
+                      {/* Database-sourced URL (A/B tier evidence) with noopener/noreferrer */}
                       <a
                         href={event.source_url}
                         target="_blank"

@@ -47,13 +47,15 @@ export function RetractionBanner({
           </p>
         )}
         {evidenceUrl && (
-          // eslint-disable-next-line no-restricted-syntax
-          <a
-            href={evidenceUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm inline-flex items-center gap-1 text-red-700 dark:text-red-400 hover:underline"
-          >
+          <>
+            {/* eslint-disable-next-line no-restricted-syntax */}
+            {/* Database-sourced retraction evidence URL */}
+            <a
+              href={evidenceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm inline-flex items-center gap-1 text-red-700 dark:text-red-400 hover:underline"
+            >
             View retraction evidence
             <ExternalLink className="h-3 w-3" />
           </a>

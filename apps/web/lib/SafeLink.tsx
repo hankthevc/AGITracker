@@ -40,8 +40,8 @@ export function SafeLink({ href, children, className, ...rest }: SafeLinkProps) 
   }
 
   // Safe URL - render as link with security attributes
-  // eslint-disable-next-line no-restricted-syntax
   return (
+    // eslint-disable-next-line no-restricted-syntax
     <a
       href={href}
       rel="noopener noreferrer"  // Prevent window.opener access and referrer leakage
