@@ -5,10 +5,11 @@ Provides endpoints for composite AGI progress tracking.
 """
 
 from datetime import date, timedelta
-from typing import Optional
-from fastapi import APIRouter, Depends, Query, Request, Response
+from typing import Optional, Dict
+from fastapi import APIRouter, Depends, Query, Request, Response, Body
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
+from pydantic import BaseModel
 
 from app.database import get_db
 from app.auth import limiter, api_key_or_ip
@@ -16,6 +17,13 @@ from app.services.progress_index import compute_progress_index
 from fastapi_cache.decorator import cache
 import hashlib
 import json
+
+
+class SimulateRequest(BaseModel):
+    """Request body for weight simulation."""
+    weights: Dict[str, float]
+    thresholds: Optional[Dict[str, float]] = None
+
 
 router = APIRouter(prefix="/v1/index", tags=["progress-index"])
 
@@ -103,4 +111,54 @@ async def get_progress_history(
     response.headers["Cache-Control"] = "public, max-age=300"
     
     return history
+
+
+@router.post("/simulate")
+@limiter.limit("30/minute", key_func=api_key_or_ip)
+async def simulate_progress(
+    request: Request,
+    response: Response,
+    body: SimulateRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Simulate progress index with custom weights.
+    
+    Args:
+        body: {weights: {category: weight, ...}, thresholds?: {...}}
+    
+    Returns:
+        Simulated index + diff vs baseline (equal weights)
+    
+    Rate limit: 30/minute (heavier computation)
+    Cached 30s based on payload hash
+    """
+    
+    # Compute with custom weights
+    simulated = compute_progress_index(db, weights=body.weights)
+    
+    # Compute baseline (equal weights) for comparison
+    baseline = compute_progress_index(db, weights=None)
+    
+    # Calculate diff
+    diff = {
+        'value_diff': round(simulated['value'] - baseline['value'], 2),
+        'component_diffs': {
+            cat: round(simulated['components'][cat] - baseline['components'].get(cat, 0), 2)
+            for cat in simulated['components'].keys()
+        }
+    }
+    
+    result = {
+        'simulated': simulated,
+        'baseline': baseline,
+        'diff': diff
+    }
+    
+    # Cache based on payload hash (30s TTL)
+    payload_hash = hashlib.md5(json.dumps(body.dict(), sort_keys=True).encode()).hexdigest()
+    response.headers["ETag"] = f'"{payload_hash}"'
+    response.headers["Cache-Control"] = "public, max-age=30"
+    
+    return result
 
