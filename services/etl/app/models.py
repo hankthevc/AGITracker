@@ -146,6 +146,32 @@ class Signpost(Base):
     )
 
 
+class Forecast(Base):
+    """Expert forecast model for AGI timeline predictions."""
+
+    __tablename__ = "forecasts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    source = Column(Text, nullable=False)  # Expert/org name
+    signpost_code = Column(String(100), ForeignKey("signposts.code", ondelete="CASCADE"), nullable=False, index=True)
+    timeline = Column(Date, nullable=False)  # Predicted achievement date
+    confidence = Column(Numeric(4, 2), nullable=True)  # 0.0-1.0
+    quote = Column(Text, nullable=True)  # Supporting quote/reasoning
+    url = Column(Text, nullable=True)  # Source URL
+    created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
+    updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    # Relationships
+    signpost = relationship("Signpost", backref="forecasts")
+
+    # Indexes
+    __table_args__ = (
+        Index("idx_forecasts_signpost_timeline", "signpost_code", "timeline"),
+        Index("idx_forecasts_source", "source"),
+        Index("idx_forecasts_timeline", "timeline"),
+    )
+
+
 class Benchmark(Base):
     """Benchmark model."""
 
