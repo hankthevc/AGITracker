@@ -1,76 +1,45 @@
 version: 2
 updates:
-  # Enable version updates for npm (root workspace)
-  - package-ecosystem: "npm"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-    open-pull-requests-limit: 10
-    labels:
-      - "dependencies"
-      - "automated"
-    commit-message:
-      prefix: "chore(deps)"
-      include: "scope"
-    reviewers:
-      - "hankthevc"  # Adjust to your GitHub username
-    
-  # Enable version updates for npm (web app)
+  # Frontend dependencies
   - package-ecosystem: "npm"
     directory: "/apps/web"
     schedule:
       interval: "weekly"
       day: "monday"
-      time: "09:00"
-    open-pull-requests-limit: 10
-    labels:
-      - "dependencies"
-      - "frontend"
-      - "automated"
-    commit-message:
-      prefix: "chore(deps)"
-      include: "scope"
-    
-  # Enable version updates for pip (backend)
+    groups:
+      # Group minor and patch updates together
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+    # Ignore major version bumps for packages with breaking changes
+    ignore:
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "lucide-react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "next"
+        update-types: ["version-update:semver-major"]
+    open-pull-requests-limit: 5
+
+  # Backend dependencies
   - package-ecosystem: "pip"
     directory: "/services/etl"
     schedule:
       interval: "weekly"
       day: "monday"
-      time: "09:00"
-    open-pull-requests-limit: 10
-    labels:
-      - "dependencies"
-      - "backend"
-      - "automated"
-    commit-message:
-      prefix: "chore(deps)"
-      include: "scope"
-    # Allow both direct and indirect updates
-    allow:
-      - dependency-type: "all"
-    # Ignore major version updates for stable dependencies
-    ignore:
-      - dependency-name: "fastapi"
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "sqlalchemy"
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "celery"
-        update-types: ["version-update:semver-major"]
-    
-  # Enable version updates for GitHub Actions
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+    open-pull-requests-limit: 5
+
+  # GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-    labels:
-      - "dependencies"
-      - "ci/cd"
-      - "automated"
-    commit-message:
-      prefix: "chore(ci)"
-
+      interval: "monthly"
+    open-pull-requests-limit: 3
