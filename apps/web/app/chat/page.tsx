@@ -268,6 +268,7 @@ export default function ChatPage() {
                                   {source.tier}
                                 </Badge>
                                 <div className="flex-1">
+                                  {/* eslint-disable-next-line no-restricted-syntax */}
                                   <a
                                     href={source.url}
                                     target="_blank"

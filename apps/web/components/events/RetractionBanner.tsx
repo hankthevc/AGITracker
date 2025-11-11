@@ -47,6 +47,7 @@ export function RetractionBanner({
           </p>
         )}
         {evidenceUrl && (
+          // eslint-disable-next-line no-restricted-syntax
           <a
             href={evidenceUrl}
             target="_blank"

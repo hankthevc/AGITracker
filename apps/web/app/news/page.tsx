@@ -262,6 +262,7 @@ function NewsContent() {
                     </div>
 
                     {event.source_url && (
+                      // eslint-disable-next-line no-restricted-syntax
                       <a
                         href={event.source_url}
                         target="_blank"

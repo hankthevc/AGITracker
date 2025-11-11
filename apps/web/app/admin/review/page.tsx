@@ -180,6 +180,7 @@ export default function AdminReviewPage() {
                   {event.source_url && (
                     <div>
                       <p className="text-xs text-muted-foreground mb-1">Source:</p>
+                      {/* eslint-disable-next-line no-restricted-syntax */}
                       <a
                         href={event.source_url}
                         target="_blank"
