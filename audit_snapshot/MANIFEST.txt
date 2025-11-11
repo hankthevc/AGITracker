@@ -47,6 +47,7 @@ GITHUB_AUDIT_SETUP.md
 GPT5_AUDIT_FINAL_INSTRUCTIONS.md
 GPT5_AUDIT_INSTRUCTIONS.md
 GPT5_AUDIT_RESPONSE.md
+GPT5_PRODUCTION_AUDIT.md
 GPT5_READY_FOR_FINAL_AUDIT.md
 HANDOFF_NEXT_SESSION.md
 IMPLEMENTATION_CHECKPOINT.md
@@ -93,6 +94,7 @@ apps/web/app/compute/page.tsx
 apps/web/app/dashboard/error.tsx
 apps/web/app/dashboard/loading.tsx
 apps/web/app/dashboard/page.tsx
+apps/web/app/design/diagnostics/page.tsx
 apps/web/app/digests/page.tsx
 apps/web/app/events/[id]/page.tsx
 apps/web/app/events/loading.tsx
@@ -126,14 +128,18 @@ apps/web/app/signposts/[code]/page.tsx
 apps/web/app/simulate/error.tsx
 apps/web/app/simulate/loading.tsx
 apps/web/app/simulate/page.tsx
+apps/web/app/simulate/simulate.module.css
 apps/web/app/stories/error.tsx
 apps/web/app/stories/loading.tsx
 apps/web/app/stories/page.tsx
+apps/web/app/stories/stories.module.css
 apps/web/app/timeline/TimelineChart.tsx
 apps/web/app/timeline/loading.tsx
 apps/web/app/timeline/page.tsx
 apps/web/components.json
 apps/web/components/AI2027Timeline.tsx
+apps/web/components/AppShell.module.css
+apps/web/components/AppShell.tsx
 apps/web/components/ChangelogPanel.tsx
 apps/web/components/CompositeGauge.tsx
 apps/web/components/ErrorBoundary.tsx
@@ -151,7 +157,13 @@ apps/web/components/ScenarioTimeline.tsx
 apps/web/components/SearchBar.tsx
 apps/web/components/SecurityLadder.tsx
 apps/web/components/SentryInitializer.tsx
+apps/web/components/SeverityChip.module.css
+apps/web/components/SeverityChip.tsx
+apps/web/components/StoryCard.module.css
+apps/web/components/StoryCard.tsx
 apps/web/components/ThisWeeksMovesStrip.tsx
+apps/web/components/WeightSlider.module.css
+apps/web/components/WeightSlider.tsx
 apps/web/components/WhatIfSimulator.tsx
 apps/web/components/charts/TimeseriesChart.tsx
 apps/web/components/events/ConsensusIndicator.tsx
@@ -212,6 +224,7 @@ apps/web/playwright.config.ts
 apps/web/postcss.config.js
 apps/web/services/etl/fixtures/news/company_blogs.json
 apps/web/services/etl/fixtures/news/press.json
+apps/web/styles/charts.css
 apps/web/styles/tokens.css
 apps/web/tailwind.config.ts
 apps/web/tsconfig.json
