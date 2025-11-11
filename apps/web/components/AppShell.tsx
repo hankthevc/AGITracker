@@ -43,6 +43,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </Link>
             
             <nav className={styles.nav} aria-label="Main navigation">
+              <Link href="/signposts">Signposts</Link>
               <Link href="/simulate">Simulate</Link>
               <Link href="/forecasts">Forecasts</Link>
               <Link href="/incidents">Incidents</Link>
