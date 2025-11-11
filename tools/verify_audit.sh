@@ -8,34 +8,48 @@ warn(){ echo -e "${YLW}WARN${NC} - $*"; }
 
 echo "== AGI Tracker Audit Mirror Verification =="
 
-# 1) Migration integrity: single head == 030_openai_prep_conf
+# 1) Migration integrity: single head (030 or later)
 pushd infra/migrations >/dev/null
 source ../../services/etl/.venv/bin/activate 2>/dev/null || true
-HEADS=$(alembic heads | sed 's/ (head).*//')
+HEADS=$(alembic heads 2>/dev/null | sed 's/ (head).*//' || echo "alembic-not-available")
 echo "Heads: $HEADS"
-[[ $(echo "$HEADS" | wc -l) -eq 1 ]] || fail "Multiple alembic heads: $HEADS"
-echo "$HEADS" | grep -qE "(030_openai_prep_conf|031_dashboard_snaps)" && pass "Single head at expected revision (030 or 031)" || fail "Head is not at expected revision"
+if [[ "$HEADS" == "alembic-not-available" ]]; then
+  warn "Alembic not available (skipping migration check)"
+else
+  [[ $(echo "$HEADS" | wc -l) -eq 1 ]] || fail "Multiple alembic heads: $HEADS"
+  echo "$HEADS" | grep -qE "(030_openai_prep_conf|031_dashboard_snaps|032_progress_index|033_forecasts)" && pass "Single head at expected revision" || fail "Head is not at expected revision"
+fi
 popd >/dev/null
 
-# 2) SafeLink enforcement: zero raw external <a>
-RAW_ANCHORS=$(grep -rn '<a\s*href="https://' apps/web/app --include="*.tsx" 2>/dev/null | grep -v SafeLink || true)
+# 2) SafeLink enforcement: zero raw external <a> (repo-wide, excluding allowed paths)
+RAW_ANCHORS=$(grep -rn '<a\s*href=["'"'"']https?://' . \
+  --include="*.tsx" --include="*.jsx" --include="*.ts" --include="*.js" \
+  --exclude-dir=node_modules --exclude-dir=.next --exclude-dir=dist \
+  --exclude="SafeLink.tsx" --exclude-dir=__tests__ \
+  2>/dev/null | grep -v SafeLink || true)
 if [[ -z "$RAW_ANCHORS" ]]; then
-  pass "No raw external <a> anchors under apps/web/app"
+  pass "No raw external <a> anchors (repo-wide search)"
 else
   echo "$RAW_ANCHORS"
   fail "Found raw external <a> anchors above"
 fi
 
-# 3) CSP prod strict: no unsafe-inline/eval in production branch
+# 3) CSP prod strict: no unsafe-inline/eval in production (both script-src and style-src)
 NCFG="apps/web/next.config.js"
 grep -n "isDev" "$NCFG" >/dev/null || fail "No isDev gate in $NCFG"
-if grep -n "script-src.*unsafe-\(inline\|eval\)" "$NCFG" >/dev/null; then
-  grep -n "isDev.*process\.env\.NODE_ENV.*production" "$NCFG" >/dev/null \
-    && pass "CSP gated by isDev; unsafe only in dev" \
-    || fail "unsafe-inline/eval present without production guard in $NCFG"
-else
-  pass "No unsafe-inline/eval in CSP (production strict)"
+grep -n "isDev.*process\.env\.NODE_ENV.*production" "$NCFG" >/dev/null || fail "isDev not defined as NODE_ENV !== 'production'"
+
+# Check script-src
+if grep -n "script-src.*unsafe" "$NCFG" | grep -qv "isDev"; then
+  fail "script-src has unsafe directive outside isDev gate"
 fi
+
+# Check style-src
+if grep -n "style-src.*unsafe-inline" "$NCFG" | grep -qv "isDev"; then
+  fail "style-src has unsafe-inline outside isDev gate"
+fi
+
+pass "CSP fully gated: script-src and style-src unsafe directives only in dev"
 
 # 4) Seed validation: ON CONFLICT + validator script
 SEED="scripts/seed_comprehensive_signposts.py"

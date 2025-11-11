@@ -11,12 +11,14 @@ module.exports = {
     'no-restricted-syntax': [
       'error',
       {
-        selector: 'JSXOpeningElement[name.name="a"] JSXAttribute[name.name="href"][value.type="Literal"][value.value=/^https?:/]',
-        message: 'Use <SafeLink> component for external URLs instead of raw <a> tags. Import from @/lib/SafeLink'
+        // Match: <a href="http..." /> or <a href="https..." />
+        selector: 'JSXElement > JSXOpeningElement[name.name="a"] JSXAttribute[name.name="href"][value.value=/^https?:/]',
+        message: 'Use <SafeLink href="..."> for external links instead of <a> with an external URL. Import from @/lib/SafeLink'
       },
       {
-        selector: 'JSXOpeningElement[name.name="a"] JSXAttribute[name.name="href"][value.type="JSXExpressionContainer"]',
-        message: 'Use <SafeLink> component for dynamic external URLs. Import from @/lib/SafeLink'
+        // Match: <a href={someVar} /> or <a href={`http...`} />
+        selector: 'JSXElement > JSXOpeningElement[name.name="a"] JSXAttribute[name.name="href"][value.expression]',
+        message: 'Use <SafeLink> for potentially-external href expressions (href={...}). Import from @/lib/SafeLink'
       }
     ],
   },
