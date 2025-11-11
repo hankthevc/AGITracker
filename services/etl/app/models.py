@@ -197,6 +197,27 @@ class Incident(Base):
     )
 
 
+class Story(Base):
+    """Weekly narrative story model for AGI progress summaries."""
+
+    __tablename__ = "stories"
+
+    id = Column(Integer, primary_key=True, index=True)
+    week_start = Column(Date, nullable=False, unique=True, index=True)
+    week_end = Column(Date, nullable=False)
+    title = Column(Text, nullable=False)
+    body = Column(Text, nullable=False)  # Markdown content
+    summary = Column(Text, nullable=True)
+    index_delta = Column(Numeric(5, 2), nullable=True)
+    top_movers = Column(JSONB, nullable=True)  # {rising: [...], falling: [...]}
+    created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
+
+    # Indexes
+    __table_args__ = (
+        Index("idx_stories_week_start", "week_start", postgresql_ops={"week_start": "DESC"}),
+    )
+
+
 class Benchmark(Base):
     """Benchmark model."""
 
