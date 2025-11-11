@@ -265,14 +265,14 @@ function NewsContent() {
                       <>
                         {/* eslint-disable-next-line no-restricted-syntax */}
                         {/* Database-sourced URL with noopener/noreferrer */}
-                        <a
-                          href={event.source_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm text-primary hover:underline flex-shrink-0"
-                        >
-                          Source ↗
-                        </a>
+                      <a
+                        href={event.source_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-primary hover:underline flex-shrink-0"
+                      >
+                        Source ↗
+                      </a>
                       </>
                     )}
                   </div>

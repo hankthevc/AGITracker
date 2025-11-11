@@ -132,14 +132,14 @@ export function ThisWeeksMovesStrip() {
                     <>
                       {/* eslint-disable-next-line no-restricted-syntax */}
                       {/* Database-sourced URL with noopener/noreferrer */}
-                      <a
-                        href={event.source_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs text-primary hover:underline flex-shrink-0"
-                      >
-                        Source ↗
-                      </a>
+                    <a
+                      href={event.source_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-primary hover:underline flex-shrink-0"
+                    >
+                      Source ↗
+                    </a>
                     </>
                   )}
                 </div>

@@ -114,14 +114,14 @@ async def get_progress_history(
         ]
     else:
         # Fallback: return current value only (snapshots not populated yet)
-        current = compute_progress_index(db)
-        history = [
-            {
-                'date': date.today().isoformat(),
-                'value': current['value'],
-                'components': current['components']
-            }
-        ]
+    current = compute_progress_index(db)
+    history = [
+        {
+            'date': date.today().isoformat(),
+            'value': current['value'],
+            'components': current['components']
+        }
+    ]
     
     response.headers["Cache-Control"] = "public, max-age=300"
     

@@ -16,7 +16,7 @@ echo "Heads: $HEADS"
 if [[ "$HEADS" == "alembic-not-available" ]]; then
   warn "Alembic not available (skipping migration check)"
 else
-  [[ $(echo "$HEADS" | wc -l) -eq 1 ]] || fail "Multiple alembic heads: $HEADS"
+[[ $(echo "$HEADS" | wc -l) -eq 1 ]] || fail "Multiple alembic heads: $HEADS"
   echo "$HEADS" | grep -qE "(030_openai_prep_conf|031_dashboard_snaps|032_progress_index|033_forecasts|034_incidents|035_stories)" && pass "Single head at expected revision" || fail "Head is not at expected revision"
 fi
 popd >/dev/null

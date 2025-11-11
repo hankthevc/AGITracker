@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+import { Inter, Source_Serif_4, JetBrains_Mono } from 'next/font/google'
 import Link from 'next/link'
 import { SentryInitializer } from '@/components/SentryInitializer'
 import { Navigation } from '@/components/Navigation'
@@ -7,8 +7,11 @@ import { KeyboardShortcutsProvider } from '@/components/KeyboardShortcutsProvide
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { SafeLink } from '@/lib/SafeLink'
 import './globals.css'
+import './styles/tokens.css'
 
-const inter = Inter({ subsets: ['latin'] })
+const sans = Inter({ subsets: ['latin'], variable: '--font-sans', display: 'swap' })
+const serif = Source_Serif_4({ subsets: ['latin'], variable: '--font-serif', weight: ['400', '600', '700'], display: 'swap' })
+const mono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-mono', display: 'swap' })
 
 export const metadata: Metadata = {
   title: 'AGI Signpost Tracker',
@@ -40,8 +43,8 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
-      <body className={inter.className}>
+    <html lang="en" className={`${sans.variable} ${serif.variable} ${mono.variable}`} suppressHydrationWarning>
+      <body className={sans.className}>
         <SentryInitializer />
         <ErrorBoundary>
           <KeyboardShortcutsProvider>
