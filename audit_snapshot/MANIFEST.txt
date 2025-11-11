@@ -44,6 +44,7 @@ FIVETHIRTYEIGHT_PROGRESS.md
 FOR_BEN_SIMPLE_BRIEF.md
 FOR_GPT5_FINAL_REVIEW.md
 GITHUB_AUDIT_SETUP.md
+GPT5_AUDIT_INSTRUCTIONS.md
 GPT5_AUDIT_RESPONSE.md
 GPT5_READY_FOR_FINAL_AUDIT.md
 HANDOFF_NEXT_SESSION.md
@@ -64,7 +65,9 @@ TROUBLESHOOTING.md
 VERIFIED_READY_FOR_GPT5.md
 WHATS_NEW.md
 WORK_COMPLETED_STATUS.md
+agitracker_audit_bundle_5f37418.bundle
 agitracker_final_verified.zip
+agitracker_gpt5_audit_5f37418.zip
 agitracker_latest.zip
 apps/web/.eslintrc.js
 apps/web/.eslintrc.json
@@ -100,6 +103,9 @@ apps/web/app/events/page.tsx
 apps/web/app/explore/error.tsx
 apps/web/app/explore/loading.tsx
 apps/web/app/explore/page.tsx
+apps/web/app/forecasts/error.tsx
+apps/web/app/forecasts/loading.tsx
+apps/web/app/forecasts/page.tsx
 apps/web/app/globals.css
 apps/web/app/insights/page.tsx
 apps/web/app/insights/surprises/page.tsx
@@ -148,6 +154,7 @@ apps/web/components/charts/TimeseriesChart.tsx
 apps/web/components/events/ConsensusIndicator.tsx
 apps/web/components/events/EventCard.tsx
 apps/web/components/events/RetractionBanner.tsx
+apps/web/components/forecasts/ForecastTimeline.tsx
 apps/web/components/kpi/KpiCard.tsx
 apps/web/components/ui/alert.tsx
 apps/web/components/ui/badge.tsx
@@ -192,6 +199,7 @@ apps/web/lib/sanitizeUrl.ts
 apps/web/lib/sentry.ts
 apps/web/lib/types.ts
 apps/web/lib/types/dashboard.ts
+apps/web/lib/types/forecasts.ts
 apps/web/lib/urlSanitizer.ts
 apps/web/lib/utils.ts
 apps/web/next-env.d.ts
@@ -205,6 +213,8 @@ apps/web/tailwind.config.ts
 apps/web/tsconfig.json
 apps/web/tsconfig.tsbuildinfo
 apps/web/vercel.json
+audit_snapshot/COMMIT.txt
+audit_snapshot/MANIFEST.txt
 docker-compose.dev.yml
 docs-site/.gitignore
 docs-site/README.md
@@ -514,8 +524,6 @@ packages/shared/typescript/index.ts
 packages/shared/typescript/package.json
 packages/shared/typescript/schemas.ts
 packages/shared/typescript/tsconfig.json
-pages/api/sentry-example-api.js
-pages/sentry-example-page.jsx
 railway.json
 requirements.txt
 scripts/audit_source_urls.py
@@ -656,6 +664,7 @@ services/etl/tests/test_event_analysis.py
 services/etl/tests/test_event_mapper.py
 services/etl/tests/test_event_mapper_v2.py
 services/etl/tests/test_event_mapping_goldset.py
+services/etl/tests/test_forecasts_api.py
 services/etl/tests/test_gpqa_parser.py
 services/etl/tests/test_hle_monitor_only.py
 services/etl/tests/test_hle_parser.py

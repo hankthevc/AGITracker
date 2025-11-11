@@ -172,6 +172,31 @@ class Forecast(Base):
     )
 
 
+class Incident(Base):
+    """Safety incident model for tracking jailbreaks, misuses, and failures."""
+
+    __tablename__ = "incidents"
+
+    id = Column(Integer, primary_key=True, index=True)
+    occurred_at = Column(Date, nullable=False, index=True)
+    title = Column(Text, nullable=False)
+    description = Column(Text, nullable=True)
+    severity = Column(Integer, nullable=False)  # 1-5 scale
+    vectors = Column(JSONB, nullable=True)  # ['jailbreak', 'bias', 'privacy']
+    signpost_codes = Column(JSONB, nullable=True)  # Related signposts
+    external_url = Column(Text, nullable=True)
+    source = Column(Text, nullable=True)
+    created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
+    updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    # Indexes
+    __table_args__ = (
+        Index("idx_incidents_occurred_at", "occurred_at", postgresql_ops={"occurred_at": "DESC"}),
+        Index("idx_incidents_severity", "severity"),
+        CheckConstraint("severity >= 1 AND severity <= 5", name="check_incident_severity"),
+    )
+
+
 class Benchmark(Base):
     """Benchmark model."""
 

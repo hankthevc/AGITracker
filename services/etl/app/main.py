@@ -68,7 +68,7 @@ if not settings.admin_api_key or settings.admin_api_key == "change-me-in-product
 from app.auth import limiter, api_key_or_ip
 
 # Import admin router (consolidated admin endpoints)
-from app.routers import admin, dashboard, progress_index, forecasts
+from app.routers import admin, dashboard, progress_index, forecasts, incidents
 
 # Context variable for request tracing
 request_id_context: ContextVar[str] = ContextVar("request_id", default="")
@@ -242,6 +242,7 @@ app.include_router(admin.router)
 app.include_router(dashboard.router)
 app.include_router(progress_index.router)
 app.include_router(forecasts.router)
+app.include_router(incidents.router)
 
 app.add_middleware(
     SecurityHeadersMiddleware,
