@@ -1,0 +1,106 @@
+"""
+Progress Index API router.
+
+Provides endpoints for composite AGI progress tracking.
+"""
+
+from datetime import date, timedelta
+from typing import Optional
+from fastapi import APIRouter, Depends, Query, Request, Response
+from sqlalchemy.orm import Session
+from sqlalchemy import desc
+
+from app.database import get_db
+from app.auth import limiter, api_key_or_ip
+from app.services.progress_index import compute_progress_index
+from fastapi_cache.decorator import cache
+import hashlib
+import json
+
+router = APIRouter(prefix="/v1/index", tags=["progress-index"])
+
+
+@router.get("/progress")
+@limiter.limit("100/minute", key_func=api_key_or_ip)
+@cache(expire=300)  # 5 minute cache
+async def get_current_progress(
+    request: Request,
+    response: Response,
+    weights: Optional[str] = Query(None, description="JSON weights override"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get current AGI progress index.
+    
+    Returns:
+        Composite index (0-100) with component breakdown
+    
+    Query params:
+        weights: Optional JSON string like {"capabilities": 0.3, "agents": 0.2, ...}
+    
+    Cached for 5 minutes with ETag.
+    """
+    
+    # Parse weights if provided
+    weight_dict = None
+    if weights:
+        try:
+            weight_dict = json.loads(weights)
+        except:
+            pass  # Use defaults
+    
+    # Compute index
+    result = compute_progress_index(db, weights=weight_dict)
+    
+    # Add ETag for caching
+    etag_content = json.dumps(result, sort_keys=True)
+    etag = hashlib.md5(etag_content.encode()).hexdigest()
+    response.headers["ETag"] = f'"{etag}"'
+    response.headers["Cache-Control"] = "public, max-age=300"
+    
+    return result
+
+
+@router.get("/progress/history")
+@limiter.limit("100/minute", key_func=api_key_or_ip)
+@cache(expire=300)
+async def get_progress_history(
+    request: Request,
+    response: Response,
+    days: int = Query(365, ge=1, le=730, description="Number of days of history"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get historical progress index data.
+    
+    Args:
+        days: Number of days to retrieve (1-730)
+    
+    Returns:
+        Array of {date, value, components} for trending
+    
+    Note: If snapshots don't exist, returns empty array.
+    Future: Backfill will populate historical data.
+    """
+    
+    # For now, return stub data since we just created the table
+    # Phase 1 will add Celery task to populate snapshots
+    
+    start_date = date.today() - timedelta(days=days)
+    
+    # TODO: Query from progress_index_snapshots table once populated
+    # For now, return current value only
+    current = compute_progress_index(db)
+    
+    history = [
+        {
+            'date': date.today().isoformat(),
+            'value': current['value'],
+            'components': current['components']
+        }
+    ]
+    
+    response.headers["Cache-Control"] = "public, max-age=300"
+    
+    return history
+
